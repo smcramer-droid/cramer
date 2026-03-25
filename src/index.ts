@@ -10,6 +10,5 @@ export type {
   IncomingMessage,
   OutgoingMessage,
   PluginConfig,
-  MessageHandler,
 } from "./types/message.js";
 export type { MessageHandler as ChannelMessageHandler } from "./plugin/imessage-channel.js";

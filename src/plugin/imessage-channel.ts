@@ -96,7 +96,7 @@ export class IMessageChannel {
       return;
     }
 
-    for (const msg of messages) {
+    for (let msg of messages) {
       // Skip own messages
       if (msg.isFromMe) continue;
 
@@ -115,8 +115,9 @@ export class IMessageChannel {
         // Match "c hello" or "c hello" (prefix + space + message)
         if (!text.toLowerCase().startsWith(prefix.toLowerCase())) continue;
         // Strip the prefix and leading whitespace
-        msg = { ...msg, text: text.slice(prefix.length).trimStart() };
-        if (!msg.text) continue; // prefix alone with no message
+        const strippedText = text.slice(prefix.length).trimStart();
+        if (!strippedText) continue; // prefix alone with no message
+        msg = { ...msg, text: strippedText };
       }
 
       console.log(

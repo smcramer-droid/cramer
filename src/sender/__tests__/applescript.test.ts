@@ -28,13 +28,13 @@ describe("sendIMessage", () => {
   it("should escape special characters in messages", async () => {
     await sendIMessage({ to: "+15551234567", text: 'Say "hello"' });
 
-    const call = (execFile as ReturnType<typeof vi.fn>).mock.calls[0];
+    const call = (execFile as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
     const script = call[1][1] as string;
     expect(script).toContain('\\"hello\\"');
   });
 
   it("should throw on osascript failure", async () => {
-    (execFile as ReturnType<typeof vi.fn>).mockImplementationOnce(
+    (execFile as unknown as ReturnType<typeof vi.fn>).mockImplementationOnce(
       (_cmd: string, _args: string[], _opts: unknown, cb: Function) => {
         cb(new Error("osascript failed"), "", "");
       }
