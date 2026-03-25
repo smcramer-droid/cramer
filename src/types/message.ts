@@ -40,6 +40,8 @@ export const PluginConfigSchema = z.object({
   lookbackSeconds: z.number().default(60),
   /** Only process messages that start with this prefix (e.g. "c"). The prefix is stripped before handling. Empty = all messages. */
   triggerPrefix: z.string().default(""),
+  /** Process messages sent by the local user (for texting yourself). Default: false. */
+  allowSelfMessages: z.boolean().default(false),
 });
 
 export type PluginConfig = z.infer<typeof PluginConfigSchema>;

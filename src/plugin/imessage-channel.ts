@@ -97,8 +97,8 @@ export class IMessageChannel {
     }
 
     for (let msg of messages) {
-      // Skip own messages
-      if (msg.isFromMe) continue;
+      // Skip own messages (unless self-messaging is enabled)
+      if (msg.isFromMe && !this.config.allowSelfMessages) continue;
 
       // Apply sender filter
       if (
@@ -127,7 +127,11 @@ export class IMessageChannel {
       try {
         const reply = await this.handler(msg);
         if (reply) {
-          await sendIMessage({ to: msg.sender, text: reply });
+          // For self-messages, extract the recipient from the chat identifier
+          const replyTo = msg.sender !== "unknown"
+            ? msg.sender
+            : msg.chatId.split(";").pop() ?? msg.sender;
+          await sendIMessage({ to: replyTo, text: reply });
           console.log(
             `[imessage] Replied to ${msg.sender}: ${reply.slice(0, 80)}${reply.length > 80 ? "..." : ""}`
           );

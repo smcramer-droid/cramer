@@ -15,6 +15,7 @@ const channel = new IMessageChannel({
     : [],
   lookbackSeconds: Number(process.env.LOOKBACK_SECONDS) || 60,
   triggerPrefix: process.env.TRIGGER_PREFIX ?? "c",
+  allowSelfMessages: process.env.ALLOW_SELF !== "false",
 });
 
 channel.onMessage(async (msg) => {
