@@ -38,6 +38,8 @@ export const PluginConfigSchema = z.object({
   allowedSenders: z.array(z.string()).default([]),
   /** Ignore messages older than this many seconds at startup (default: 60) */
   lookbackSeconds: z.number().default(60),
+  /** Only process messages that start with this prefix (e.g. "c"). The prefix is stripped before handling. Empty = all messages. */
+  triggerPrefix: z.string().default(""),
 });
 
 export type PluginConfig = z.infer<typeof PluginConfigSchema>;

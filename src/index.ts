@@ -31,6 +31,7 @@ if (process.argv[1] === import.meta.filename) {
       ? process.env.ALLOWED_SENDERS.split(",").map((s) => s.trim())
       : [],
     lookbackSeconds: Number(process.env.LOOKBACK_SECONDS) || 60,
+    triggerPrefix: process.env.TRIGGER_PREFIX ?? "c",
   });
 
   channel.onMessage(async (msg) => {

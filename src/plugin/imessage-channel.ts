@@ -44,6 +44,12 @@ export class IMessageChannel {
       `[imessage] Plugin started — polling every ${this.config.pollIntervalMs}ms`
     );
 
+    if (this.config.triggerPrefix) {
+      console.log(
+        `[imessage] Trigger prefix: "${this.config.triggerPrefix}" — only messages starting with this will be processed`
+      );
+    }
+
     if (this.config.allowedSenders.length > 0) {
       console.log(
         `[imessage] Filtering to senders: ${this.config.allowedSenders.join(", ")}`
@@ -100,6 +106,17 @@ export class IMessageChannel {
         !this.config.allowedSenders.includes(msg.sender)
       ) {
         continue;
+      }
+
+      // Apply trigger prefix filter
+      if (this.config.triggerPrefix) {
+        const prefix = this.config.triggerPrefix;
+        const text = msg.text.trimStart();
+        // Match "c hello" or "c hello" (prefix + space + message)
+        if (!text.toLowerCase().startsWith(prefix.toLowerCase())) continue;
+        // Strip the prefix and leading whitespace
+        msg = { ...msg, text: text.slice(prefix.length).trimStart() };
+        if (!msg.text) continue; // prefix alone with no message
       }
 
       console.log(
