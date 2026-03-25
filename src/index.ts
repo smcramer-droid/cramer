@@ -1,5 +1,6 @@
 export { IMessageChannel } from "./plugin/imessage-channel.js";
 export { ChatDatabase } from "./db/chat-db.js";
+export { ClaudeHandler } from "./handler/claude.js";
 export { sendIMessage, sendToGroupChat } from "./sender/applescript.js";
 export {
   IncomingMessageSchema,
@@ -17,6 +18,12 @@ export type { MessageHandler as ChannelMessageHandler } from "./plugin/imessage-
 
 if (process.argv[1] === import.meta.filename) {
   const { IMessageChannel } = await import("./plugin/imessage-channel.js");
+  const { ClaudeHandler } = await import("./handler/claude.js");
+
+  const claude = new ClaudeHandler({
+    model: process.env.CLAUDE_MODEL ?? "claude-sonnet-4-6",
+    maxHistory: Number(process.env.MAX_HISTORY) || 20,
+  });
 
   const channel = new IMessageChannel({
     pollIntervalMs: Number(process.env.POLL_INTERVAL_MS) || 2000,
@@ -27,12 +34,17 @@ if (process.argv[1] === import.meta.filename) {
   });
 
   channel.onMessage(async (msg) => {
-    // Echo handler as a placeholder — replace with Claude integration
-    console.log(`[imessage] Processing: "${msg.text}" from ${msg.sender}`);
-    return `Echo: ${msg.text}`;
+    // "reset" clears conversation history
+    if (msg.text.trim().toLowerCase() === "reset") {
+      claude.clearHistory(msg.sender);
+      return "Conversation cleared. Fresh start!";
+    }
+
+    return claude.handle(msg);
   });
 
   channel.start();
+  console.log("[imessage] Claude handler active — waiting for messages...");
 
   // Graceful shutdown
   const shutdown = () => {
