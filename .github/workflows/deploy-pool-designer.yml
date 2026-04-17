@@ -1,3 +1,5 @@
+# Deploys pool-designer/ to Cloudflare Pages.
+# Requires repo secrets: CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID.
 name: Deploy Pool Designer
 
 on:
