@@ -1,0 +1,1829 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Pool Interior Designer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Special+Elite&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#fbf6e6;
+    --paper-2:#f4ead1;
+    --ink:#2a231c;
+    --ink-soft:#6b5c4d;
+    --ink-faint:#a8967d;
+    --water:#6fa3b8;
+    --accent:#b4532a;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--paper);color:var(--ink);font-family:"Caveat","Special Elite",cursive;}
+  body{
+    min-height:100vh;
+    background-image:
+      radial-gradient(circle at 20% 10%, rgba(255,255,255,.35), transparent 50%),
+      radial-gradient(circle at 80% 90%, rgba(180,140,80,.15), transparent 55%),
+      repeating-linear-gradient(0deg, rgba(120,90,60,.035) 0 1px, transparent 1px 28px),
+      repeating-linear-gradient(90deg, rgba(120,90,60,.03) 0 1px, transparent 1px 28px);
+    background-color:var(--paper);
+  }
+  .app{ display:grid; grid-template-columns: 380px 1fr; min-height:100vh; }
+  aside{
+    padding:28px 22px 40px;
+    border-right:1.5px dashed var(--ink-soft);
+    background:linear-gradient(180deg, rgba(255,255,255,.25), transparent 40%), var(--paper);
+    position:sticky; top:0; align-self:start; height:100vh; overflow-y:auto;
+  }
+  aside::-webkit-scrollbar{width:8px}
+  aside::-webkit-scrollbar-thumb{background:var(--ink-faint); border-radius:4px}
+  .brand{ display:flex; align-items:baseline; gap:10px; margin-bottom:4px; }
+  .brand img{ width:84px; height:auto; }
+  .brand .stamp{
+    font-family:"Special Elite",monospace; font-size:10px; letter-spacing:2px;
+    color:var(--accent); border:1.5px solid var(--accent);
+    padding:3px 6px; transform:rotate(-3deg); opacity:.75;
+  }
+  .sub{
+    font-family:"Special Elite",monospace; font-size:11px; color:var(--ink-soft);
+    letter-spacing:1.5px; text-transform:uppercase; margin:0 0 22px;
+  }
+  fieldset{ border:none; border-top:1.5px dashed var(--ink-soft); padding:14px 0 4px; margin:0 0 4px; }
+  legend{
+    font-family:"Special Elite",monospace; font-size:10.5px; letter-spacing:2px;
+    text-transform:uppercase; color:var(--ink-soft); padding:0 8px 0 0;
+  }
+  .row{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:10px}
+  .field{display:flex; flex-direction:column; gap:4px}
+  .field label{
+    font-family:"Special Elite",monospace; font-size:10px; letter-spacing:1.5px;
+    color:var(--ink-soft); text-transform:uppercase;
+  }
+  .input{ display:flex; align-items:center; gap:6px; border-bottom:1.5px solid var(--ink); padding:2px 0; }
+  .input input[type=number], .input input[type=text]{
+    flex:1; background:transparent; border:none; outline:none;
+    font-family:"JetBrains Mono",monospace; font-size:18px; color:var(--ink);
+    width:100%; padding:2px 0;
+  }
+  .input input[type=number]::-webkit-outer-spin-button,
+  .input input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
+  .input input[type=number]{-moz-appearance:textfield}
+  .input .u{ font-family:"JetBrains Mono",monospace; font-size:12px; color:var(--ink-soft); }
+  input[type=range]{
+    width:100%; -webkit-appearance:none; appearance:none; background:transparent; margin:6px 0;
+  }
+  input[type=range]::-webkit-slider-runnable-track{ height:2px; background:var(--ink); border-radius:0; }
+  input[type=range]::-moz-range-track{height:2px; background:var(--ink)}
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; height:16px; width:16px; border-radius:50%;
+    background:var(--paper); border:1.5px solid var(--ink);
+    margin-top:-7px; cursor:pointer; box-shadow:1px 1px 0 var(--ink-soft);
+  }
+  input[type=range]::-moz-range-thumb{
+    height:16px; width:16px; border-radius:50%;
+    background:var(--paper); border:1.5px solid var(--ink); cursor:pointer;
+  }
+  .seg{
+    display:grid; grid-auto-flow:column; grid-auto-columns:1fr;
+    border:1.5px solid var(--ink); margin-top:6px;
+  }
+  .seg button{
+    background:transparent; border:none; cursor:pointer;
+    font-family:"Special Elite",monospace; font-size:10.5px; letter-spacing:1.2px;
+    padding:9px 6px; color:var(--ink-soft);
+    border-right:1.5px solid var(--ink); text-transform:uppercase;
+  }
+  .seg button:last-child{border-right:none}
+  .seg button.on{ background:var(--ink); color:var(--paper); }
+  .toggle-row{
+    display:flex; align-items:center; justify-content:space-between; padding:10px 0 6px;
+  }
+  .toggle-row span{
+    font-family:"Special Elite",monospace; font-size:10.5px;
+    letter-spacing:1.5px; text-transform:uppercase; color:var(--ink-soft);
+  }
+  .switch{ position:relative; width:44px; height:22px; border:1.5px solid var(--ink); cursor:pointer; }
+  .switch::after{
+    content:""; position:absolute; top:1px; left:1px;
+    width:16px; height:16px; background:var(--ink); transition:left .18s ease;
+  }
+  .switch.on::after{left:25px; background:var(--accent)}
+
+  /* Sections editor */
+  .sec-list{display:flex; flex-direction:column; gap:8px; margin-top:6px;}
+  .sec-row{
+    border:1.5px solid var(--ink); background:rgba(255,255,255,.25);
+    padding:6px 8px 8px;
+  }
+  .sec-head{display:flex; align-items:center; gap:6px; margin-bottom:6px;}
+  .sec-move{
+    background:transparent; border:1.5px solid var(--ink); cursor:pointer;
+    width:22px; height:22px; font-family:"Special Elite",monospace; font-size:12px;
+    color:var(--ink); padding:0;
+  }
+  .sec-name{
+    flex:1; background:transparent; border:none; border-bottom:1.5px dashed var(--ink-soft);
+    font-family:"Caveat",cursive; font-size:20px; color:var(--ink); outline:none; padding:2px 0;
+  }
+  .sec-del{
+    background:transparent; border:1.5px solid var(--accent); color:var(--accent); cursor:pointer;
+    width:22px; height:22px; font-family:"Special Elite",monospace; font-size:10px; padding:0;
+  }
+  .sec-body{display:grid; grid-template-columns:120px 1fr; gap:8px; align-items:start;}
+  .sec-seg{
+    display:grid; grid-auto-flow:row; grid-auto-rows:1fr;
+    border:1.5px solid var(--ink);
+  }
+  .sec-seg button{
+    background:transparent; border:none; cursor:pointer;
+    font-family:"Special Elite",monospace; font-size:9.5px; letter-spacing:1px;
+    padding:6px 2px; color:var(--ink-soft);
+    border-bottom:1.5px solid var(--ink); text-transform:uppercase;
+  }
+  .sec-seg button:last-child{border-bottom:none}
+  .sec-seg button.on{ background:var(--ink); color:var(--paper); }
+  .sec-inputs{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+  .sec-inputs label{
+    display:flex; flex-direction:column; gap:2px;
+    font-family:"Special Elite",monospace; font-size:9.5px; letter-spacing:1.2px;
+    color:var(--ink-soft); text-transform:uppercase;
+  }
+  .sec-inputs .num{
+    display:flex; align-items:center; gap:4px;
+    border-bottom:1.5px solid var(--ink); padding:1px 0;
+  }
+  .sec-inputs .num input{
+    flex:1; background:transparent; border:none; outline:none;
+    font-family:"JetBrains Mono",monospace; font-size:14px; color:var(--ink); padding:2px 0; width:100%;
+  }
+  .sec-inputs .num em{ font-style:normal; font-family:"JetBrains Mono",monospace; font-size:11px; color:var(--ink-soft); }
+  .sec-inputs .num input::-webkit-outer-spin-button,
+  .sec-inputs .num input::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
+
+  /* Presets */
+  .presets{
+    display:flex; flex-wrap:wrap; gap:6px; margin-top:10px;
+  }
+  .presets button{
+    background:transparent; border:1.5px solid var(--ink); cursor:pointer;
+    font-family:"Special Elite",monospace; font-size:9.5px; letter-spacing:1px;
+    padding:5px 8px; color:var(--ink); text-transform:uppercase;
+  }
+  .presets button:hover{ background:var(--ink); color:var(--paper); }
+  .sec-actions{
+    display:flex; gap:6px; margin-top:8px;
+    font-family:"Special Elite",monospace; font-size:9.5px;
+  }
+  .sec-actions button{
+    flex:1; background:transparent; border:1.5px dashed var(--ink-soft); cursor:pointer;
+    padding:6px 4px; color:var(--ink-soft); letter-spacing:1px;
+    font-family:"Special Elite",monospace; font-size:9.5px; text-transform:uppercase;
+  }
+
+  /* Stats */
+  .stats{
+    margin-top:18px; border:1.5px solid var(--ink);
+    padding:14px 14px 10px; background:rgba(255,255,255,.22); position:relative;
+  }
+  .stats::before{
+    content:"CALC"; position:absolute; top:-9px; left:12px; background:var(--paper);
+    padding:0 6px; font-family:"Special Elite",monospace; font-size:10px;
+    letter-spacing:2px; color:var(--ink-soft);
+  }
+  .stat{
+    display:flex; justify-content:space-between; align-items:baseline;
+    padding:5px 0; border-bottom:1px dotted var(--ink-faint);
+  }
+  .stat:last-child{border-bottom:none}
+  .stat .k{
+    font-family:"Special Elite",monospace; font-size:10.5px; letter-spacing:1.2px;
+    color:var(--ink-soft); text-transform:uppercase;
+  }
+  .stat .v{ font-family:"JetBrains Mono",monospace; font-size:16px; color:var(--ink); font-weight:500; }
+  .stat .v small{font-size:10px; color:var(--ink-soft); margin-left:3px}
+
+  /* Main */
+  main{
+    padding:28px 36px 60px;
+    display:grid; grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto auto; gap:24px; align-content:start;
+  }
+  .view{
+    border:1.5px solid var(--ink);
+    background:
+      repeating-linear-gradient(0deg, rgba(120,90,60,.04) 0 1px, transparent 1px 20px),
+      repeating-linear-gradient(90deg, rgba(120,90,60,.04) 0 1px, transparent 1px 20px),
+      rgba(255,255,255,.18);
+    padding:18px 20px 22px; position:relative;
+    box-shadow:3px 3px 0 rgba(60,40,20,.08);
+  }
+  .view.big{ grid-column: 1 / span 2; }
+  .view header{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; }
+  .view h2{ margin:0; font-family:"Caveat",cursive; font-weight:700; font-size:26px; }
+  .view .tag{ font-family:"Special Elite",monospace; font-size:10px; letter-spacing:2px; color:var(--ink-soft); text-transform:uppercase; }
+  .view svg{ width:100%; height:auto; display:block; }
+  .corner-note{
+    position:absolute; bottom:-14px; right:14px; background:var(--paper);
+    padding:0 8px; font-family:"Caveat",cursive; font-size:16px;
+    color:var(--ink-soft); transform:rotate(-1.5deg);
+  }
+  .titleblock{
+    grid-column:1 / span 2;
+    display:flex; justify-content:space-between; align-items:center;
+    border:1.5px solid var(--ink); padding:10px 18px;
+    background:rgba(255,255,255,.35); margin-bottom:-4px;
+  }
+  .titleblock .t{ font-family:"Caveat",cursive; font-weight:700; font-size:22px; }
+  .titleblock .meta{
+    display:flex; gap:22px;
+    font-family:"Special Elite",monospace; font-size:10px; letter-spacing:1.5px;
+    color:var(--ink-soft); text-transform:uppercase;
+  }
+  .titleblock .meta span b{ color:var(--ink); font-weight:500; margin-left:6px; font-family:"JetBrains Mono",monospace; font-size:11px;}
+
+  /* SVG stroke presets */
+  .ink{ stroke:var(--ink); fill:none; stroke-linejoin:round; stroke-linecap:round }
+  .ink-soft{ stroke:var(--ink-soft); fill:none; stroke-linejoin:round; stroke-linecap:round }
+  .ink-faint{ stroke:var(--ink-faint); fill:none; stroke-linejoin:round; stroke-linecap:round }
+  .dim-text{ font-family:"Caveat",cursive; fill:var(--ink); font-size:18px; font-weight:600 }
+  .dim-num{ font-family:"JetBrains Mono",monospace; fill:var(--ink); font-size:11px }
+  .label{ font-family:"Special Elite",monospace; fill:var(--ink-soft); font-size:10px; letter-spacing:1.5px; text-transform:uppercase }
+
+  @media (max-width: 1024px){
+    .app{grid-template-columns:1fr}
+    aside{position:relative; height:auto}
+    main{grid-template-columns:1fr}
+    .view.big{grid-column:auto}
+  }
+
+  /* Tweaks */
+  #tweaks{
+    position:fixed; right:0; bottom:20px;
+    width:280px; padding:14px 18px 16px 22px;
+    background:var(--paper-2); border:1.5px solid var(--ink); border-right:none;
+    box-shadow:-3px 3px 0 rgba(60,40,20,.15);
+    display:none; z-index:50;
+    transform:translateX(calc(100% - 22px));
+    transition:transform .28s cubic-bezier(.4,.0,.2,1);
+  }
+  #tweaks.show{display:block}
+  #tweaks.open{transform:translateX(0)}
+  #tweaks #tweaks_handle{
+    position:absolute; left:0; top:0; bottom:0; width:22px;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; background:var(--ink); color:var(--paper);
+    font-family:"Special Elite",monospace; font-size:10px;
+    letter-spacing:2px; writing-mode:vertical-rl; transform:rotate(180deg);
+    user-select:none;
+  }
+  #tweaks #tweaks_handle:hover{ background:var(--accent); }
+  #tweaks h3{ margin:0 0 10px; font-family:"Caveat",cursive; font-size:22px; }
+  #tweaks .trow{display:flex; justify-content:space-between; align-items:center; margin:8px 0}
+  #tweaks .trow label{font-family:"Special Elite",monospace; font-size:10px; letter-spacing:1.2px; color:var(--ink-soft); text-transform:uppercase}
+  #tweaks input[type=color]{width:40px; height:24px; border:1.5px solid var(--ink); background:transparent; padding:0; cursor:pointer}
+</style>
+</head>
+<body>
+
+<script>
+  window.TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+    "projectName": "Jorgensen",
+    "paperTone": "bright",
+    "waterColor": "#6fa3b8",
+    "accentColor": "#b4532a",
+    "showGrid": false,
+    "showDims": true,
+    "wobble": true
+  }/*EDITMODE-END*/;
+</script>
+
+<div class="app">
+  <aside>
+    <div class="brand">
+      <img src="data:image/png;base64,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" alt="Pasadena Pools"/>
+      <span class="stamp">DRAFT · 02</span>
+    </div>
+    <p class="sub">Pool Interior · design sheet</p>
+
+    <fieldset>
+      <legend>Project</legend>
+      <div class="field">
+        <label>Project name</label>
+        <div class="input"><input type="text" id="project_name" value="Pool A" style="font-family:'Caveat',cursive;font-size:22px;"/></div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Plan dimensions</legend>
+      <div class="row">
+        <div class="field">
+          <label>Width</label>
+          <div class="input"><input type="number" id="width" min="6" max="50" step="0.5" value="16"/><span class="u">ft</span></div>
+          <input type="range" id="width_r" min="6" max="50" step="0.5" value="16"/>
+        </div>
+        <div class="field">
+          <label>Deck rise above water</label>
+          <div class="input"><input type="number" id="coping_rise" min="4" max="18" step="0.5" value="7"/><span class="u">in</span></div>
+          <input type="range" id="coping_rise_r" min="4" max="18" step="0.5" value="7"/>
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>Desired length</label>
+          <div class="input"><input type="number" id="desired_len" min="8" max="80" step="0.5" value="32"/><span class="u">ft</span></div>
+          <input type="range" id="desired_len_r" min="8" max="80" step="0.5" value="32"/>
+        </div>
+        <div class="field">
+          <label>Actual (from sections)</label>
+          <div class="input" style="border-bottom-style:dotted"><span id="actual_len" style="font-family:'JetBrains Mono',monospace;font-size:18px;color:var(--ink);flex:1">32.0</span><span class="u">ft</span></div>
+          <div id="len_diff" style="font-family:'Special Elite',monospace;font-size:10px;letter-spacing:1px;color:var(--ink-soft);margin-top:6px;text-transform:uppercase;">on target</div>
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Pool sections (length-wise)</legend>
+      <div id="sections_list" class="sec-list"></div>
+      <div class="presets" id="section_presets">
+        <button data-name="Entry">+ Entry</button>
+        <button data-name="Step">+ Step</button>
+        <button data-name="Baja">+ Baja</button>
+        <button data-name="Stairs">+ Stairs</button>
+        <button data-name="Shallow">+ Shallow</button>
+        <button data-name="Slope">+ Slope</button>
+        <button data-name="Deep">+ Deep</button>
+        <button data-name="Custom">+ Custom</button>
+      </div>
+      <div class="sec-actions">
+        <button id="reset_sections">Reset defaults</button>
+        <button id="clear_sections">Clear all</button>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Sitting bench</legend>
+      <div class="toggle-row">
+        <span>Bench along wall</span>
+        <div class="switch" id="bench_toggle"></div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>Depth of water</label>
+          <div class="input"><input type="number" id="bench_depth" min="6" max="36" step="1" value="20"/><span class="u">in</span></div>
+          <input type="range" id="bench_depth_r" min="6" max="36" step="1" value="20"/>
+        </div>
+        <div class="field">
+          <label>Bench width</label>
+          <div class="input"><input type="number" id="bench_w" min="1" max="4" step="0.25" value="1.5"/><span class="u">ft</span></div>
+          <input type="range" id="bench_w_r" min="1" max="4" step="0.25" value="1.5"/>
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>Starts at</label>
+          <div class="input"><input type="number" id="bench_start" min="0" step="0.25" value="2"/><span class="u">ft</span></div>
+          <input type="range" id="bench_start_r" min="0" max="60" step="0.25" value="2"/>
+        </div>
+        <div class="field">
+          <label>Ends at</label>
+          <div class="input"><input type="number" id="bench_end" min="0" step="0.25" value="14"/><span class="u">ft</span></div>
+          <input type="range" id="bench_end_r" min="0" max="60" step="0.25" value="14"/>
+        </div>
+      </div>
+      <div class="field">
+        <label>Bench side</label>
+        <div class="seg" id="bench_side_seg">
+          <button data-v="near" class="on">Near side</button>
+          <button data-v="far">Far side</button>
+          <button data-v="both">Both</button>
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Water</legend>
+      <div class="toggle-row">
+        <span>Show water fill</span>
+        <div class="switch on" id="water_toggle"></div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Export</legend>
+      <div style="font-family:'Special Elite',monospace;font-size:9.5px;letter-spacing:1px;color:var(--ink-soft);margin-bottom:6px;text-transform:uppercase;">Individual views (PNG)</div>
+      <div class="presets" style="margin-top:0">
+        <button id="ex_png_plan">↓ Plan</button>
+        <button id="ex_png_sec">↓ Section A–A</button>
+        <button id="ex_png_iso">↓ Iso</button>
+      </div>
+      <div style="font-family:'Special Elite',monospace;font-size:9.5px;letter-spacing:1px;color:var(--ink-soft);margin:12px 0 6px;text-transform:uppercase;">Full sheet</div>
+      <div class="presets" style="margin-top:0">
+        <button id="ex_pdf" style="flex:1;padding:7px 10px;">↓ PDF — all three views</button>
+      </div>
+      <div id="ex_status" style="font-family:'Special Elite',monospace;font-size:10px;letter-spacing:1px;color:var(--ink-soft);margin-top:8px;text-transform:uppercase;min-height:12px;"></div>
+    </fieldset>
+
+    <div class="stats" id="stats">
+      <div class="stat"><span class="k">Surface area</span><span class="v" id="s_area">—<small>ft²</small></span></div>
+      <div class="stat"><span class="k">Perimeter</span><span class="v" id="s_peri">—<small>ft</small></span></div>
+      <div class="stat"><span class="k">Volume</span><span class="v" id="s_vol">—<small>gal</small></span></div>
+      <div class="stat"><span class="k">Avg. depth</span><span class="v" id="s_avg">—<small>ft</small></span></div>
+    </div>
+  </aside>
+
+  <main>
+    <div class="titleblock">
+      <div class="t" id="tb_title">Pool A</div>
+      <div class="meta">
+        <span>Sheet <b>01 / 01</b></span>
+        <span>Scale <b id="tb_scale">1:40</b></span>
+        <span>Date <b id="tb_date">—</b></span>
+      </div>
+    </div>
+
+    <div class="view">
+      <header>
+        <h2>Plan · top view</h2>
+        <span class="tag">↑ N</span>
+      </header>
+      <svg id="svg_top" viewBox="0 0 700 440" preserveAspectRatio="xMidYMid meet"></svg>
+      <div class="corner-note">looking down</div>
+    </div>
+
+    <div class="view">
+      <header>
+        <h2>Iso</h2>
+        <span class="tag">iso 30°</span>
+      </header>
+      <svg id="svg_iso" viewBox="0 0 700 440" preserveAspectRatio="xMidYMid meet"></svg>
+      <div class="corner-note">3/4 view</div>
+    </div>
+
+    <div class="view big">
+      <header>
+        <h2>Cross-section A–A</h2>
+        <span class="tag">longitudinal</span>
+      </header>
+      <svg id="svg_sec" viewBox="0 0 1200 420" preserveAspectRatio="xMidYMid meet"></svg>
+      <div class="corner-note">not to scale</div>
+    </div>
+  </main>
+</div>
+
+<div id="tweaks">
+  <div id="tweaks_handle" title="Toggle tweaks">TWEAKS</div>
+  <h3>Tweaks</h3>
+  <div class="trow"><label>Project name</label><input type="text" id="tw_project" value="Pool A" style="width:130px;background:transparent;border:1.5px solid var(--ink);padding:3px 6px;font-family:'Caveat',cursive;font-size:16px;color:var(--ink);"/></div>
+  <div class="trow"><label>Paper tone</label>
+    <div class="seg" style="width:150px" id="tw_paper">
+      <button data-v="bright" class="on">Bright</button>
+      <button data-v="light">Light</button>
+      <button data-v="warm">Warm</button>
+    </div>
+  </div>
+  <div class="trow"><label>Water color</label><input type="color" id="tw_water" value="#6fa3b8"/></div>
+  <div class="trow"><label>Accent color</label><input type="color" id="tw_accent" value="#b4532a"/></div>
+  <div class="trow"><label>Show grid</label><div class="switch on" id="tw_grid"></div></div>
+  <div class="trow"><label>Show dimensions</label><div class="switch on" id="tw_dims"></div></div>
+  <div class="trow"><label>Line wobble</label><div class="switch on" id="tw_wobble"></div></div>
+</div>
+
+<script>
+/* Pool Interior Designer — sections-based, hand-drafted blueprint */
+(() => {
+  // ============== STATE ==============
+  const DEFAULT_SECTIONS = [
+    { id: 1, name: 'Entry',   type: 'flat',  depthIn: 4,   length: 2 },
+    { id: 2, name: 'Baja',    type: 'flat',  depthIn: 10,  length: 5 },
+    { id: 3, name: 'Stairs',  type: 'slope', depthIn: 42,  length: 3 }, // transitions to shallow
+    { id: 4, name: 'Shallow', type: 'flat',  depthIn: 42,  length: 12 },
+    { id: 5, name: 'Slope',   type: 'slope', depthIn: 96,  length: 8 },
+    { id: 6, name: 'Deep',    type: 'flat',  depthIn: 96,  length: 10 },
+  ];
+  let nextId = 100;
+
+  const state = {
+    width: 16,               // ft (pool width)
+    waterDepthRef: 0,        // not used — water level computed per-section
+    showWater: true,
+    // coping rises 7" above waterline (user: top of deck = waterline + 7")
+    copingRiseIn: 7,
+    desiredLength: 32,       // ft — target length (user-set)
+    sections: DEFAULT_SECTIONS.map(s => ({ ...s })),
+    // Bench
+    bench: {
+      on: false,
+      depthIn: 20,
+      widthFt: 1.5,
+      startFt: 2,
+      endFt: 14,
+      side: 'near', // near | far | both
+    },
+    tweaks: { ...window.TWEAK_DEFAULTS },
+  };
+
+  const $ = (id) => document.getElementById(id);
+
+  // ============== HELPERS ==============
+  const totalLength = () => state.sections.reduce((s, x) => s + (+x.length || 0), 0);
+  const maxDepthIn = () => state.sections.reduce((m, s) => Math.max(m, s.depthIn || 0), 0);
+
+  // depth in feet at position x (ft along length) — centerline
+  function depthAtX(x) {
+    let acc = 0;
+    let prevDepth = state.sections[0] ? state.sections[0].depthIn : 0;
+    for (let i = 0; i < state.sections.length; i++) {
+      const s = state.sections[i];
+      const start = acc;
+      const end = acc + s.length;
+      if (x <= end + 1e-6) {
+        if (s.type === 'flat') return s.depthIn / 12;
+        const t = s.length > 0 ? (x - start) / s.length : 1;
+        return (prevDepth + (s.depthIn - prevDepth) * t) / 12;
+      }
+      prevDepth = s.depthIn;
+      acc = end;
+    }
+    return (state.sections[state.sections.length - 1]?.depthIn || 0) / 12;
+  }
+
+  // depth including bench overlay
+  function depthAtXY(x, y) {
+    if (onBench(x, y)) return state.bench.depthIn / 12;
+    return depthAtX(x);
+  }
+
+  function benchYRanges() {
+    if (!state.bench.on) return [];
+    const w = +state.bench.widthFt;
+    const W = state.width;
+    const sides = state.bench.side === 'both' ? ['near','far'] : [state.bench.side];
+    return sides.map(s => s === 'near' ? [0, w] : [W - w, W]);
+  }
+  function onBench(x, y) {
+    if (!state.bench.on) return false;
+    if (x < state.bench.startFt || x > state.bench.endFt) return false;
+    return benchYRanges().some(([a,b]) => y >= a && y <= b);
+  }
+
+  // volume (gallons) via 2D integration
+  function computeStats() {
+    const L = totalLength();
+    const W = state.width;
+    if (L <= 0 || W <= 0) return { area: 0, peri: 0, gallons: 0, avg: 0 };
+    const nx = 80, ny = 40;
+    const dx = L / nx, dy = W / ny;
+    let vol = 0, depthSum = 0, count = 0;
+    for (let i = 0; i < nx; i++) {
+      for (let j = 0; j < ny; j++) {
+        const x = (i + 0.5) * dx, y = (j + 0.5) * dy;
+        const d = depthAtXY(x, y);
+        vol += d * dx * dy;
+        depthSum += d; count++;
+      }
+    }
+    return {
+      area: L * W,
+      peri: 2 * (L + W),
+      gallons: vol * 7.48052,
+      cubicFt: vol,
+      avg: depthSum / count,
+    };
+  }
+
+  // ============== FORMATTING ==============
+  const fmtFt = (v) => {
+    const sign = v < 0 ? '-' : '';
+    v = Math.abs(v);
+    const ft = Math.floor(v);
+    const inches = Math.round((v - ft) * 12);
+    if (inches === 12) return `${sign}${ft + 1}' 0"`;
+    return `${sign}${ft}' ${inches}"`;
+  };
+  const fmtIn = (v) => {
+    if (v < 12) return `${v}"`;
+    return fmtFt(v/12);
+  };
+  const fmt1 = (v) => v.toFixed(1);
+  const fmtInt = (v) => Math.round(v).toLocaleString();
+
+  // ============== SVG HELPERS ==============
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  function el(tag, attrs = {}, parent) {
+    const n = document.createElementNS(SVGNS, tag);
+    for (const k in attrs) {
+      if (attrs[k] === false || attrs[k] == null) continue;
+      n.setAttribute(k, attrs[k]);
+    }
+    if (parent) parent.appendChild(n);
+    return n;
+  }
+  function clear(svg) { while (svg.firstChild) svg.removeChild(svg.firstChild); }
+
+  function seeded(seed) {
+    let s = seed;
+    return () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
+  }
+  function wobble(points, amp = 0.8, seed = 7) {
+    if (!state.tweaks.wobble || points.length < 2) {
+      return points.map((p, i) => (i === 0 ? 'M' : 'L') + p[0].toFixed(2) + ',' + p[1].toFixed(2)).join(' ');
+    }
+    const rnd = seeded(seed);
+    let d = '';
+    for (let i = 0; i < points.length; i++) {
+      const [x, y] = points[i];
+      const ox = (rnd() - 0.5) * amp * 2;
+      const oy = (rnd() - 0.5) * amp * 2;
+      if (i === 0) d += `M${(x+ox).toFixed(2)},${(y+oy).toFixed(2)} `;
+      else {
+        const [px, py] = points[i - 1];
+        const mx = (px + x) / 2 + (rnd() - 0.5) * amp * 2.5;
+        const my = (py + y) / 2 + (rnd() - 0.5) * amp * 2.5;
+        d += `Q${mx.toFixed(2)},${my.toFixed(2)} ${(x+ox).toFixed(2)},${(y+oy).toFixed(2)} `;
+      }
+    }
+    return d.trim();
+  }
+  function wobbleClosed(points, amp = 0.8, seed = 11) {
+    return wobble([...points, points[0]], amp, seed);
+  }
+
+  function dimLine(parent, x1, y1, x2, y2, label, opts = {}) {
+    if (!state.tweaks.showDims) return;
+    const { offset = 22, side = 1, textOffset = 14, vertical = false, tickLen = 6 } = opts;
+    const dx = x2 - x1, dy = y2 - y1;
+    const len = Math.hypot(dx, dy) || 1;
+    const nx = -dy / len, ny = dx / len;
+    const ox = nx * offset * side, oy = ny * offset * side;
+    const ax1 = x1 + ox, ay1 = y1 + oy;
+    const ax2 = x2 + ox, ay2 = y2 + oy;
+    el('line', { x1, y1, x2: ax1, y2: ay1, class: 'ink-faint', 'stroke-width': 0.7, 'stroke-dasharray': '2 3' }, parent);
+    el('line', { x1: x2, y1: y2, x2: ax2, y2: ay2, class: 'ink-faint', 'stroke-width': 0.7, 'stroke-dasharray': '2 3' }, parent);
+    el('path', { d: wobble([[ax1, ay1],[ax2,ay2]], 0.4, (x1+x2)|0), class: 'ink-soft', 'stroke-width': 1 }, parent);
+    const tx = -ny, ty = nx;
+    el('line', { x1: ax1 - tx*tickLen, y1: ay1 - ty*tickLen, x2: ax1 + tx*tickLen, y2: ay1 + ty*tickLen, class:'ink', 'stroke-width':1.2 }, parent);
+    el('line', { x1: ax2 - tx*tickLen, y1: ay2 - ty*tickLen, x2: ax2 + tx*tickLen, y2: ay2 + ty*tickLen, class:'ink', 'stroke-width':1.2 }, parent);
+    const mx = (ax1 + ax2) / 2 + nx * textOffset * side;
+    const my = (ay1 + ay2) / 2 + ny * textOffset * side;
+    const angle = vertical ? -90 : 0;
+    const t = el('text', { x: mx, y: my, class: 'dim-text', 'text-anchor': 'middle', transform: `rotate(${angle} ${mx} ${my})` }, parent);
+    t.textContent = label;
+  }
+
+  // section color palette based on depth
+  function depthColor(inches) {
+    const t = Math.min(1, inches / 96);
+    const hue = 200;
+    const sat = 40;
+    const light = 82 - t * 30;
+    return `hsl(${hue}, ${sat}%, ${light}%)`;
+  }
+
+  // ============== TOP VIEW ==============
+  function renderTop() {
+    const svg = $('svg_top');
+    clear(svg);
+    const VBW = 700, VBH = 440;
+    const pad = 70;
+    const L = totalLength(), W = state.width;
+    const desired = state.desiredLength;
+    if (L <= 0 && desired <= 0) return;
+    const viewL = Math.max(L, desired, 1);
+    const availW = VBW - pad * 2, availH = VBH - pad * 2;
+    const scale = Math.min(availW / viewL, availH / W);
+    const poolW = L * scale, poolH = W * scale;
+    const desiredW = desired * scale;
+    // center on the larger of the two
+    const totalW = Math.max(poolW, desiredW);
+    const xStart = (VBW - totalW) / 2;
+    const x0 = xStart; // pool always starts at left
+    const y0 = (VBH - poolH) / 2;
+    const desiredX1 = xStart + desiredW; // end of desired footprint
+    const poolX1 = x0 + poolW;            // end of actual pool
+
+    // grid
+    if (state.tweaks.showGrid) {
+      const g = el('g', { opacity: 0.35 }, svg);
+      for (let i = 0; i <= Math.floor(L); i++) {
+        const gx = x0 + i * scale;
+        el('line', { x1: gx, y1: y0, x2: gx, y2: y0 + poolH, class: 'ink-faint', 'stroke-width': 0.4 }, g);
+      }
+      for (let j = 0; j <= Math.floor(W); j++) {
+        const gy = y0 + j * scale;
+        el('line', { x1: x0, y1: gy, x2: x0 + poolW, y2: gy, class: 'ink-faint', 'stroke-width': 0.4 }, g);
+      }
+    }
+
+    // coping
+    const copingPad = 10;
+    el('path', {
+      d: wobbleClosed([
+        [x0 - copingPad, y0 - copingPad],
+        [x0 + poolW + copingPad, y0 - copingPad],
+        [x0 + poolW + copingPad, y0 + poolH + copingPad],
+        [x0 - copingPad, y0 + poolH + copingPad],
+      ], 0.6, 3),
+      class: 'ink-soft', 'stroke-width': 1,
+    }, svg);
+
+    // per-section shaded bands by depth
+    let acc = 0;
+    state.sections.forEach((s, i) => {
+      const sx = x0 + acc * scale;
+      const sw = s.length * scale;
+      if (state.showWater) {
+        el('rect', {
+          x: sx, y: y0, width: sw, height: poolH,
+          fill: depthColor(s.depthIn), 'fill-opacity': 0.45,
+        }, svg);
+      }
+      // divider line between sections
+      if (i > 0) {
+        el('path', { d: wobble([[sx, y0],[sx, y0+poolH]], 0.4, 100+i), class:'ink-soft','stroke-width':1,'stroke-dasharray':'4 3' }, svg);
+      }
+      // section label — centered vertically in the band
+      const cx = sx + sw/2;
+      const cy = y0 + poolH/2;
+      const lbl = el('text', { x: cx, y: cy - 6, class:'label','text-anchor':'middle' }, svg);
+      lbl.textContent = s.name.toUpperCase();
+      if (s.type !== 'slope') {
+        const lbl2 = el('text', { x: cx, y: cy + 10, class:'dim-num','text-anchor':'middle' }, svg);
+        lbl2.textContent = fmtIn(s.depthIn);
+      }
+      acc += s.length;
+    });
+
+    // pool outer shell
+    el('path', {
+      d: wobbleClosed([[x0, y0],[x0+poolW,y0],[x0+poolW,y0+poolH],[x0,y0+poolH]], 0.6, 17),
+      class: 'ink', 'stroke-width': 1.8, fill:'none'
+    }, svg);
+
+    // Bench overlay
+    if (state.bench.on) {
+      const bxS = x0 + state.bench.startFt * scale;
+      const bxE = x0 + state.bench.endFt * scale;
+      benchYRanges().forEach(([a,b], i) => {
+        const yS = y0 + a * scale, yE = y0 + b * scale;
+        el('rect', { x: bxS, y: yS, width: bxE - bxS, height: yE - yS, fill:'#d9c6a0', 'fill-opacity':0.55 }, svg);
+        // hatched
+        const hg = el('g', { opacity: 0.55 }, svg);
+        for (let j = 0; j < 14; j++) {
+          const rx = bxS + (j/14) * (bxE - bxS);
+          el('line', { x1: rx, y1: yS, x2: rx + (yE - yS)*0.4, y2: yE, class:'ink-faint','stroke-width':0.5 }, hg);
+        }
+        el('path', { d: wobbleClosed([[bxS,yS],[bxE,yS],[bxE,yE],[bxS,yE]], 0.3, 501+i), class:'ink-soft','stroke-width':1 }, svg);
+        const lbl = el('text', { x:(bxS+bxE)/2, y:(yS+yE)/2 + 4, class:'label','text-anchor':'middle' }, svg);
+        lbl.textContent = `BENCH ${state.bench.depthIn}"`;
+      });
+    }
+
+    // === Desired length overlay ===
+    // If short: hatch from poolX1 to desiredX1 (orange)
+    // If long: hatch from desiredX1 to poolX1 (purple)
+    // Either way, draw a dashed outline of the "desired" footprint for reference.
+    if (Math.abs(L - desired) > 0.05) {
+      const short = L < desired;
+      const hatchColor = short ? '#b4532a' : '#8a5a9a';
+      const hatchLabel = short ? `SHORT ${fmt1(desired - L)}'` : `LONG ${fmt1(L - desired)}'`;
+      const hx0 = short ? poolX1 : desiredX1;
+      const hx1 = short ? desiredX1 : poolX1;
+      // hatched fill
+      const patternId = short ? 'hatch_short' : 'hatch_long';
+      const defs = el('defs', {}, svg);
+      const pattern = el('pattern', {
+        id: patternId, patternUnits: 'userSpaceOnUse',
+        width: 8, height: 8, patternTransform: 'rotate(45)'
+      }, defs);
+      el('rect', { width: 8, height: 8, fill: hatchColor, 'fill-opacity': 0.12 }, pattern);
+      el('line', { x1: 0, y1: 0, x2: 0, y2: 8, stroke: hatchColor, 'stroke-width': 1.2, 'stroke-opacity': 0.7 }, pattern);
+      el('rect', { x: hx0, y: y0, width: hx1 - hx0, height: poolH, fill: `url(#${patternId})` }, svg);
+      // outline of overlay
+      el('path', {
+        d: wobbleClosed([[hx0, y0],[hx1, y0],[hx1, y0+poolH],[hx0, y0+poolH]], 0.4, 77),
+        stroke: hatchColor, 'stroke-width': 1.4, fill: 'none', 'stroke-dasharray': '5 4',
+      }, svg);
+      // label inside hatch
+      const lblT = el('text', {
+        x: (hx0 + hx1) / 2, y: y0 + poolH / 2 + 4,
+        class: 'label', 'text-anchor': 'middle',
+        fill: hatchColor,
+        style: 'font-size:12px;letter-spacing:2px;font-weight:600',
+      }, svg);
+      lblT.textContent = hatchLabel;
+    }
+    // Desired-length reference line (always show)
+    {
+      const desY = y0 + poolH + 10;
+      el('line', { x1: xStart, y1: desY, x2: desiredX1, y2: desY, stroke:'var(--ink-soft)', 'stroke-width':1, 'stroke-dasharray':'3 4' }, svg);
+      const tickH = 6;
+      el('line', { x1: xStart, y1: desY - tickH, x2: xStart, y2: desY + tickH, class:'ink-soft', 'stroke-width':1 }, svg);
+      el('line', { x1: desiredX1, y1: desY - tickH, x2: desiredX1, y2: desY + tickH, class:'ink-soft', 'stroke-width':1 }, svg);
+      const tt = el('text', { x: (xStart + desiredX1)/2, y: desY + 16, class:'label', 'text-anchor':'middle' }, svg);
+      tt.textContent = `DESIRED ${fmtFt(desired)}`;
+    }
+
+    // section indicator A—A
+    const ay = y0 - 26;
+    el('line', { x1: x0 - 8, y1: ay, x2: x0 + poolW + 8, y2: ay, class:'ink-soft', 'stroke-dasharray':'6 4', 'stroke-width':0.9 }, svg);
+    const ta1 = el('text', { x: x0 - 14, y: ay + 5, class: 'dim-text', 'text-anchor': 'end' }, svg); ta1.textContent = 'A';
+    const ta2 = el('text', { x: x0 + poolW + 14, y: ay + 5, class: 'dim-text', 'text-anchor': 'start' }, svg); ta2.textContent = 'A';
+
+    // dims
+    dimLine(svg, x0, y0 + poolH, x0 + poolW, y0 + poolH, fmtFt(L), { offset: 34, side: 1, textOffset: 16 });
+    dimLine(svg, x0 + poolW, y0, x0 + poolW, y0 + poolH, fmtFt(W), { offset: 34, side: 1, textOffset: 16, vertical: true });
+
+    // (per-section length dims removed — section dividers + totals cover this)
+  }
+
+  // ============== CROSS-SECTION (A–A) ==============
+  // This is the most important view. Water surface at y=0 (pixel), floor below, coping above.
+  function renderSection() {
+    const svg = $('svg_sec');
+    clear(svg);
+    const VBW = 1200, VBH = 420;
+    const padL = 100, padR = 100, padT = 70, padB = 90;
+    const L = totalLength();
+    const desired = state.desiredLength;
+    if (L <= 0 && desired <= 0) return;
+    const viewL = Math.max(L, desired, 1);
+    const maxD = Math.max(1, maxDepthIn() / 12); // ft
+    const copingRiseFt = state.copingRiseIn / 12;
+    const totalHeight = maxD + copingRiseFt + 0.5;
+
+    const availW = VBW - padL - padR, availH = VBH - padT - padB;
+    const scale = Math.min(availW / viewL, availH / totalHeight);
+    const pxW = L * scale;
+    const desiredPx = desired * scale;
+    const totalPx = Math.max(pxW, desiredPx);
+    const xStart = padL + (availW - totalPx) / 2;
+    const x0 = xStart;                    // pool left wall
+    const poolX1 = x0 + pxW;
+    const desiredX1 = xStart + desiredPx;
+    const waterY = padT + copingRiseFt * scale; // water surface y
+    const deckY = padT;                          // top of finished deck
+    const maxFloorY = waterY + maxD * scale;
+
+    // ground/deck above pool to left/right
+    el('line', { x1: 10, y1: deckY, x2: x0, y2: deckY, class:'ink', 'stroke-width':1.4 }, svg);
+    el('line', { x1: x0 + pxW, y1: deckY, x2: VBW - 10, y2: deckY, class:'ink', 'stroke-width':1.4 }, svg);
+    // ground hatching below deck
+    const hg = el('g', { opacity: 0.45 }, svg);
+    for (let i = 0; i < 80; i++) {
+      const gx = 10 + i * 16;
+      if (gx > x0 - 6 && gx < x0 + pxW + 10) continue;
+      if (gx > VBW - 10) break;
+      el('line', { x1: gx, y1: deckY + 4, x2: gx - 8, y2: deckY + 16, class:'ink-faint', 'stroke-width':0.7 }, hg);
+    }
+
+    // === Build floor polyline: straight segments for flat; straight incline for slope;
+    //     vertical risers between flat sections of different depths when there's no slope between them.
+    const floorPts = [];
+    let accX = 0;
+    let prevDepth = null;
+    state.sections.forEach((s, i) => {
+      const startX = x0 + accX * scale;
+      const endX = x0 + (accX + s.length) * scale;
+      const dFt = s.depthIn / 12;
+      if (s.type === 'flat') {
+        // if previous depth differs, insert vertical riser at startX
+        if (prevDepth != null && Math.abs(prevDepth - s.depthIn) > 1e-6 && state.sections[i-1].type === 'flat') {
+          floorPts.push([startX, waterY + (prevDepth/12) * scale]);
+          floorPts.push([startX, waterY + dFt * scale]);
+        } else if (prevDepth == null) {
+          floorPts.push([startX, waterY + dFt * scale]);
+        }
+        floorPts.push([endX, waterY + dFt * scale]);
+      } else {
+        // slope: from previous depth at startX to this depth at endX
+        const prevFt = (prevDepth != null ? prevDepth : s.depthIn) / 12;
+        if (floorPts.length === 0) floorPts.push([startX, waterY + prevFt * scale]);
+        floorPts.push([endX, waterY + dFt * scale]);
+      }
+      prevDepth = s.depthIn;
+      accX += s.length;
+    });
+
+    // Water fill (above the floor up to waterY)
+    if (state.showWater && floorPts.length) {
+      const waterPoly = [
+        [x0, waterY],
+        ...floorPts,
+        [x0 + pxW, waterY],
+      ];
+      el('path', {
+        d: wobbleClosed(waterPoly, 0.3, 23),
+        fill: state.tweaks.waterColor, 'fill-opacity': 0.32,
+        stroke: 'none',
+      }, svg);
+      // waterline (top of water)
+      el('line', { x1: x0, y1: waterY, x2: x0 + pxW, y2: waterY, stroke: state.tweaks.waterColor, 'stroke-width': 1.3 }, svg);
+      // ripple marks
+      const ripples = el('g', {}, svg);
+      for (let i = 0; i < 40; i++) {
+        const rx = x0 + 10 + i * ((pxW - 20) / 40);
+        el('path', { d: `M${rx.toFixed(1)},${waterY.toFixed(1)} q4,-2 8,0`, stroke: state.tweaks.waterColor, fill:'none', 'stroke-width': 0.7, opacity: 0.7 }, ripples);
+      }
+      const wt = el('text', { x: x0 + pxW / 2, y: waterY - 6, class:'label', 'text-anchor':'middle' }, svg);
+      wt.textContent = 'WATERLINE';
+    }
+
+    // Coping: 7" above water at both walls
+    const copingH = Math.min(14, (state.copingRiseIn/12) * scale);
+    el('rect', { x: x0 - 14, y: deckY - 2, width: 14, height: (waterY - deckY) + 2, fill:'#c8b894', stroke:'var(--ink)', 'stroke-width':1 }, svg);
+    el('rect', { x: x0 + pxW, y: deckY - 2, width: 14, height: (waterY - deckY) + 2, fill:'#c8b894', stroke:'var(--ink)', 'stroke-width':1 }, svg);
+
+    // Pool shell: left wall (deckY down to first floor depth), then floor, right wall
+    const leftFloorY = floorPts[0][1];
+    const rightFloorY = floorPts[floorPts.length - 1][1];
+    const shellPts = [
+      [x0, deckY],
+      [x0, leftFloorY],
+      ...floorPts.slice(1, -1),
+      [x0 + pxW, rightFloorY],
+      [x0 + pxW, deckY],
+    ];
+    el('path', { d: wobble(shellPts, 0.5, 81), class:'ink', 'stroke-width': 2, fill:'none' }, svg);
+
+    // Section dividers on the floor (light vertical ticks at section boundaries)
+    {
+      let ax = 0;
+      state.sections.forEach((s, i) => {
+        if (i === 0) { ax += s.length; return; }
+        const x = x0 + ax * scale;
+        const prevD = (state.sections[i-1].depthIn) / 12;
+        const thisD = s.depthIn / 12;
+        const y1 = waterY + Math.min(prevD, thisD) * scale;
+        const y2 = waterY + Math.max(prevD, thisD) * scale;
+        el('line', { x1: x, y1: deckY + 2, x2: x, y2: y2 + 6, class:'ink-faint', 'stroke-width':0.6, 'stroke-dasharray':'3 4' }, svg);
+        ax += s.length;
+      });
+    }
+
+    // Bench overlay — extends down to meet the pool floor.
+    // We draw a closed polygon: top edge at bench depth (waterY+benchDepth),
+    // bottom edge follows the pool floor across the bench's X range.
+    if (state.bench.on) {
+      const bStartFt = Math.min(state.bench.startFt, state.bench.endFt);
+      const bEndFt = Math.max(state.bench.startFt, state.bench.endFt);
+      const bxS = x0 + bStartFt * scale;
+      const bxE = x0 + bEndFt * scale;
+      const by = waterY + (state.bench.depthIn / 12) * scale;
+
+      // Sample floor along the bench X range at section boundaries + dense steps
+      const samples = [];
+      const steps = 48;
+      for (let i = 0; i <= steps; i++) {
+        const ft = bStartFt + (bEndFt - bStartFt) * (i / steps);
+        samples.push([x0 + ft * scale, waterY + depthAtX(ft) * scale]);
+      }
+      // Only render bench cross-section where floor is BELOW the bench top
+      // (i.e. bench top is above the floor — clip out segments where floor rises above bench top)
+      const pts = [[bxS, by]];
+      samples.forEach(([px, py]) => pts.push([px, Math.max(py, by)]));
+      pts.push([bxE, by]);
+
+      // fill
+      el('path', {
+        d: wobbleClosed(pts, 0.25, 9001),
+        fill: '#d9c6a0', 'fill-opacity': 0.75,
+      }, svg);
+      // hatching inside bench
+      const bh = el('g', { opacity: 0.5 }, svg);
+      const hatchStep = 8;
+      for (let x = bxS; x <= bxE; x += hatchStep) {
+        const floorY = samples.find(s => Math.abs(s[0] - x) < hatchStep/2)?.[1] ?? by + 30;
+        const bottomY = Math.max(floorY, by);
+        el('line', { x1: x, y1: by, x2: x + 6, y2: bottomY, class:'ink-faint','stroke-width':0.5 }, bh);
+      }
+      // top outline (the sitting surface)
+      el('path', { d: wobble([[bxS, by],[bxE, by]], 0.25, 9101), stroke:'var(--ink)', fill:'none', 'stroke-width':1.5 }, svg);
+      // front vertical edges (where bench meets the pool volume, if floor is deeper than bench)
+      const leftFloorY = samples[0][1];
+      const rightFloorY = samples[samples.length-1][1];
+      if (leftFloorY > by + 2) {
+        el('line', { x1: bxS, y1: by, x2: bxS, y2: leftFloorY, stroke:'var(--ink)', 'stroke-width':1.2, 'stroke-dasharray':'3 3' }, svg);
+      }
+      if (rightFloorY > by + 2) {
+        el('line', { x1: bxE, y1: by, x2: bxE, y2: rightFloorY, stroke:'var(--ink)', 'stroke-width':1.2, 'stroke-dasharray':'3 3' }, svg);
+      }
+      const bt = el('text', { x: (bxS+bxE)/2, y: by - 5, class:'label', 'text-anchor':'middle' }, svg);
+      bt.textContent = `BENCH ${state.bench.depthIn}"`;
+    }
+
+    // Depth callouts at each section floor
+    {
+      let ax = 0;
+      state.sections.forEach((s, i) => {
+        const midX = x0 + (ax + s.length / 2) * scale;
+        const d = s.depthIn / 12;
+        const fy = waterY + d * scale;
+        // callout tick down from floor
+        el('line', { x1: midX, y1: fy, x2: midX, y2: fy + 18, class:'ink-faint', 'stroke-width':0.7, 'stroke-dasharray':'2 3' }, svg);
+        const t = el('text', { x: midX, y: fy + 32, class:'dim-text','text-anchor':'middle' }, svg);
+        t.textContent = fmtIn(s.depthIn);
+        ax += s.length;
+      });
+    }
+
+    // === Desired length overlay (on cross-section) ===
+    if (Math.abs(L - desired) > 0.05) {
+      const short = L < desired;
+      const hatchColor = short ? '#b4532a' : '#8a5a9a';
+      const hatchLabel = short ? `SHORT BY ${fmt1(desired - L)}'` : `LONG BY ${fmt1(L - desired)}'`;
+      const hx0 = short ? poolX1 : desiredX1;
+      const hx1 = short ? desiredX1 : poolX1;
+      const patternId = short ? 'hatch_short_sec' : 'hatch_long_sec';
+      const defs = el('defs', {}, svg);
+      const pattern = el('pattern', {
+        id: patternId, patternUnits: 'userSpaceOnUse',
+        width: 8, height: 8, patternTransform: 'rotate(45)'
+      }, defs);
+      el('rect', { width: 8, height: 8, fill: hatchColor, 'fill-opacity': 0.14 }, pattern);
+      el('line', { x1: 0, y1: 0, x2: 0, y2: 8, stroke: hatchColor, 'stroke-width': 1.2, 'stroke-opacity': 0.75 }, pattern);
+      // overlay spans from deck down to deepest floor area so it's obvious
+      const overlayH = (waterY + maxD * scale) - deckY;
+      el('rect', { x: hx0, y: deckY, width: hx1 - hx0, height: overlayH, fill: `url(#${patternId})` }, svg);
+      el('path', {
+        d: wobbleClosed([[hx0, deckY],[hx1, deckY],[hx1, deckY + overlayH],[hx0, deckY + overlayH]], 0.4, 88),
+        stroke: hatchColor, 'stroke-width': 1.4, fill: 'none', 'stroke-dasharray': '5 4',
+      }, svg);
+      const lblT = el('text', {
+        x: (hx0 + hx1) / 2, y: deckY + overlayH / 2,
+        class: 'label', 'text-anchor': 'middle',
+        fill: hatchColor,
+        style: 'font-size:13px;letter-spacing:2px;font-weight:600',
+      }, svg);
+      lblT.textContent = hatchLabel;
+    }
+    // Desired-length reference line (always)
+    {
+      const desY = maxFloorY + 22;
+      el('line', { x1: xStart, y1: desY, x2: desiredX1, y2: desY, stroke:'var(--ink-soft)', 'stroke-width':1, 'stroke-dasharray':'3 4' }, svg);
+      const tickH = 6;
+      el('line', { x1: xStart, y1: desY - tickH, x2: xStart, y2: desY + tickH, class:'ink-soft', 'stroke-width':1 }, svg);
+      el('line', { x1: desiredX1, y1: desY - tickH, x2: desiredX1, y2: desY + tickH, class:'ink-soft', 'stroke-width':1 }, svg);
+      const tt = el('text', { x: (xStart + desiredX1)/2, y: desY - 4, class:'label', 'text-anchor':'middle' }, svg);
+      tt.textContent = `DESIRED ${fmtFt(desired)}`;
+    }
+
+    // A–A labels + overall length dim
+    const la = el('text', { x: x0 - 50, y: deckY - 18, class:'dim-text' }, svg); la.textContent = 'A';
+    const lb = el('text', { x: x0 + pxW + 30, y: deckY - 18, class:'dim-text' }, svg); lb.textContent = 'A';
+
+    // overall length dim (below the desired reference)
+    const bottomY = maxFloorY + 50;
+    dimLine(svg, x0, bottomY, x0 + pxW, bottomY, fmtFt(L) + ' actual', { offset: 0, side: 1, textOffset: 14 });
+
+    // deck-to-water callout (7")
+    dimLine(svg, x0 - 40, deckY, x0 - 40, waterY, `${state.copingRiseIn}"`, { offset: 0, side: -1, textOffset: -14, vertical: true });
+
+    // legend
+    const lg = el('g', { transform: `translate(${x0}, ${deckY - 38})` }, svg);
+    const lt = el('text', { x: 0, y: 0, class:'label' }, lg);
+    lt.textContent = `FINISHED DECK · ${state.copingRiseIn}" above water`;
+  }
+
+  // ============== AXONOMETRIC (isometric-ish, clean) ==============
+  // Use a true isometric projection: 30° x-axis and 30° y-axis. Render only the pool shell + floor, no fills to keep it legible.
+  function renderIso() {
+    const svg = $('svg_iso');
+    clear(svg);
+    const VBW = 700, VBH = 440;
+    const L = totalLength(), W = state.width;
+    if (L <= 0) return;
+    const maxD = maxDepthIn() / 12;
+
+    // isometric projection: axes at 30° from horizontal
+    const angX = 30 * Math.PI / 180;  // along length
+    const angY = 30 * Math.PI / 180;  // along width (depth into page)
+    const project = (x, y, z) => {
+      // x: length (0..L), y: width (0..W), z: down (+ goes down)
+      const px = (x - y) * Math.cos(angX);
+      const py = (x + y) * Math.sin(angX) + z;
+      return [px, py];
+    };
+
+    // Autofit
+    const corners = [];
+    for (const [x,y,z] of [
+      [0,0,0],[L,0,0],[L,W,0],[0,W,0],
+      [0,0,maxD],[L,0,maxD],[L,W,maxD],[0,W,maxD],
+    ]) corners.push(project(x,y,z));
+    const xs = corners.map(c=>c[0]), ys = corners.map(c=>c[1]);
+    const minX = Math.min(...xs), maxX = Math.max(...xs);
+    const minY = Math.min(...ys), maxY = Math.max(...ys);
+    const pad = 50;
+    const scale = Math.min((VBW - pad*2) / (maxX - minX), (VBH - pad*2) / (maxY - minY));
+    const ox = pad - minX * scale;
+    const oy = pad - minY * scale;
+    const P = (x,y,z) => {
+      const [a,b] = project(x,y,z);
+      return [a*scale + ox, b*scale + oy];
+    };
+
+    // Rim (top opening)
+    const rim = [P(0,0,0), P(L,0,0), P(L,W,0), P(0,W,0)];
+    // Floor profile polyline on near wall (y=0) and far wall (y=W)
+    const nearFloor = [], farFloor = [];
+    let accX = 0;
+    let prevDepth = null;
+    state.sections.forEach((s, i) => {
+      const startX = accX, endX = accX + s.length;
+      const dFt = s.depthIn / 12;
+      if (s.type === 'flat') {
+        if (prevDepth != null && Math.abs(prevDepth - s.depthIn) > 1e-6) {
+          nearFloor.push(P(startX, 0, prevDepth/12));
+          nearFloor.push(P(startX, 0, dFt));
+          farFloor.push(P(startX, W, prevDepth/12));
+          farFloor.push(P(startX, W, dFt));
+        } else if (prevDepth == null) {
+          nearFloor.push(P(startX, 0, dFt));
+          farFloor.push(P(startX, W, dFt));
+        }
+        nearFloor.push(P(endX, 0, dFt));
+        farFloor.push(P(endX, W, dFt));
+      } else {
+        const prevFt = (prevDepth != null ? prevDepth : s.depthIn) / 12;
+        if (nearFloor.length === 0) {
+          nearFloor.push(P(startX, 0, prevFt));
+          farFloor.push(P(startX, W, prevFt));
+        }
+        nearFloor.push(P(endX, 0, dFt));
+        farFloor.push(P(endX, W, dFt));
+      }
+      prevDepth = s.depthIn;
+      accX += s.length;
+    });
+
+    // draw water surface (translucent quad at z=0)
+    if (state.showWater) {
+      el('path', { d: wobbleClosed(rim, 0.4, 201), fill: state.tweaks.waterColor, 'fill-opacity': 0.22, stroke:'none' }, svg);
+    }
+
+    // floor polygon (near floor + reverse far floor)
+    const floorPoly = [...nearFloor, ...farFloor.slice().reverse()];
+    el('path', { d: wobbleClosed(floorPoly, 0.3, 301), fill:'#e6d5b3', 'fill-opacity': 0.55, stroke: 'none' }, svg);
+
+    // ribs across floor at each section boundary
+    {
+      let ax = 0;
+      state.sections.forEach((s, i) => {
+        const x = ax;
+        // near wall point on floor at this boundary
+        const dFt = (i > 0 ? state.sections[i-1].depthIn : s.depthIn) / 12;
+        const dFt2 = s.depthIn / 12;
+        const yNearTop = P(x, 0, dFt);
+        const yFarTop = P(x, W, dFt);
+        if (Math.abs(dFt - dFt2) > 1e-6 && s.type === 'flat') {
+          // riser lines front & back
+          el('path', { d: wobble([P(x,0,dFt), P(x,0,dFt2)], 0.3, 410+i), class:'ink', 'stroke-width':1.1 }, svg);
+          el('path', { d: wobble([P(x,W,dFt), P(x,W,dFt2)], 0.3, 420+i), class:'ink', 'stroke-width':1.1 }, svg);
+          // floor seams
+          el('path', { d: wobble([P(x,0,dFt2), P(x,W,dFt2)], 0.3, 430+i), class:'ink-soft', 'stroke-width':0.9 }, svg);
+        }
+        ax += s.length;
+      });
+    }
+
+    // Near side wall: rim at y=0 down to floor profile at y=0
+    const nearWallPoly = [
+      rim[0],              // (0,0,0)
+      ...nearFloor,
+      rim[1],              // (L,0,0)
+    ];
+    el('path', { d: wobbleClosed(nearWallPoly, 0.3, 501), fill:'rgba(255,255,255,0.18)', class:'ink', 'stroke-width':1.3 }, svg);
+
+    // Left end wall (x=0): rim y=0→W at z=0, then floor at x=0 across width
+    const leftDepth = state.sections[0].depthIn / 12;
+    const leftEndPoly = [
+      P(0,0,0), P(0,W,0), P(0,W,leftDepth), P(0,0,leftDepth)
+    ];
+    el('path', { d: wobbleClosed(leftEndPoly, 0.3, 601), fill:'rgba(255,255,255,0.15)', class:'ink', 'stroke-width':1.2 }, svg);
+
+    // Right end wall (x=L): deep wall
+    const rightDepth = state.sections[state.sections.length-1].depthIn / 12;
+    const rightEndPoly = [
+      P(L,0,0), P(L,W,0), P(L,W,rightDepth), P(L,0,rightDepth)
+    ];
+    el('path', { d: wobbleClosed(rightEndPoly, 0.3, 602), fill:'rgba(255,255,255,0.15)', class:'ink', 'stroke-width':1.2 }, svg);
+
+    // Far wall (less visible - dotted)
+    el('path', { d: wobble([rim[2], rim[3]], 0.3, 701), class:'ink-soft', 'stroke-width':1, 'stroke-dasharray':'4 4' }, svg);
+    el('path', { d: wobble(farFloor, 0.3, 702), class:'ink-soft', 'stroke-width':1, 'stroke-dasharray':'4 4' }, svg);
+
+    // Top rim on top of everything
+    el('path', { d: wobbleClosed(rim, 0.5, 801), class:'ink', 'stroke-width': 2, fill:'none' }, svg);
+
+    // (section labels removed on iso view — labeled on plan instead)
+
+    // Bench on iso
+    if (state.bench.on) {
+      const b = state.bench;
+      const benchD = b.depthIn / 12;
+      const w = b.widthFt;
+      const bStartFt = Math.min(b.startFt, b.endFt);
+      const bEndFt = Math.max(b.startFt, b.endFt);
+      const sides = b.side === 'both' ? ['near','far'] : [b.side];
+      sides.forEach((side, i) => {
+        const yNear = side === 'near' ? 0 : W - w;
+        const yFar = side === 'near' ? w : W;
+        // sample floor along bench range
+        const steps = 24;
+        const topNear = [];
+        const topFar = [];
+        const floorNear = [];
+        const floorFar = [];
+        for (let k = 0; k <= steps; k++) {
+          const xFt = bStartFt + (bEndFt - bStartFt) * (k / steps);
+          const floorFt = depthAtX(xFt);
+          topNear.push(P(xFt, yNear, benchD));
+          topFar.push(P(xFt, yFar, benchD));
+          floorNear.push(P(xFt, yNear, Math.max(benchD, floorFt)));
+          floorFar.push(P(xFt, yFar, Math.max(benchD, floorFt)));
+        }
+        // Top surface (horizontal slab at bench depth)
+        const topPoly = [...topNear, ...topFar.slice().reverse()];
+        el('path', { d: wobbleClosed(topPoly, 0.3, 900+i*10), fill:'#d9c6a0', 'fill-opacity':0.75, class:'ink', 'stroke-width':1 }, svg);
+        // Front face (the wall facing into the pool — along yFar for near-side bench)
+        const frontFace = [
+          ...topFar,                      // top edge
+          ...floorFar.slice().reverse(),  // floor edge
+        ];
+        el('path', { d: wobbleClosed(frontFace, 0.3, 910+i*10), fill:'#c9b68a', 'fill-opacity':0.75, class:'ink', 'stroke-width':1 }, svg);
+        // End caps
+        const leftCap = [topNear[0], topFar[0], floorFar[0], floorNear[0]];
+        const rightCap = [topNear[steps], topFar[steps], floorFar[steps], floorNear[steps]];
+        el('path', { d: wobbleClosed(leftCap, 0.3, 920+i*10), fill:'#c9b68a', 'fill-opacity':0.65, class:'ink', 'stroke-width':1 }, svg);
+        el('path', { d: wobbleClosed(rightCap, 0.3, 921+i*10), fill:'#c9b68a', 'fill-opacity':0.65, class:'ink', 'stroke-width':1 }, svg);
+      });
+    }
+  }
+
+  // ============== STATS + TITLE BLOCK ==============
+  function renderStats() {
+    const s = computeStats();
+    $('s_area').innerHTML = `${fmtInt(s.area)}<small>ft²</small>`;
+    $('s_peri').innerHTML = `${fmt1(s.peri)}<small>ft</small>`;
+    $('s_vol').innerHTML = `${fmtInt(s.gallons)}<small>gal</small>`;
+    $('s_avg').innerHTML = `${fmt1(s.avg)}<small>ft</small>`;
+    const pname = state.tweaks.projectName || 'Pool A';
+    $('tb_title').textContent = `${pname} · ${state.sections.length} sections · ${fmtFt(totalLength())} × ${fmtFt(state.width)}`;
+    $('tb_date').textContent = new Date().toLocaleDateString('en-US',{year:'numeric',month:'short',day:'2-digit'}).toUpperCase();
+    $('tb_scale').textContent = `1:${Math.max(20, Math.round(totalLength()*2))}`;
+    // Desired vs actual
+    const actual = totalLength();
+    const desired = state.desiredLength;
+    const diff = actual - desired;
+    const actEl = $('actual_len');
+    if (actEl) actEl.textContent = fmt1(actual);
+    const diffEl = $('len_diff');
+    if (diffEl) {
+      if (Math.abs(diff) < 0.05) {
+        diffEl.textContent = 'ON TARGET';
+        diffEl.style.color = '#3a7a3a';
+      } else if (diff < 0) {
+        diffEl.textContent = `SHORT BY ${fmt1(-diff)} FT`;
+        diffEl.style.color = '#b4532a';
+      } else {
+        diffEl.textContent = `LONG BY ${fmt1(diff)} FT`;
+        diffEl.style.color = '#8a5a9a';
+      }
+    }
+  }
+
+  // ============== SECTION EDITOR UI ==============
+  const PRESETS = [
+    { name: 'Entry',   type: 'flat',  depthIn: 4,   length: 2 },
+    { name: 'Step',    type: 'flat',  depthIn: 15,  length: 1.5 },
+    { name: 'Baja',    type: 'flat',  depthIn: 10,  length: 5 },
+    { name: 'Stairs',  type: 'slope', depthIn: 42,  length: 3 },
+    { name: 'Shallow', type: 'flat',  depthIn: 42,  length: 10 },
+    { name: 'Slope',   type: 'slope', depthIn: 72,  length: 6 },
+    { name: 'Deep',    type: 'flat',  depthIn: 96,  length: 10 },
+    { name: 'Custom',  type: 'flat',  depthIn: 36,  length: 4 },
+  ];
+
+  function renderSectionEditor() {
+    const host = $('sections_list');
+    host.innerHTML = '';
+    state.sections.forEach((s, i) => {
+      const row = document.createElement('div');
+      row.className = 'sec-row';
+      row.dataset.id = s.id;
+      row.innerHTML = `
+        <div class="sec-head">
+          <button class="sec-move" data-act="up" title="Up">↑</button>
+          <button class="sec-move" data-act="down" title="Down">↓</button>
+          <input class="sec-name" type="text" value="${s.name}" />
+          <button class="sec-del" title="Remove">✕</button>
+        </div>
+        <div class="sec-body">
+          <div class="sec-seg">
+            <button data-type="flat" class="${s.type==='flat'?'on':''}">Flat</button>
+            <button data-type="slope" class="${s.type==='slope'?'on':''}">Sloped</button>
+          </div>
+          <div class="sec-inputs">
+            <label>Depth
+              <span class="num"><input type="number" class="sec-depth" min="0" max="144" step="0.5" value="${s.depthIn}"/><em>in</em></span>
+            </label>
+            <label>Length
+              <span class="num"><input type="number" class="sec-len" min="0.25" max="60" step="0.25" value="${s.length}"/><em>ft</em></span>
+            </label>
+          </div>
+        </div>`;
+      host.appendChild(row);
+      // events
+      row.querySelector('.sec-name').addEventListener('input', e => { s.name = e.target.value; scheduleRender(); });
+      row.querySelector('.sec-depth').addEventListener('input', e => { s.depthIn = +e.target.value; scheduleRender(); });
+      row.querySelector('.sec-len').addEventListener('input', e => { s.length = +e.target.value; scheduleRender(); });
+      row.querySelectorAll('.sec-seg button').forEach(b => {
+        b.addEventListener('click', () => {
+          s.type = b.dataset.type;
+          renderSectionEditor();
+          scheduleRender();
+        });
+      });
+      row.querySelector('.sec-del').addEventListener('click', () => {
+        state.sections.splice(i, 1);
+        renderSectionEditor();
+        scheduleRender();
+      });
+      row.querySelectorAll('.sec-move').forEach(b => {
+        b.addEventListener('click', () => {
+          const dir = b.dataset.act === 'up' ? -1 : 1;
+          const j = i + dir;
+          if (j < 0 || j >= state.sections.length) return;
+          const tmp = state.sections[i];
+          state.sections[i] = state.sections[j];
+          state.sections[j] = tmp;
+          renderSectionEditor();
+          scheduleRender();
+        });
+      });
+    });
+  }
+
+  function addSectionFromPreset(name) {
+    const p = PRESETS.find(x => x.name === name);
+    if (!p) return;
+    state.sections.push({ id: nextId++, ...p });
+    renderSectionEditor();
+    scheduleRender();
+  }
+
+  // ============== RENDER LOOP ==============
+  let raf = 0;
+  function scheduleRender() {
+    if (raf) return;
+    const run = () => {
+      raf = 0;
+      try { renderTop(); } catch (e) { console.error('renderTop failed:', e); }
+      try { renderIso(); } catch (e) { console.error('renderIso failed:', e); }
+      try { renderSection(); } catch (e) { console.error('renderSection failed:', e); }
+      try { renderStats(); } catch (e) { console.error('renderStats failed:', e); }
+    };
+    // use setTimeout — rAF is throttled when iframe not focused
+    raf = setTimeout(run, 16);
+  }
+
+  // ============== WIRING ==============
+  function linkPair(numId, rangeId, onChange) {
+    const n = $(numId), r = $(rangeId);
+    const upd = (val) => { n.value = val; r.value = val; onChange(+val); scheduleRender(); };
+    n.addEventListener('input', e => upd(e.target.value));
+    r.addEventListener('input', e => upd(e.target.value));
+  }
+
+  linkPair('width','width_r', v => state.width = v);
+  linkPair('coping_rise','coping_rise_r', v => state.copingRiseIn = v);
+  linkPair('desired_len','desired_len_r', v => state.desiredLength = v);
+
+  // Bench inputs
+  linkPair('bench_depth','bench_depth_r', v => state.bench.depthIn = v);
+  linkPair('bench_w','bench_w_r', v => state.bench.widthFt = v);
+  linkPair('bench_start','bench_start_r', v => state.bench.startFt = v);
+  linkPair('bench_end','bench_end_r', v => state.bench.endFt = v);
+
+  $('bench_toggle').addEventListener('click', () => {
+    state.bench.on = !state.bench.on;
+    $('bench_toggle').classList.toggle('on', state.bench.on);
+    scheduleRender();
+  });
+  document.querySelectorAll('#bench_side_seg button').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('#bench_side_seg button').forEach(x => x.classList.remove('on'));
+      b.classList.add('on');
+      state.bench.side = b.dataset.v;
+      scheduleRender();
+    });
+  });
+
+  $('water_toggle').addEventListener('click', () => {
+    state.showWater = !state.showWater;
+    $('water_toggle').classList.toggle('on', state.showWater);
+    scheduleRender();
+  });
+
+  // Section preset buttons
+  document.querySelectorAll('#section_presets button').forEach(b => {
+    b.addEventListener('click', () => addSectionFromPreset(b.dataset.name));
+  });
+  $('reset_sections').addEventListener('click', () => {
+    state.sections = DEFAULT_SECTIONS.map(s => ({...s, id: nextId++}));
+    renderSectionEditor();
+    scheduleRender();
+  });
+  $('clear_sections').addEventListener('click', () => {
+    state.sections = [];
+    renderSectionEditor();
+    scheduleRender();
+  });
+
+  // ============== TWEAKS ==============
+  const tweaksPanel = $('tweaks');
+  const PAPER_TONES = {
+    bright: { paper:'#fffbf0', paper2:'#fbf4de' },
+    light:  { paper:'#fbf6e6', paper2:'#f4ead1' },
+    warm:   { paper:'#f1e7cf', paper2:'#e9dcc0' },
+  };
+  function applyTweaksToUI() {
+    document.documentElement.style.setProperty('--water', state.tweaks.waterColor);
+    document.documentElement.style.setProperty('--accent', state.tweaks.accentColor);
+    const tone = PAPER_TONES[state.tweaks.paperTone] || PAPER_TONES.light;
+    document.documentElement.style.setProperty('--paper', tone.paper);
+    document.documentElement.style.setProperty('--paper-2', tone.paper2);
+    $('tw_water').value = state.tweaks.waterColor;
+    $('tw_accent').value = state.tweaks.accentColor;
+    $('tw_grid').classList.toggle('on', state.tweaks.showGrid);
+    $('tw_dims').classList.toggle('on', state.tweaks.showDims);
+    $('tw_wobble').classList.toggle('on', state.tweaks.wobble);
+    if ($('tw_project')) $('tw_project').value = state.tweaks.projectName || 'Pool A';
+    if ($('project_name')) $('project_name').value = state.tweaks.projectName || 'Pool A';
+    document.querySelectorAll('#tw_paper button').forEach(b => {
+      b.classList.toggle('on', b.dataset.v === state.tweaks.paperTone);
+    });
+    scheduleRender();
+  }
+  function persist(edits) {
+    window.parent.postMessage({ type:'__edit_mode_set_keys', edits }, '*');
+  }
+  $('tw_water').addEventListener('input', e => { state.tweaks.waterColor = e.target.value; persist({ waterColor: e.target.value }); applyTweaksToUI(); });
+  $('tw_accent').addEventListener('input', e => { state.tweaks.accentColor = e.target.value; persist({ accentColor: e.target.value }); applyTweaksToUI(); });
+  $('tw_grid').addEventListener('click', () => { state.tweaks.showGrid = !state.tweaks.showGrid; persist({ showGrid: state.tweaks.showGrid }); applyTweaksToUI(); });
+  $('tw_dims').addEventListener('click', () => { state.tweaks.showDims = !state.tweaks.showDims; persist({ showDims: state.tweaks.showDims }); applyTweaksToUI(); });
+  $('tw_wobble').addEventListener('click', () => { state.tweaks.wobble = !state.tweaks.wobble; persist({ wobble: state.tweaks.wobble }); applyTweaksToUI(); });
+
+  function setProjectName(v) {
+    state.tweaks.projectName = v;
+    persist({ projectName: v });
+    if ($('tw_project') && $('tw_project').value !== v) $('tw_project').value = v;
+    if ($('project_name') && $('project_name').value !== v) $('project_name').value = v;
+    scheduleRender();
+  }
+  if ($('project_name')) $('project_name').addEventListener('input', e => setProjectName(e.target.value));
+  if ($('tw_project')) $('tw_project').addEventListener('input', e => setProjectName(e.target.value));
+
+  document.querySelectorAll('#tw_paper button').forEach(b => {
+    b.addEventListener('click', () => {
+      state.tweaks.paperTone = b.dataset.v;
+      persist({ paperTone: b.dataset.v });
+      applyTweaksToUI();
+    });
+  });
+
+  window.addEventListener('message', (e) => {
+    const m = e.data;
+    if (!m || !m.type) return;
+    if (m.type === '__activate_edit_mode') tweaksPanel.classList.add('show');
+    if (m.type === '__deactivate_edit_mode') tweaksPanel.classList.remove('show');
+  });
+  window.parent.postMessage({ type:'__edit_mode_available' }, '*');
+
+  // Tweaks slide handle — default closed
+  const handle = $('tweaks_handle');
+  if (handle) {
+    handle.addEventListener('click', () => {
+      tweaksPanel.classList.toggle('open');
+      handle.textContent = tweaksPanel.classList.contains('open') ? '›  CLOSE' : 'TWEAKS  ‹';
+    });
+    handle.textContent = 'TWEAKS  ‹';
+  }
+
+  // seed ids on defaults
+  state.sections.forEach(s => { if (!s.id) s.id = nextId++; });
+
+  renderSectionEditor();
+  applyTweaksToUI();
+  scheduleRender();
+  window.addEventListener('resize', scheduleRender);
+
+  // ============== EXPORT ==============
+  function setStatus(msg) { const el = $('ex_status'); if (el) el.textContent = msg || ''; }
+
+  // Serialize an SVG element to a blob URL, baking the current paper background + fonts in.
+  function svgToCanvas(svgId, scaleFactor = 2, opts = {}) {
+    return new Promise((resolve, reject) => {
+      const src = document.getElementById(svgId);
+      if (!src) return reject(new Error('no svg ' + svgId));
+      // Clone so we don't mutate the live DOM
+      const clone = src.cloneNode(true);
+      const vb = (src.getAttribute('viewBox') || '0 0 700 440').split(/\s+/).map(Number);
+      const [vx, vy, vw, vh] = vb;
+      // Resolve CSS variables to literal hex so the rasterizer has no ambient styles
+      const cs = getComputedStyle(document.documentElement);
+      const paper = cs.getPropertyValue('--paper').trim() || '#fbf6e6';
+      const ink = cs.getPropertyValue('--ink').trim() || '#2a231c';
+      const inkSoft = cs.getPropertyValue('--ink-soft').trim() || '#6b5c4d';
+      const inkFaint = cs.getPropertyValue('--ink-faint').trim() || '#a8967d';
+      // Embed styles — use clean web-safe fonts (Google Fonts don't load in isolated SVG raster)
+      const defs = document.createElementNS('http://www.w3.org/2000/svg','defs');
+      const style = document.createElementNS('http://www.w3.org/2000/svg','style');
+      style.textContent = `
+        .ink{stroke:${ink};fill:none;stroke-linejoin:round;stroke-linecap:round}
+        .ink-soft{stroke:${inkSoft};fill:none;stroke-linejoin:round;stroke-linecap:round}
+        .ink-faint{stroke:${inkFaint};fill:none;stroke-linejoin:round;stroke-linecap:round}
+        text{font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;}
+        .dim-text{font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;fill:${ink};font-size:15px;font-weight:600}
+        .dim-num{font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;fill:${ink};font-size:11px;font-weight:500}
+        .label{font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;fill:${inkSoft};font-size:10px;letter-spacing:1.2px;font-weight:500}
+      `;
+      defs.appendChild(style);
+      clone.insertBefore(defs, clone.firstChild);
+      clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+      clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+      clone.setAttribute('width', vw);
+      clone.setAttribute('height', vh);
+      // strip inline font-family styles so our <style> rules win
+      clone.querySelectorAll('text[style]').forEach(t => {
+        const s = t.getAttribute('style') || '';
+        t.setAttribute('style', s.replace(/font-family\s*:[^;]+;?/gi, ''));
+      });
+      const xml = new XMLSerializer().serializeToString(clone);
+      const blob = new Blob(
+        ['<?xml version="1.0" encoding="UTF-8"?>', xml],
+        { type: 'image/svg+xml;charset=utf-8' }
+      );
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      img.onload = async () => {
+        const W = Math.max(1, Math.round(vw * scaleFactor));
+        const H = Math.max(1, Math.round(vh * scaleFactor));
+        const canvas = document.createElement('canvas');
+        canvas.width = W; canvas.height = H;
+        const ctx = canvas.getContext('2d');
+        // paper background
+        ctx.fillStyle = paper;
+        ctx.fillRect(0, 0, W, H);
+        ctx.drawImage(img, 0, 0, W, H);
+        URL.revokeObjectURL(url);
+        // Watermark logo (bottom-right), muted
+        if (opts.watermark) {
+          try {
+            const logoImg = document.querySelector('.brand img');
+            if (logoImg && logoImg.complete && logoImg.naturalWidth) {
+              const targetW = Math.min(W * 0.12, 180);
+              const ratio = logoImg.naturalHeight / logoImg.naturalWidth;
+              const targetH = targetW * ratio;
+              ctx.save();
+              ctx.globalAlpha = 0.35;
+              ctx.drawImage(
+                logoImg,
+                W - targetW - 16,
+                H - targetH - 10,
+                targetW, targetH
+              );
+              ctx.restore();
+            }
+          } catch (e) { /* ignore */ }
+        }
+        resolve({ canvas, vw, vh });
+      };
+      img.onerror = (e) => { URL.revokeObjectURL(url); reject(e); };
+      img.src = url;
+    });
+  }
+
+  function downloadBlob(blob, filename) {
+    const a = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  function canvasToBlob(canvas, type = 'image/png', q) {
+    return new Promise(res => canvas.toBlob(res, type, q));
+  }
+
+  function slugify(s) {
+    return (s || 'pool').toString().trim().toLowerCase()
+      .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'') || 'pool';
+  }
+  function dateStr() {
+    const d = new Date();
+    const pad = n => String(n).padStart(2,'0');
+    return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}`;
+  }
+
+  async function exportPNG(svgId, label) {
+    try {
+      setStatus('Rendering ' + label + '…');
+      const { canvas } = await svgToCanvas(svgId, 3, { watermark: true });
+      const blob = await canvasToBlob(canvas, 'image/png');
+      const name = `${slugify(state.tweaks.projectName)}-${label}-${dateStr()}.png`;
+      downloadBlob(blob, name);
+      setStatus('Saved ' + name);
+    } catch (e) {
+      console.error(e); setStatus('Export failed');
+    }
+  }
+
+  // Load jsPDF on demand
+  let _jspdf;
+  function loadJsPDF() {
+    if (_jspdf) return Promise.resolve(_jspdf);
+    if (window.jspdf) { _jspdf = window.jspdf; return Promise.resolve(_jspdf); }
+    // Try multiple CDNs in case one is blocked
+    const urls = [
+      'https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js',
+      'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js',
+      'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+    ];
+    return urls.reduce((p, url) => p.catch(() => new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = url;
+      s.onload = () => {
+        if (window.jspdf) { _jspdf = window.jspdf; res(_jspdf); }
+        else rej(new Error('jsPDF loaded but global missing'));
+      };
+      s.onerror = () => rej(new Error('Failed to load ' + url));
+      document.head.appendChild(s);
+    })), Promise.reject(new Error('init')));
+  }
+
+  // Compose a "sheet" canvas with header + three views + footer
+  async function composeSheetCanvas() {
+    const cs = getComputedStyle(document.documentElement);
+    const paper = cs.getPropertyValue('--paper').trim() || '#fbf6e6';
+    const ink = cs.getPropertyValue('--ink').trim() || '#2a231c';
+    const inkSoft = cs.getPropertyValue('--ink-soft').trim() || '#6b5c4d';
+
+    // Letter landscape @ 150 DPI → 1650 x 1275 px
+    const W = 1650, H = 1275;
+    const canvas = document.createElement('canvas');
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = paper;
+    ctx.fillRect(0, 0, W, H);
+
+    const M = 48;
+    const HEADER_H = 130;
+
+    // === HEADER ===
+    // Logo (left)
+    const logoImg = document.querySelector('.brand img');
+    let logoW = 0, logoH = 0;
+    if (logoImg && logoImg.complete && logoImg.naturalWidth) {
+      const ratio = logoImg.naturalHeight / logoImg.naturalWidth;
+      logoW = 220; logoH = logoW * ratio;
+      ctx.drawImage(logoImg, M, M, logoW, logoH);
+    }
+
+    // Title
+    const pname = state.tweaks.projectName || 'Pool A';
+    ctx.fillStyle = ink;
+    ctx.textBaseline = 'alphabetic';
+    ctx.font = 'bold 42px "Helvetica Neue", Helvetica, Arial, sans-serif';
+    ctx.fillText(pname, M + logoW + 28, M + 42);
+    ctx.font = '500 15px "Helvetica Neue", Helvetica, Arial, sans-serif';
+    ctx.fillStyle = inkSoft;
+    ctx.fillText('POOL INTERIOR · DESIGN SHEET', M + logoW + 28, M + 64);
+
+    // Meta block (right)
+    const L = totalLength(), Wd = state.width, desired = state.desiredLength;
+    const stats = computeStats();
+    const date = new Date().toLocaleDateString('en-US',{year:'numeric',month:'short',day:'2-digit'}).toUpperCase();
+    const diffStr = (() => {
+      const d = L - desired;
+      if (Math.abs(d) < 0.05) return 'ON TARGET';
+      return d < 0 ? `SHORT BY ${fmt1(-d)} FT` : `LONG BY ${fmt1(d)} FT`;
+    })();
+    const metaLines = [
+      ['DATE', date],
+      ['LENGTH', `${fmt1(L)} FT  (desired ${fmt1(desired)})`],
+      ['WIDTH', `${fmt1(Wd)} FT`],
+      ['SECTIONS', `${state.sections.length}`],
+      ['SURFACE', `${fmtInt(stats.area)} FT²`],
+      ['VOLUME', `${fmtInt(stats.gallons)} GAL`],
+      ['AVG DEPTH', `${fmt1(stats.avg)} FT`],
+      ['STATUS', diffStr],
+    ];
+    const metaX = W - M - 420;
+    ctx.font = '500 13px "Helvetica Neue", Helvetica, Arial, sans-serif';
+    metaLines.forEach((row, i) => {
+      const y = M + 20 + i * 15;
+      ctx.fillStyle = inkSoft;
+      ctx.fillText(row[0], metaX, y);
+      ctx.fillStyle = ink;
+      ctx.fillText(row[1], metaX + 120, y);
+    });
+
+    // Separator
+    ctx.strokeStyle = inkSoft;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    ctx.moveTo(M, M + HEADER_H);
+    ctx.lineTo(W - M, M + HEADER_H);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // === VIEWS ===
+    const [plan, sec, iso] = await Promise.all([
+      svgToCanvas('svg_top', 2.5),
+      svgToCanvas('svg_sec', 2.5),
+      svgToCanvas('svg_iso', 2.5),
+    ]);
+
+    const contentY = M + HEADER_H + 24;
+    const contentH = H - contentY - M - 32;
+    const gutter = 24;
+    const secH = Math.round(contentH * 0.54);
+    const topH = contentH - secH - gutter;
+    const topW = (W - 2*M - gutter) / 2;
+
+    function placeView(srcCanvas, x, y, w, h, title) {
+      ctx.fillStyle = inkSoft;
+      ctx.font = '600 13px "Helvetica Neue", Helvetica, Arial, sans-serif';
+      ctx.fillText(title, x, y + 14);
+      // frame
+      ctx.strokeStyle = ink;
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(x, y + 22, w, h - 22);
+      // fit image
+      const iw = srcCanvas.width, ih = srcCanvas.height;
+      const ar = iw / ih;
+      const availH = h - 22 - 16;
+      const availW = w - 16;
+      let dw = availW, dh = availW / ar;
+      if (dh > availH) { dh = availH; dw = dh * ar; }
+      const dx = x + (w - dw) / 2;
+      const dy = y + 22 + (availH - dh) / 2 + 8;
+      ctx.drawImage(srcCanvas, dx, dy, dw, dh);
+    }
+
+    placeView(plan.canvas, M, contentY, topW, topH, 'PLAN · TOP VIEW');
+    placeView(iso.canvas, M + topW + gutter, contentY, topW, topH, 'ISO · 3/4 VIEW');
+    placeView(sec.canvas, M, contentY + topH + gutter, W - 2*M, secH, 'CROSS-SECTION A–A');
+
+    // Footer
+    ctx.fillStyle = inkSoft;
+    ctx.font = '500 11px "Helvetica Neue", Helvetica, Arial, sans-serif';
+    ctx.fillText('Generated ' + date + ' · Pool Interior Designer', M, H - 18);
+    ctx.textAlign = 'right';
+    ctx.fillText(pname, W - M, H - 18);
+    ctx.textAlign = 'left';
+
+    return canvas;
+  }
+
+  async function exportPDF() {
+    try {
+      setStatus('Composing sheet…');
+      const sheet = await composeSheetCanvas();
+      const pname = state.tweaks.projectName || 'Pool A';
+      const baseName = `${slugify(pname)}-pool-sheet-${dateStr()}`;
+
+      // Try jsPDF first; fall back to PNG if it can't load
+      setStatus('Building PDF…');
+      try {
+        const { jsPDF } = await loadJsPDF();
+        const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' });
+        const PW = pdf.internal.pageSize.getWidth();
+        const PH = pdf.internal.pageSize.getHeight();
+        const data = sheet.toDataURL('image/jpeg', 0.92);
+        pdf.addImage(data, 'JPEG', 0, 0, PW, PH, undefined, 'FAST');
+        pdf.save(baseName + '.pdf');
+        setStatus('Saved ' + baseName + '.pdf');
+      } catch (pdfErr) {
+        console.warn('jsPDF unavailable, saving PNG instead:', pdfErr);
+        setStatus('PDF library blocked — saving PNG instead…');
+        const blob = await canvasToBlob(sheet, 'image/png');
+        downloadBlob(blob, baseName + '.png');
+        setStatus('Saved ' + baseName + '.png (PDF fallback)');
+      }
+    } catch (e) {
+      console.error(e);
+      setStatus('Export failed: ' + (e.message || 'unknown'));
+    }
+  }
+
+  $('ex_png_plan').addEventListener('click', () => exportPNG('svg_top', 'plan'));
+  $('ex_png_sec').addEventListener('click', () => exportPNG('svg_sec', 'section-AA'));
+  $('ex_png_iso').addEventListener('click', () => exportPNG('svg_iso', 'iso'));
+  $('ex_pdf').addEventListener('click', exportPDF);
+})();
+
+</script>
+</body>
+</html>
