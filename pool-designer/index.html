@@ -654,19 +654,29 @@
   const totalLength = () => resolvedSections().reduce((sum, r) => sum + r.length, 0);
   const maxDepthIn = () => state.sections.reduce((m, s) => Math.max(m, s.depthIn || 0), 0);
 
-  // depth in feet at position x (ft along length) — centerline
-  function depthAtX(x) {
+  // depth in feet at position x (ft along length), optionally at a specific y-cut.
+  // Returns STEPPED floor for stair and entry sections so callers (e.g. bench hatching)
+  // don't see smoothed interpolation across steps.
+  function depthAtX(x, yCutFt) {
     const res = resolvedSections();
+    const y = (yCutFt == null) ? state.width / 2 : yCutFt;
     for (let idx = 0; idx < res.length; idx++) {
       const r = res[idx];
       if (x <= r.end + 1e-6) {
         const s = r.s;
         if (s.type === 'flat') return s.depthIn / 12;
         if (s.type === 'entry') {
-          // centerline cut through entry — use entryDepthAt with y=W/2 for stepped floor.
           const nextD = res[idx+1] ? (+res[idx+1].s.depthIn || 0) : (+s.depthIn || 0);
           const xLocal = Math.max(0, Math.min(r.length, x - r.start));
-          return bajaDepthAt(s, xLocal, state.width / 2, r.prevDepth, nextD) / 12;
+          return bajaDepthAt(s, xLocal, y, r.prevDepth, nextD) / 12;
+        }
+        if (s.type === 'stairs') {
+          // stepped: snap x to nearest tread boundary depth.
+          const meta = stairMeta(s, r.prevDepth);
+          const t = r.length > 0 ? (x - r.start) / r.length : 1;
+          const k = Math.min(meta.count, Math.max(1, Math.ceil(t * meta.count)));
+          const d = r.prevDepth + (s.depthIn - r.prevDepth) * (k / meta.count);
+          return d / 12;
         }
         // slope: linear interpolation
         const t = r.length > 0 ? (x - r.start) / r.length : 1;
@@ -1154,14 +1164,15 @@
       }
     });
 
-    // Bench overlay
+    // Bench overlay (plan view)
     if (state.bench.on) {
       const bxS = x0 + state.bench.startFt * scale;
       const bxE = x0 + state.bench.endFt * scale;
       benchYRanges().forEach(([a,b], i) => {
-        const yS = y0 + a * scale, yE = y0 + b * scale;
+        // widthScale (not scale) — y-axis ft→px. Using `scale` here mis-positioned
+        // the bench compared to cross-section's own scaling.
+        const yS = y0 + a * widthScale, yE = y0 + b * widthScale;
         el('rect', { x: bxS, y: yS, width: bxE - bxS, height: yE - yS, fill:'#d9c6a0', 'fill-opacity':0.55 }, svg);
-        // hatched
         const hg = el('g', { opacity: 0.55 }, svg);
         for (let j = 0; j < 14; j++) {
           const rx = bxS + (j/14) * (bxE - bxS);
@@ -1553,12 +1564,13 @@
       const benchDFt = state.bench.depthIn / 12;
       const by = waterY + benchDFt * scale;
 
-      // Dense sample of floor across bench range
+      // Dense sample of floor across bench range — at the CUT y (not centerline),
+      // so the bench's bottom matches the real floor for the bench's actual location.
       const steps = 64;
       const samples = [];
       for (let i = 0; i <= steps; i++) {
         const ft = bStartFt + (bEndFt - bStartFt) * (i / steps);
-        const fd = depthAtX(ft); // feet
+        const fd = depthAtX(ft, cutY); // stepped for stairs/entry
         samples.push({ xFt: ft, px: x0 + ft * scale, floorPy: waterY + fd * scale, deeperThanBench: fd > benchDFt + 0.02 });
       }
 
@@ -1877,6 +1889,36 @@
         const color = depthColor(q.avgD * 12);
         el('path', { d, fill: color, 'fill-opacity': 0.55, stroke: color, 'stroke-width': 0.3 }, svg);
       });
+
+      // First-step overlay: explicit flat quad at fsDepth over the shelf's start area.
+      // The sampled mesh smears the step/shelf transition diagonally; this paints a
+      // sharp-edged tread and outline so the step reads clearly in iso.
+      if (g.fsOn && g.fsLen > 0.05) {
+        const fsD = g.fsDepth / 12;
+        const fsX0 = start + g.shelfX0;
+        const fsX1 = start + g.shelfX0 + g.fsLen;
+        const fsShape = g.fsShape || 'full';
+        const fsColor = depthColor(g.fsDepth);
+        const drawQuad = (pts, filled = true) => {
+          const d = `M${pts.map(p => `${p[0].toFixed(2)},${p[1].toFixed(2)}`).join('L')}Z`;
+          if (filled) el('path', { d, fill: fsColor, 'fill-opacity': 0.85, stroke: 'none' }, svg);
+          el('path', { d: wobbleClosed(pts, 0.25, 720 + i * 7), class: 'ink', 'stroke-width': 1.2, fill: 'none' }, svg);
+        };
+        if (fsShape === 'full') {
+          drawQuad([P(fsX0, g.shelfY0, fsD), P(fsX1, g.shelfY0, fsD), P(fsX1, g.shelfY1, fsD), P(fsX0, g.shelfY1, fsD)]);
+          // Risers (front vertical edge from shelf down to fs depth at shelf's x-end boundary)
+          el('path', { d: wobble([P(fsX1, g.shelfY0, fsD), P(fsX1, g.shelfY0, g.shelfDepth / 12)], 0.2, 725 + i), class: 'ink', 'stroke-width': 1.0 }, svg);
+          el('path', { d: wobble([P(fsX1, g.shelfY1, fsD), P(fsX1, g.shelfY1, g.shelfDepth / 12)], 0.2, 726 + i), class: 'ink-soft', 'stroke-width': 0.8, 'stroke-dasharray': '3 3' }, svg);
+        } else {
+          const triLeg = g.fsLen;
+          if (fsShape === 'tri-near' || fsShape === 'tri-both') {
+            drawQuad([P(fsX0, g.shelfY0, fsD), P(fsX0 + triLeg, g.shelfY0, fsD), P(fsX0, g.shelfY0 + triLeg, fsD)]);
+          }
+          if (fsShape === 'tri-far' || fsShape === 'tri-both') {
+            drawQuad([P(fsX0, g.shelfY1, fsD), P(fsX0 + triLeg, g.shelfY1, fsD), P(fsX0, g.shelfY1 - triLeg, fsD)]);
+          }
+        }
+      }
       // Stair tread outlines — when both stairs on (wrap), draw continuous L tread edges.
       // Otherwise draw width and length tread edges independently.
       const stW = g.stairsW, stL = g.stairsL;
@@ -1907,7 +1949,7 @@
           el('path', { d: wobble([P(xBnd, shOuterYFt, dPrev), P(xBnd, shOuterYFt, d)], 0.2, 850 + k + i*100),
             class:'ink', 'stroke-width':0.9 }, svg);
           el('path', { d: wobble([P(xShelfStart, yBnd, dPrev), P(xShelfStart, yBnd, d)], 0.2, 860 + k + i*100),
-            class:'ink-soft', 'stroke-width':0.7 }, svg);
+            class:'ink-soft', 'stroke-width':0.8, 'stroke-dasharray':'3 3' }, svg);
         }
       } else {
         if (stW) {
@@ -1919,7 +1961,7 @@
             const thisD = (stW.depFromIn + (stW.depToIn - stW.depFromIn) * (k / stW.count)) / 12;
             const x0a = start + stW.x0, x1a = start + stW.x1;
             el('path', { d: wobble([P(x0a, yFt, prevD), P(x0a, yFt, thisD)], 0.2, 830+k+i*100), class:'ink', 'stroke-width':0.9 }, svg);
-            el('path', { d: wobble([P(x1a, yFt, prevD), P(x1a, yFt, thisD)], 0.2, 840+k+i*100), class:'ink-soft', 'stroke-width':0.7 }, svg);
+            el('path', { d: wobble([P(x1a, yFt, prevD), P(x1a, yFt, thisD)], 0.2, 840+k+i*100), class:'ink-soft', 'stroke-width':0.8, 'stroke-dasharray':'3 3' }, svg);
             el('path', { d: wobble([P(x0a, yFt, thisD), P(x1a, yFt, thisD)], 0.2, 850+k+i*100), class:'ink', 'stroke-width':1.0 }, svg);
           }
         }
@@ -1930,7 +1972,7 @@
             const thisD = (stL.depFromIn + (stL.depToIn - stL.depFromIn) * (k / stL.count)) / 12;
             const y0a = stL.y0, y1a = stL.y1;
             el('path', { d: wobble([P(xFt, y0a, prevD), P(xFt, y0a, thisD)], 0.2, 870+k+i*100), class:'ink', 'stroke-width':0.9 }, svg);
-            el('path', { d: wobble([P(xFt, y1a, prevD), P(xFt, y1a, thisD)], 0.2, 880+k+i*100), class:'ink-soft', 'stroke-width':0.7 }, svg);
+            el('path', { d: wobble([P(xFt, y1a, prevD), P(xFt, y1a, thisD)], 0.2, 880+k+i*100), class:'ink-soft', 'stroke-width':0.8, 'stroke-dasharray':'3 3' }, svg);
             el('path', { d: wobble([P(xFt, y0a, thisD), P(xFt, y1a, thisD)], 0.2, 890+k+i*100), class:'ink', 'stroke-width':1.0 }, svg);
           }
         }
@@ -1982,19 +2024,25 @@
     ];
     el('path', { d: wobbleClosed(nearWallPoly, 0.3, 501), fill:'rgba(255,255,255,0.18)', class:'ink', 'stroke-width':1.3 }, svg);
 
-    // Left end wall (x=0): rim y=0→W at z=0, then floor at x=0 across width
+    // Left end wall (x=0): fill with soft tint, outline front edges solid, back edges dashed
     const leftDepth = state.sections[0].depthIn / 12;
-    const leftEndPoly = [
-      P(0,0,0), P(0,W,0), P(0,W,leftDepth), P(0,0,leftDepth)
-    ];
-    el('path', { d: wobbleClosed(leftEndPoly, 0.3, 601), fill:'rgba(255,255,255,0.15)', class:'ink', 'stroke-width':1.2 }, svg);
+    const leftEndPoly = [ P(0,0,0), P(0,W,0), P(0,W,leftDepth), P(0,0,leftDepth) ];
+    el('path', { d: wobbleClosed(leftEndPoly, 0.3, 601), fill:'rgba(255,255,255,0.15)', stroke:'none' }, svg);
+    // Front edges (visible): near top, near side
+    el('path', { d: wobble([P(0,0,0), P(0,0,leftDepth)], 0.3, 611), class:'ink', 'stroke-width':1.2 }, svg);
+    el('path', { d: wobble([P(0,0,leftDepth), P(0,W,leftDepth)], 0.3, 612), class:'ink', 'stroke-width':1.2 }, svg);
+    // Back edges (hidden): top-back, far side — dashed
+    el('path', { d: wobble([P(0,0,0), P(0,W,0)], 0.3, 613), class:'ink-soft', 'stroke-width':1.0, 'stroke-dasharray':'4 3' }, svg);
+    el('path', { d: wobble([P(0,W,0), P(0,W,leftDepth)], 0.3, 614), class:'ink-soft', 'stroke-width':1.0, 'stroke-dasharray':'4 3' }, svg);
 
-    // Right end wall (x=L): deep wall
+    // Right end wall (x=L): same treatment
     const rightDepth = state.sections[state.sections.length-1].depthIn / 12;
-    const rightEndPoly = [
-      P(L,0,0), P(L,W,0), P(L,W,rightDepth), P(L,0,rightDepth)
-    ];
-    el('path', { d: wobbleClosed(rightEndPoly, 0.3, 602), fill:'rgba(255,255,255,0.15)', class:'ink', 'stroke-width':1.2 }, svg);
+    const rightEndPoly = [ P(L,0,0), P(L,W,0), P(L,W,rightDepth), P(L,0,rightDepth) ];
+    el('path', { d: wobbleClosed(rightEndPoly, 0.3, 602), fill:'rgba(255,255,255,0.15)', stroke:'none' }, svg);
+    el('path', { d: wobble([P(L,0,0), P(L,0,rightDepth)], 0.3, 621), class:'ink', 'stroke-width':1.2 }, svg);
+    el('path', { d: wobble([P(L,0,rightDepth), P(L,W,rightDepth)], 0.3, 622), class:'ink', 'stroke-width':1.2 }, svg);
+    el('path', { d: wobble([P(L,0,0), P(L,W,0)], 0.3, 623), class:'ink-soft', 'stroke-width':1.0, 'stroke-dasharray':'4 3' }, svg);
+    el('path', { d: wobble([P(L,W,0), P(L,W,rightDepth)], 0.3, 624), class:'ink-soft', 'stroke-width':1.0, 'stroke-dasharray':'4 3' }, svg);
 
     // Far wall (less visible - dotted)
     el('path', { d: wobble([rim[2], rim[3]], 0.3, 701), class:'ink-soft', 'stroke-width':1, 'stroke-dasharray':'4 4' }, svg);
