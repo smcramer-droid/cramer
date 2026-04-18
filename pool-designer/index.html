@@ -159,6 +159,75 @@
   .sec-inputs .num em{ font-style:normal; font-family:"JetBrains Mono",monospace; font-size:11px; color:var(--ink-soft); }
   .sec-inputs .num input::-webkit-outer-spin-button,
   .sec-inputs .num input::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
+  .sec-inputs{grid-template-columns:1fr 1fr 1fr}
+  .sec-row .sec-inputs:has(.sec-len){grid-template-columns:1fr 1fr}
+  .sec-stairs-info{
+    display:flex; align-items:center; gap:6px; flex-wrap:wrap;
+    margin-top:6px; padding-top:6px; border-top:1px dashed var(--ink-faint);
+  }
+  .sec-stairs-info .tag{
+    font-family:"JetBrains Mono",monospace; font-size:10px; letter-spacing:0.5px;
+    padding:2px 6px; background:rgba(58,95,138,.1); border:1px solid var(--ink-faint);
+    color:var(--ink); border-radius:2px;
+  }
+  .sec-stairs-info .sec-suggest{
+    margin-left:auto; font-family:"Special Elite",monospace; font-size:10px;
+    letter-spacing:1px; text-transform:uppercase; padding:2px 8px;
+    background:transparent; border:1.5px solid var(--ink); color:var(--ink); cursor:pointer;
+  }
+  .sec-stairs-info .sec-suggest:hover{background:var(--ink); color:var(--paper);}
+
+  /* Baja shelf editor */
+  .sec-baja{margin-top:8px; padding-top:8px; border-top:1px dashed var(--ink-faint);}
+  .baja-head{
+    display:flex; align-items:center; justify-content:space-between;
+    font-family:"Special Elite",monospace; font-size:10px; letter-spacing:1px;
+    text-transform:uppercase; color:var(--ink-soft); margin-bottom:6px;
+  }
+  .baja-side-seg{display:flex; gap:0; border:1.5px solid var(--ink);}
+  .baja-side-seg button{
+    font-family:"Special Elite",monospace; font-size:10px; letter-spacing:1px;
+    text-transform:uppercase; padding:3px 10px; background:transparent;
+    border:none; border-right:1px solid var(--ink); color:var(--ink); cursor:pointer;
+  }
+  .baja-side-seg button:last-child{border-right:none}
+  .baja-side-seg button.on{background:var(--ink); color:var(--paper);}
+  .baja-stair-block{
+    border:1px solid var(--ink-faint); background:rgba(255,255,255,.3);
+    padding:6px 8px; margin-bottom:4px;
+  }
+  .baja-stair-head{
+    display:flex; align-items:center; gap:8px;
+    font-family:"Special Elite",monospace; font-size:10px; letter-spacing:1px;
+    text-transform:uppercase; color:var(--ink-soft);
+  }
+  .baja-stair-head .stair-name{flex:1;}
+  .baja-stair-toggle{
+    position:relative; width:32px; height:16px; background:transparent;
+    border:1.5px solid var(--ink); border-radius:0; cursor:pointer; padding:0;
+  }
+  .baja-stair-toggle::after{
+    content:""; position:absolute; top:1px; left:1px; width:11px; height:11px;
+    background:var(--ink-soft); transition:transform 0.15s;
+  }
+  .baja-stair-toggle.on::after{transform:translateX(15px); background:var(--ink);}
+  .baja-stair-inputs{
+    display:flex; gap:10px; margin-top:4px; padding-top:4px;
+    border-top:1px dotted var(--ink-faint);
+  }
+  .baja-stair-inputs label{
+    display:flex; align-items:center; gap:3px;
+    font-family:"Special Elite",monospace; font-size:9.5px; letter-spacing:0.5px;
+    text-transform:uppercase; color:var(--ink-soft);
+  }
+  .baja-stair-inputs input{
+    width:44px; background:transparent; border:none; border-bottom:1.5px solid var(--ink);
+    font-family:"JetBrains Mono",monospace; font-size:12px; color:var(--ink);
+    padding:1px 0; text-align:right;
+  }
+  .baja-stair-inputs em{font-style:normal; font-family:"JetBrains Mono",monospace; font-size:10px; color:var(--ink-soft);}
+  .baja-stair-inputs input::-webkit-outer-spin-button,
+  .baja-stair-inputs input::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
 
   /* Presets */
   .presets{
@@ -287,7 +356,7 @@
 
 <script>
   window.TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
-    "projectName": "Jorgensen",
+    "projectName": " ",
     "paperTone": "bright",
     "waterColor": "#6fa3b8",
     "accentColor": "#b4532a",
@@ -461,10 +530,18 @@
 
     <div class="view big">
       <header>
-        <h2>Cross-section A–A</h2>
-        <span class="tag">longitudinal</span>
+        <h2 id="sec_title">Cross-section A–A</h2>
+        <span class="tag" id="sec_tag">longitudinal</span>
       </header>
       <svg id="svg_sec" viewBox="0 0 1200 420" preserveAspectRatio="xMidYMid meet"></svg>
+      <div class="corner-note">not to scale</div>
+    </div>
+    <div class="view big" id="sec2_view" style="display:none">
+      <header>
+        <h2 id="sec2_title">Cross-section B–B</h2>
+        <span class="tag" id="sec2_tag">through deep side</span>
+      </header>
+      <svg id="svg_sec_2" viewBox="0 0 1200 420" preserveAspectRatio="xMidYMid meet"></svg>
       <div class="corner-note">not to scale</div>
     </div>
   </main>
@@ -495,7 +572,7 @@
   const DEFAULT_SECTIONS = [
     { id: 1, name: 'Entry',   type: 'flat',  depthIn: 4,   length: 2 },
     { id: 2, name: 'Baja',    type: 'flat',  depthIn: 10,  length: 5 },
-    { id: 3, name: 'Stairs',  type: 'slope', depthIn: 42,  length: 3 }, // transitions to shallow
+    { id: 3, name: 'Stairs',  type: 'stairs', depthIn: 42, treadRiseIn: 8, treadLenIn: 12 },
     { id: 4, name: 'Shallow', type: 'flat',  depthIn: 42,  length: 12 },
     { id: 5, name: 'Slope',   type: 'slope', depthIn: 96,  length: 8 },
     { id: 6, name: 'Deep',    type: 'flat',  depthIn: 96,  length: 10 },
@@ -525,24 +602,37 @@
   const $ = (id) => document.getElementById(id);
 
   // ============== HELPERS ==============
-  const totalLength = () => state.sections.reduce((s, x) => s + (+x.length || 0), 0);
+  // Returns sections with computed length/start/end/prevDepth so all renderers
+  // can iterate consistently (handles stair auto-calc).
+  function resolvedSections() {
+    let acc = 0;
+    let prevDepth = 0;
+    return state.sections.map((s, i) => {
+      const length = sectionLengthFt ? sectionLengthFt(s, prevDepth) : (+s.length || 0);
+      const out = {
+        s, i, length,
+        start: acc, end: acc + length,
+        prevDepth,
+      };
+      acc += length;
+      prevDepth = s.depthIn || 0;
+      return out;
+    });
+  }
+  const totalLength = () => resolvedSections().reduce((sum, r) => sum + r.length, 0);
   const maxDepthIn = () => state.sections.reduce((m, s) => Math.max(m, s.depthIn || 0), 0);
 
   // depth in feet at position x (ft along length) — centerline
   function depthAtX(x) {
-    let acc = 0;
-    let prevDepth = state.sections[0] ? state.sections[0].depthIn : 0;
-    for (let i = 0; i < state.sections.length; i++) {
-      const s = state.sections[i];
-      const start = acc;
-      const end = acc + s.length;
-      if (x <= end + 1e-6) {
+    const res = resolvedSections();
+    for (const r of res) {
+      if (x <= r.end + 1e-6) {
+        const s = r.s;
         if (s.type === 'flat') return s.depthIn / 12;
-        const t = s.length > 0 ? (x - start) / s.length : 1;
-        return (prevDepth + (s.depthIn - prevDepth) * t) / 12;
+        // slope or stairs: linear interpolation (for stats)
+        const t = r.length > 0 ? (x - r.start) / r.length : 1;
+        return (r.prevDepth + (s.depthIn - r.prevDepth) * t) / 12;
       }
-      prevDepth = s.depthIn;
-      acc = end;
     }
     return (state.sections[state.sections.length - 1]?.depthIn || 0) / 12;
   }
@@ -550,6 +640,20 @@
   // depth including bench overlay
   function depthAtXY(x, y) {
     if (onBench(x, y)) return state.bench.depthIn / 12;
+    // Check if x falls within a baja section
+    const res = resolvedSections();
+    for (let idx = 0; idx < res.length; idx++) {
+      const r = res[idx];
+      if (x >= r.start - 1e-6 && x <= r.end + 1e-6) {
+        if (r.s.type === 'baja') {
+          const xOffset = x - r.start;
+          const next = res[idx + 1];
+          const nextDepth = next ? (next.s.type === 'stairs' ? +next.s.depthIn : +next.s.depthIn) : r.s.depthIn;
+          return bajaDepthAt(r.s, xOffset, y, r.prevDepth, nextDepth) / 12;
+        }
+        break;
+      }
+    }
     return depthAtX(x);
   }
 
@@ -727,15 +831,63 @@
     }, svg);
 
     // per-section shaded bands by depth
-    let acc = 0;
-    state.sections.forEach((s, i) => {
-      const sx = x0 + acc * scale;
-      const sw = s.length * scale;
+    const resolved = resolvedSections();
+    const widthScale = poolH / state.width; // y-scale (ft → px)
+    resolved.forEach(({ s, i, length, start }) => {
+      const sx = x0 + start * scale;
+      const sw = length * scale;
       if (state.showWater) {
-        el('rect', {
-          x: sx, y: y0, width: sw, height: poolH,
-          fill: depthColor(s.depthIn), 'fill-opacity': 0.45,
-        }, svg);
+        if (s.type === 'baja') {
+          const next = resolved[i + 1];
+          const nextDepth = next ? +next.s.depthIn : s.depthIn;
+          const g = bajaGeometry(s, nextDepth);
+          // 1) base: baja water fill across whole section
+          el('rect', {
+            x: sx, y: y0, width: sw, height: poolH,
+            fill: depthColor(s.depthIn), 'fill-opacity': 0.45,
+          }, svg);
+          // 2) shelf rect overlay
+          const shX = sx + g.shelfX0 * scale;
+          const shW = (g.shelfX1 - g.shelfX0) * scale;
+          const shY = y0 + g.shelfY0 * widthScale;
+          const shH = (g.shelfY1 - g.shelfY0) * widthScale;
+          el('rect', { x: shX, y: shY, width: shW, height: shH,
+            fill: depthColor(g.shelfDepth), 'fill-opacity': 0.65 }, svg);
+          // 3) stair fills — step-by-step gradient
+          if (g.stairsW) {
+            const stW = g.stairsW;
+            const band = stW.y1 - stW.y0;
+            for (let k = 1; k <= stW.count; k++) {
+              const t0 = (k - 1) / stW.count, t1 = k / stW.count;
+              const yA = stW.axis === 'y+' ? stW.y0 + band * t0 : stW.y1 - band * t1;
+              const yB = stW.axis === 'y+' ? stW.y0 + band * t1 : stW.y1 - band * t0;
+              const d = stW.depFromIn + (stW.depToIn - stW.depFromIn) * (k / stW.count);
+              el('rect', {
+                x: sx + stW.x0 * scale, y: y0 + yA * widthScale,
+                width: (stW.x1 - stW.x0) * scale, height: (yB - yA) * widthScale,
+                fill: depthColor(d), 'fill-opacity': 0.55,
+              }, svg);
+            }
+          }
+          if (g.stairsL) {
+            const stL = g.stairsL;
+            const band = stL.x1 - stL.x0;
+            for (let k = 1; k <= stL.count; k++) {
+              const t0 = (k - 1) / stL.count, t1 = k / stL.count;
+              const d = stL.depFromIn + (stL.depToIn - stL.depFromIn) * (k / stL.count);
+              el('rect', {
+                x: sx + (stL.x0 + band * t0) * scale, y: y0 + stL.y0 * widthScale,
+                width: band * (t1 - t0) * scale, height: (stL.y1 - stL.y0) * widthScale,
+                fill: depthColor(d), 'fill-opacity': 0.55,
+              }, svg);
+            }
+          }
+        } else {
+          el('rect', {
+            x: sx, y: y0, width: sw, height: poolH,
+            fill: depthColor(s.depthIn), 'fill-opacity': 0.45,
+          }, svg);
+        }
       }
       // divider line between sections
       if (i > 0) {
@@ -746,11 +898,35 @@
       const cy = y0 + poolH/2;
       const lbl = el('text', { x: cx, y: cy - 6, class:'label','text-anchor':'middle' }, svg);
       lbl.textContent = s.name.toUpperCase();
-      if (s.type !== 'slope') {
+      if (s.type === 'flat') {
         const lbl2 = el('text', { x: cx, y: cy + 10, class:'dim-num','text-anchor':'middle' }, svg);
         lbl2.textContent = fmtIn(s.depthIn);
+      } else if (s.type === 'stairs') {
+        const meta = stairMeta(s, resolved[i].prevDepth);
+        const lbl2 = el('text', { x: cx, y: cy + 10, class:'dim-num','text-anchor':'middle' }, svg);
+        lbl2.textContent = `${meta.count} STEPS`;
+      } else if (s.type === 'baja') {
+        // label for baja: "BAJA" name above, depth labels inside zones
+        const nameLbl = el('text', { x: cx, y: y0 - 6, class:'label','text-anchor':'middle' }, svg);
+        nameLbl.textContent = s.name.toUpperCase();
+        lbl.textContent = ''; // clear generic centered label
+        const next = resolved[i + 1];
+        const nextDepth = next ? +next.s.depthIn : s.depthIn;
+        const g = bajaGeometry(s, nextDepth);
+        // Shelf label
+        if (g.shelfX1 - g.shelfX0 > 0.2 && g.shelfY1 - g.shelfY0 > 0.2) {
+          const shCx = sx + ((g.shelfX0 + g.shelfX1) / 2) * scale;
+          const shCy = y0 + ((g.shelfY0 + g.shelfY1) / 2) * widthScale;
+          const lblShelf = el('text', { x: shCx, y: shCy, class:'label','text-anchor':'middle' }, svg);
+          lblShelf.textContent = `SHELF ${fmtIn(g.shelfDepth)}`;
+        }
+        // Water label (somewhere in non-shelf region)
+        const waterX = sx + sw * 0.5;
+        const waterY = g.side === 'near' ? y0 + (g.shelfY1 + (state.width - g.shelfY1) / 2) * widthScale
+                                         : y0 + (g.shelfY0 / 2) * widthScale;
+        const lblWater = el('text', { x: waterX, y: waterY, class:'label','text-anchor':'middle' }, svg);
+        lblWater.textContent = `WATER ${fmtIn(g.waterDepth)}`;
       }
-      acc += s.length;
     });
 
     // pool outer shell
@@ -758,6 +934,81 @@
       d: wobbleClosed([[x0, y0],[x0+poolW,y0],[x0+poolW,y0+poolH],[x0,y0+poolH]], 0.6, 17),
       class: 'ink', 'stroke-width': 1.8, fill:'none'
     }, svg);
+
+    // Stair tread lines (plan view) — perpendicular across the pool width
+    resolved.forEach(({ s, length, start, prevDepth }) => {
+      if (s.type !== 'stairs') return;
+      const meta = stairMeta(s, prevDepth);
+      const sx = x0 + start * scale;
+      const sw = length * scale;
+      for (let k = 1; k < meta.count; k++) {
+        const tx = sx + (sw * k) / meta.count;
+        el('path', {
+          d: wobble([[tx, y0 + 2],[tx, y0 + poolH - 2]], 0.3, 700 + k),
+          class: 'ink-soft', 'stroke-width': 0.9,
+        }, svg);
+      }
+    });
+
+    // Baja shelf outline + stair treads
+    resolved.forEach(({ s, length, start, prevDepth }, idx) => {
+      if (s.type !== 'baja') return;
+      const sx = x0 + start * scale;
+      const sw = length * scale;
+      const next = resolved[idx + 1];
+      const nextDepth = next ? +next.s.depthIn : s.depthIn;
+      const g = bajaGeometry(s, nextDepth);
+      // Shelf outline (dashed)
+      if (g.shelfX1 - g.shelfX0 > 0.01 && g.shelfY1 - g.shelfY0 > 0.01) {
+        const shX0 = sx + g.shelfX0 * scale, shX1 = sx + g.shelfX1 * scale;
+        const shY0 = y0 + g.shelfY0 * widthScale, shY1 = y0 + g.shelfY1 * widthScale;
+        el('path', {
+          d: wobbleClosed([[shX0, shY0],[shX1, shY0],[shX1, shY1],[shX0, shY1]], 0.4, 750),
+          class: 'ink', 'stroke-width': 1.4, fill: 'none', 'stroke-dasharray': '6 3',
+        }, svg);
+      }
+      // Width-side stair treads — tick lines parallel to x (stacked in y)
+      if (g.stairsW) {
+        const stW = g.stairsW;
+        const bx0 = sx + stW.x0 * scale, bx1 = sx + stW.x1 * scale;
+        for (let k = 1; k < stW.count; k++) {
+          const yFt = stW.axis === 'y+'
+            ? stW.y0 + (stW.y1 - stW.y0) * (k / stW.count)
+            : stW.y1 - (stW.y1 - stW.y0) * (k / stW.count);
+          const yPx = y0 + yFt * widthScale;
+          el('path', {
+            d: wobble([[bx0 + 2, yPx],[bx1 - 2, yPx]], 0.3, 760 + k),
+            class: 'ink-soft', 'stroke-width': 0.9,
+          }, svg);
+        }
+        // outline around stairsW region (solid)
+        el('path', {
+          d: wobbleClosed([
+            [bx0, y0 + stW.y0 * widthScale],[bx1, y0 + stW.y0 * widthScale],
+            [bx1, y0 + stW.y1 * widthScale],[bx0, y0 + stW.y1 * widthScale]
+          ], 0.3, 755), class:'ink','stroke-width':1, fill:'none',
+        }, svg);
+      }
+      // Length-side stair treads — tick lines parallel to y (stacked in x)
+      if (g.stairsL) {
+        const stL = g.stairsL;
+        const by0 = y0 + stL.y0 * widthScale, by1 = y0 + stL.y1 * widthScale;
+        for (let k = 1; k < stL.count; k++) {
+          const xFt = stL.x0 + (stL.x1 - stL.x0) * (k / stL.count);
+          const xPx = sx + xFt * scale;
+          el('path', {
+            d: wobble([[xPx, by0 + 2],[xPx, by1 - 2]], 0.3, 770 + k),
+            class: 'ink-soft', 'stroke-width': 0.9,
+          }, svg);
+        }
+        el('path', {
+          d: wobbleClosed([
+            [sx + stL.x0 * scale, by0],[sx + stL.x1 * scale, by0],
+            [sx + stL.x1 * scale, by1],[sx + stL.x0 * scale, by1]
+          ], 0.3, 775), class:'ink','stroke-width':1, fill:'none',
+        }, svg);
+      }
+    });
 
     // Bench overlay
     if (state.bench.on) {
@@ -838,8 +1089,51 @@
 
   // ============== CROSS-SECTION (A–A) ==============
   // This is the most important view. Water surface at y=0 (pixel), floor below, coping above.
-  function renderSection() {
-    const svg = $('svg_sec');
+  // Depth (inches) at a section given a y-cut (ft from near edge). For non-baja, returns s.depthIn.
+  // For baja, returns depth at the END of the section along that y-cut (the deepest point
+  // in the cross-section view at that y). This drives the cross-section's terminal depth.
+  function sectionDepthAtCut(s, prevDepthIn, cutY, nextDepthIn) {
+    if (s.type !== 'baja') return s.depthIn;
+    const L = +s.length || 0;
+    // Sample depth at the END of the section length along this y-cut
+    return bajaDepthAt(s, L, cutY, prevDepthIn, nextDepthIn);
+  }
+
+  // Returns what "type" the section behaves like at the given cutY (for cross-section drawing).
+  // A baja y-cut that passes through the shelf + length-stairs zone renders as stepped stairs.
+  function sectionTypeAtCut(s, cutY, nextDepthIn) {
+    if (s.type !== 'baja') return s.type;
+    const g = bajaGeometry(s, nextDepthIn);
+    const inShelfY = cutY >= g.shelfY0 - 1e-6 && cutY <= g.shelfY1 + 1e-6;
+    if (inShelfY && g.stairsL) return 'stairs';
+    return 'flat';
+  }
+
+  function renderSectionAll() {
+    // Show two views if any baja section has an asymmetric (near vs far) profile
+    const needTwo = state.sections.some(s => {
+      if (s.type !== 'baja') return false;
+      const sw = +s.shelfWidthFt || 0;
+      return sw > 0 && sw < state.width - 0.01;
+    });
+    $('sec2_view').style.display = needTwo ? '' : 'none';
+    if (needTwo) {
+      // Near edge cut and far edge cut
+      renderSection('svg_sec', 0, 'A–A · near edge');
+      renderSection('svg_sec_2', state.width, 'B–B · far edge');
+      $('sec_title').textContent = 'Cross-section A–A';
+      $('sec_tag').textContent = 'near edge (y = 0)';
+      $('sec2_title').textContent = 'Cross-section B–B';
+      $('sec2_tag').textContent = `far edge (y = ${fmt1(state.width)}′)`;
+    } else {
+      renderSection('svg_sec', state.width / 2, null);
+      $('sec_title').textContent = 'Cross-section A–A';
+      $('sec_tag').textContent = 'longitudinal';
+    }
+  }
+
+  function renderSection(svgId, cutY, cutLabel) {
+    const svg = $(svgId);
     clear(svg);
     const VBW = 1200, VBH = 420;
     const padL = 100, padR = 100, padT = 70, padB = 90;
@@ -877,32 +1171,66 @@
     }
 
     // === Build floor polyline: straight segments for flat; straight incline for slope;
-    //     vertical risers between flat sections of different depths when there's no slope between them.
+    //     stepped polyline for stairs; vertical risers between flat sections of different depths.
     const floorPts = [];
-    let accX = 0;
-    let prevDepth = null;
-    state.sections.forEach((s, i) => {
-      const startX = x0 + accX * scale;
-      const endX = x0 + (accX + s.length) * scale;
-      const dFt = s.depthIn / 12;
-      if (s.type === 'flat') {
-        // if previous depth differs, insert vertical riser at startX
-        if (prevDepth != null && Math.abs(prevDepth - s.depthIn) > 1e-6 && state.sections[i-1].type === 'flat') {
-          floorPts.push([startX, waterY + (prevDepth/12) * scale]);
+    const resolvedSec = resolvedSections();
+    // Pre-compute cut-aware depths per section (sequential so each uses prior cut-depth)
+    const cutDepths = [];
+    resolvedSec.forEach((r, i) => {
+      const prev = i > 0 ? cutDepths[i-1] : r.prevDepth;
+      const nextD = resolvedSec[i+1] ? +resolvedSec[i+1].s.depthIn : r.s.depthIn;
+      cutDepths.push(sectionDepthAtCut(r.s, prev, cutY, nextD));
+    });
+    resolvedSec.forEach(({ s, i, length, start, prevDepth }) => {
+      const startX = x0 + start * scale;
+      const endX = x0 + (start + length) * scale;
+      const prevCut = i > 0 ? cutDepths[i-1] : prevDepth;
+      const thisCut = cutDepths[i];
+      const dFt = thisCut / 12;
+      const nextD = resolvedSec[i+1] ? +resolvedSec[i+1].s.depthIn : s.depthIn;
+      const effType = sectionTypeAtCut(s, cutY, nextD);
+
+      if (s.type === 'baja') {
+        // Cross-section at this y-cut: draw profile segment by segment along x.
+        // Build a local x-sampled profile using bajaDepthAt().
+        const g = bajaGeometry(s, nextD);
+        const samples = 40;
+        for (let k = 0; k <= samples; k++) {
+          const t = k / samples;
+          const xFt = start + length * t;
+          const xLocal = xFt - start;
+          const d = bajaDepthAt(s, xLocal, cutY, prevDepth, nextD);
+          floorPts.push([x0 + xFt * scale, waterY + (d / 12) * scale]);
+        }
+      } else if (effType === 'flat') {
+        if (i > 0 && Math.abs(prevCut - thisCut) > 1e-6) {
+          floorPts.push([startX, waterY + (prevCut/12) * scale]);
           floorPts.push([startX, waterY + dFt * scale]);
-        } else if (prevDepth == null) {
+        } else if (i === 0) {
           floorPts.push([startX, waterY + dFt * scale]);
         }
         floorPts.push([endX, waterY + dFt * scale]);
+      } else if (effType === 'stairs') {
+        const meta = stairMeta(s, prevCut);
+        const n = meta.count;
+        if (floorPts.length === 0) floorPts.push([startX, waterY + (prevCut/12) * scale]);
+        for (let k = 1; k <= n; k++) {
+          const stepEndX = startX + ((endX - startX) * k) / n;
+          const stepDepthIn = prevCut + (thisCut - prevCut) * (k / n);
+          const prevStepDepthIn = prevCut + (thisCut - prevCut) * ((k-1) / n);
+          floorPts.push([stepEndX, waterY + (prevStepDepthIn/12) * scale]);
+          floorPts.push([stepEndX, waterY + (stepDepthIn/12) * scale]);
+        }
       } else {
-        // slope: from previous depth at startX to this depth at endX
-        const prevFt = (prevDepth != null ? prevDepth : s.depthIn) / 12;
+        // slope
+        const prevFt = prevCut / 12;
         if (floorPts.length === 0) floorPts.push([startX, waterY + prevFt * scale]);
         floorPts.push([endX, waterY + dFt * scale]);
       }
-      prevDepth = s.depthIn;
-      accX += s.length;
     });
+    // advance — no-op; kept for minimal diff below
+    let accX = totalLength();
+    let prevDepth = state.sections[state.sections.length-1]?.depthIn ?? 0;
 
     // Water fill (above the floor up to waterY)
     if (state.showWater && floorPts.length) {
@@ -946,85 +1274,112 @@
     el('path', { d: wobble(shellPts, 0.5, 81), class:'ink', 'stroke-width': 2, fill:'none' }, svg);
 
     // Section dividers on the floor (light vertical ticks at section boundaries)
-    {
-      let ax = 0;
-      state.sections.forEach((s, i) => {
-        if (i === 0) { ax += s.length; return; }
-        const x = x0 + ax * scale;
-        const prevD = (state.sections[i-1].depthIn) / 12;
-        const thisD = s.depthIn / 12;
-        const y1 = waterY + Math.min(prevD, thisD) * scale;
-        const y2 = waterY + Math.max(prevD, thisD) * scale;
-        el('line', { x1: x, y1: deckY + 2, x2: x, y2: y2 + 6, class:'ink-faint', 'stroke-width':0.6, 'stroke-dasharray':'3 4' }, svg);
-        ax += s.length;
-      });
-    }
+    resolvedSec.forEach(({ s, i, start }) => {
+      if (i === 0) return;
+      const x = x0 + start * scale;
+      const prevD = cutDepths[i-1] / 12;
+      const thisD = cutDepths[i] / 12;
+      const y2 = waterY + Math.max(prevD, thisD) * scale;
+      el('line', { x1: x, y1: deckY + 2, x2: x, y2: y2 + 6, class:'ink-faint', 'stroke-width':0.6, 'stroke-dasharray':'3 4' }, svg);
+    });
 
-    // Bench overlay — extends down to meet the pool floor.
-    // We draw a closed polygon: top edge at bench depth (waterY+benchDepth),
-    // bottom edge follows the pool floor across the bench's X range.
+    // Bench overlay — fills only where floor is deeper than bench top,
+    // strictly clipped to [bStartFt, bEndFt]. Breaks into separate polygons
+    // if the floor pops above the bench top in the middle.
     if (state.bench.on) {
       const bStartFt = Math.min(state.bench.startFt, state.bench.endFt);
       const bEndFt = Math.max(state.bench.startFt, state.bench.endFt);
       const bxS = x0 + bStartFt * scale;
       const bxE = x0 + bEndFt * scale;
-      const by = waterY + (state.bench.depthIn / 12) * scale;
+      const benchDFt = state.bench.depthIn / 12;
+      const by = waterY + benchDFt * scale;
 
-      // Sample floor along the bench X range at section boundaries + dense steps
+      // Dense sample of floor across bench range
+      const steps = 64;
       const samples = [];
-      const steps = 48;
       for (let i = 0; i <= steps; i++) {
         const ft = bStartFt + (bEndFt - bStartFt) * (i / steps);
-        samples.push([x0 + ft * scale, waterY + depthAtX(ft) * scale]);
+        const fd = depthAtX(ft); // feet
+        samples.push({ xFt: ft, px: x0 + ft * scale, floorPy: waterY + fd * scale, deeperThanBench: fd > benchDFt + 0.02 });
       }
-      // Only render bench cross-section where floor is BELOW the bench top
-      // (i.e. bench top is above the floor — clip out segments where floor rises above bench top)
-      const pts = [[bxS, by]];
-      samples.forEach(([px, py]) => pts.push([px, Math.max(py, by)]));
-      pts.push([bxE, by]);
 
-      // fill
-      el('path', {
-        d: wobbleClosed(pts, 0.25, 9001),
-        fill: '#d9c6a0', 'fill-opacity': 0.75,
-      }, svg);
-      // hatching inside bench
-      const bh = el('g', { opacity: 0.5 }, svg);
-      const hatchStep = 8;
-      for (let x = bxS; x <= bxE; x += hatchStep) {
-        const floorY = samples.find(s => Math.abs(s[0] - x) < hatchStep/2)?.[1] ?? by + 30;
-        const bottomY = Math.max(floorY, by);
-        el('line', { x1: x, y1: by, x2: x + 6, y2: bottomY, class:'ink-faint','stroke-width':0.5 }, bh);
-      }
-      // top outline (the sitting surface)
-      el('path', { d: wobble([[bxS, by],[bxE, by]], 0.25, 9101), stroke:'var(--ink)', fill:'none', 'stroke-width':1.5 }, svg);
-      // front vertical edges (where bench meets the pool volume, if floor is deeper than bench)
-      const leftFloorY = samples[0][1];
-      const rightFloorY = samples[samples.length-1][1];
-      if (leftFloorY > by + 2) {
-        el('line', { x1: bxS, y1: by, x2: bxS, y2: leftFloorY, stroke:'var(--ink)', 'stroke-width':1.2, 'stroke-dasharray':'3 3' }, svg);
-      }
-      if (rightFloorY > by + 2) {
-        el('line', { x1: bxE, y1: by, x2: bxE, y2: rightFloorY, stroke:'var(--ink)', 'stroke-width':1.2, 'stroke-dasharray':'3 3' }, svg);
-      }
+      // Walk samples, splitting into contiguous runs where floor is deeper than bench.
+      const runs = [];
+      let cur = null;
+      samples.forEach(s => {
+        if (s.deeperThanBench) {
+          if (!cur) cur = [];
+          cur.push(s);
+        } else if (cur) { runs.push(cur); cur = null; }
+      });
+      if (cur) runs.push(cur);
+
+      runs.forEach((run, i) => {
+        if (run.length < 2) return;
+        const pts = [];
+        // left wall — from bench top down to floor
+        pts.push([run[0].px, by]);
+        run.forEach(s => pts.push([s.px, Math.max(s.floorPy, by)]));
+        // right wall — back up to bench top
+        pts.push([run[run.length-1].px, by]);
+
+        // fill
+        el('path', {
+          d: wobbleClosed(pts, 0.25, 9001 + i*17),
+          fill: '#d9c6a0', 'fill-opacity': 0.75,
+        }, svg);
+
+        // hatching within this run
+        const bh = el('g', { opacity: 0.5 }, svg);
+        const hatchStep = 8;
+        const runStart = run[0].px;
+        const runEnd = run[run.length-1].px;
+        for (let x = runStart; x <= runEnd; x += hatchStep) {
+          // find floor at this x by linear search
+          let fy = by + 20;
+          for (let k = 0; k < run.length - 1; k++) {
+            if (x >= run[k].px && x <= run[k+1].px) {
+              const t = (x - run[k].px) / (run[k+1].px - run[k].px || 1);
+              fy = run[k].floorPy + (run[k+1].floorPy - run[k].floorPy) * t;
+              break;
+            }
+          }
+          const bottomY = Math.max(fy, by);
+          el('line', { x1: x, y1: by, x2: x + 6, y2: bottomY, class:'ink-faint','stroke-width':0.5 }, bh);
+        }
+
+        // top sitting surface
+        el('path', {
+          d: wobble([[runStart, by],[runEnd, by]], 0.25, 9101 + i*11),
+          stroke:'var(--ink)', fill:'none', 'stroke-width':1.5
+        }, svg);
+
+        // vertical edges (dashed — bench face into the pool volume)
+        const leftFloorY = run[0].floorPy;
+        const rightFloorY = run[run.length-1].floorPy;
+        if (leftFloorY > by + 2) {
+          el('line', { x1: runStart, y1: by, x2: runStart, y2: leftFloorY, stroke:'var(--ink)', 'stroke-width':1.2, 'stroke-dasharray':'3 3' }, svg);
+        }
+        if (rightFloorY > by + 2) {
+          el('line', { x1: runEnd, y1: by, x2: runEnd, y2: rightFloorY, stroke:'var(--ink)', 'stroke-width':1.2, 'stroke-dasharray':'3 3' }, svg);
+        }
+      });
+
+      // single label, centered on the whole bench range
       const bt = el('text', { x: (bxS+bxE)/2, y: by - 5, class:'label', 'text-anchor':'middle' }, svg);
       bt.textContent = `BENCH ${state.bench.depthIn}"`;
     }
 
     // Depth callouts at each section floor
-    {
-      let ax = 0;
-      state.sections.forEach((s, i) => {
-        const midX = x0 + (ax + s.length / 2) * scale;
-        const d = s.depthIn / 12;
-        const fy = waterY + d * scale;
-        // callout tick down from floor
-        el('line', { x1: midX, y1: fy, x2: midX, y2: fy + 18, class:'ink-faint', 'stroke-width':0.7, 'stroke-dasharray':'2 3' }, svg);
-        const t = el('text', { x: midX, y: fy + 32, class:'dim-text','text-anchor':'middle' }, svg);
-        t.textContent = fmtIn(s.depthIn);
-        ax += s.length;
-      });
-    }
+    resolvedSec.forEach(({ s, length, start, i }) => {
+      const midX = x0 + (start + length / 2) * scale;
+      const dIn = cutDepths[i];
+      const d = dIn / 12;
+      const fy = waterY + d * scale;
+      el('line', { x1: midX, y1: fy, x2: midX, y2: fy + 18, class:'ink-faint', 'stroke-width':0.7, 'stroke-dasharray':'2 3' }, svg);
+      const t = el('text', { x: midX, y: fy + 32, class:'dim-text','text-anchor':'middle' }, svg);
+      t.textContent = fmtIn(dIn);
+    });
 
     // === Desired length overlay (on cross-section) ===
     if (Math.abs(L - desired) > 0.05) {
@@ -1126,34 +1481,93 @@
     const rim = [P(0,0,0), P(L,0,0), P(L,W,0), P(0,W,0)];
     // Floor profile polyline on near wall (y=0) and far wall (y=W)
     const nearFloor = [], farFloor = [];
-    let accX = 0;
-    let prevDepth = null;
-    state.sections.forEach((s, i) => {
-      const startX = accX, endX = accX + s.length;
-      const dFt = s.depthIn / 12;
-      if (s.type === 'flat') {
-        if (prevDepth != null && Math.abs(prevDepth - s.depthIn) > 1e-6) {
-          nearFloor.push(P(startX, 0, prevDepth/12));
-          nearFloor.push(P(startX, 0, dFt));
-          farFloor.push(P(startX, W, prevDepth/12));
-          farFloor.push(P(startX, W, dFt));
-        } else if (prevDepth == null) {
-          nearFloor.push(P(startX, 0, dFt));
-          farFloor.push(P(startX, W, dFt));
-        }
-        nearFloor.push(P(endX, 0, dFt));
-        farFloor.push(P(endX, W, dFt));
-      } else {
-        const prevFt = (prevDepth != null ? prevDepth : s.depthIn) / 12;
+    const resolvedIso = resolvedSections();
+    // pre-compute near/far cut depths (inches) per section
+    const nearDepths = [], farDepths = [];
+    resolvedIso.forEach((r, i) => {
+      const prevNear = i > 0 ? nearDepths[i-1] : r.prevDepth;
+      const prevFar = i > 0 ? farDepths[i-1] : r.prevDepth;
+      const nextD = resolvedIso[i+1] ? +resolvedIso[i+1].s.depthIn : r.s.depthIn;
+      nearDepths.push(sectionDepthAtCut(r.s, prevNear, 0, nextD));
+      farDepths.push(sectionDepthAtCut(r.s, prevFar, W, nextD));
+    });
+    resolvedIso.forEach(({ s, i, length, start, prevDepth }, idx) => {
+      const startX = start, endX = start + length;
+      const thisNear = nearDepths[i] / 12;
+      const thisFar = farDepths[i] / 12;
+      const prevNear = (i > 0 ? nearDepths[i-1] : prevDepth) / 12;
+      const prevFar = (i > 0 ? farDepths[i-1] : prevDepth) / 12;
+
+      if (s.type === 'baja') {
+        // Sample near/far edge depth profiles along x so the side walls match the real floor.
+        const nextD2 = resolvedIso[i+1] ? +resolvedIso[i+1].s.depthIn : s.depthIn;
+        const samples = 24;
         if (nearFloor.length === 0) {
-          nearFloor.push(P(startX, 0, prevFt));
-          farFloor.push(P(startX, W, prevFt));
+          nearFloor.push(P(startX, 0, prevNear));
+          farFloor.push(P(startX, W, prevFar));
+        } else {
+          const d0Near = bajaDepthAt(s, 0, 0, prevDepth, nextD2) / 12;
+          const d0Far = bajaDepthAt(s, 0, W, prevDepth, nextD2) / 12;
+          if (Math.abs(prevNear - d0Near) > 1e-6) {
+            nearFloor.push(P(startX, 0, prevNear));
+            nearFloor.push(P(startX, 0, d0Near));
+          }
+          if (Math.abs(prevFar - d0Far) > 1e-6) {
+            farFloor.push(P(startX, W, prevFar));
+            farFloor.push(P(startX, W, d0Far));
+          }
         }
-        nearFloor.push(P(endX, 0, dFt));
-        farFloor.push(P(endX, W, dFt));
+        for (let k = 1; k <= samples; k++) {
+          const xFt = startX + (length * k) / samples;
+          const dN = bajaDepthAt(s, xFt - startX, 0, prevDepth, nextD2) / 12;
+          const dF = bajaDepthAt(s, xFt - startX, W, prevDepth, nextD2) / 12;
+          nearFloor.push(P(xFt, 0, dN));
+          farFloor.push(P(xFt, W, dF));
+        }
+      } else if (s.type === 'stairs') {
+        const meta = stairMeta(s, prevDepth);
+        const n = meta.count;
+        if (nearFloor.length === 0) {
+          nearFloor.push(P(startX, 0, prevNear));
+          farFloor.push(P(startX, W, prevFar));
+        }
+        for (let k = 1; k <= n; k++) {
+          const stepX = startX + (length * k) / n;
+          const prevStepNear = prevNear + (thisNear - prevNear) * ((k-1) / n);
+          const stepNear = prevNear + (thisNear - prevNear) * (k / n);
+          const prevStepFar = prevFar + (thisFar - prevFar) * ((k-1) / n);
+          const stepFar = prevFar + (thisFar - prevFar) * (k / n);
+          nearFloor.push(P(stepX, 0, prevStepNear));
+          farFloor.push(P(stepX, W, prevStepFar));
+          nearFloor.push(P(stepX, 0, stepNear));
+          farFloor.push(P(stepX, W, stepFar));
+        }
+      } else if (s.type === 'flat') {
+        // vertical riser at start if depth changes
+        if (i > 0 && Math.abs(prevNear - thisNear) > 1e-6) {
+          nearFloor.push(P(startX, 0, prevNear));
+          nearFloor.push(P(startX, 0, thisNear));
+        } else if (i === 0) {
+          nearFloor.push(P(startX, 0, thisNear));
+        }
+        nearFloor.push(P(endX, 0, thisNear));
+
+        if (i > 0 && Math.abs(prevFar - thisFar) > 1e-6) {
+          farFloor.push(P(startX, W, prevFar));
+          farFloor.push(P(startX, W, thisFar));
+        } else if (i === 0) {
+          farFloor.push(P(startX, W, thisFar));
+        }
+        farFloor.push(P(endX, W, thisFar));
+      } else {
+        // slope
+        if (nearFloor.length === 0) {
+          nearFloor.push(P(startX, 0, prevNear));
+          farFloor.push(P(startX, W, prevFar));
+        }
+        nearFloor.push(P(endX, 0, thisNear));
+        farFloor.push(P(endX, W, thisFar));
       }
-      prevDepth = s.depthIn;
-      accX += s.length;
     });
 
     // draw water surface (translucent quad at z=0)
@@ -1161,30 +1575,117 @@
       el('path', { d: wobbleClosed(rim, 0.4, 201), fill: state.tweaks.waterColor, 'fill-opacity': 0.22, stroke:'none' }, svg);
     }
 
-    // floor polygon (near floor + reverse far floor)
+    // floor polygon (near floor + reverse far floor) — handles non-baja sections
     const floorPoly = [...nearFloor, ...farFloor.slice().reverse()];
     el('path', { d: wobbleClosed(floorPoly, 0.3, 301), fill:'#e6d5b3', 'fill-opacity': 0.55, stroke: 'none' }, svg);
 
-    // ribs across floor at each section boundary
-    {
-      let ax = 0;
-      state.sections.forEach((s, i) => {
-        const x = ax;
-        // near wall point on floor at this boundary
-        const dFt = (i > 0 ? state.sections[i-1].depthIn : s.depthIn) / 12;
-        const dFt2 = s.depthIn / 12;
-        const yNearTop = P(x, 0, dFt);
-        const yFarTop = P(x, W, dFt);
-        if (Math.abs(dFt - dFt2) > 1e-6 && s.type === 'flat') {
-          // riser lines front & back
-          el('path', { d: wobble([P(x,0,dFt), P(x,0,dFt2)], 0.3, 410+i), class:'ink', 'stroke-width':1.1 }, svg);
-          el('path', { d: wobble([P(x,W,dFt), P(x,W,dFt2)], 0.3, 420+i), class:'ink', 'stroke-width':1.1 }, svg);
-          // floor seams
-          el('path', { d: wobble([P(x,0,dFt2), P(x,W,dFt2)], 0.3, 430+i), class:'ink-soft', 'stroke-width':0.9 }, svg);
+    // Baja sections: render as sampled 3D mesh showing shelf + both stair runs
+    resolvedIso.forEach(({ s, i, length, start, prevDepth }) => {
+      if (s.type !== 'baja') return;
+      const nextD = resolvedIso[i+1] ? +resolvedIso[i+1].s.depthIn : s.depthIn;
+      const g = bajaGeometry(s, nextD);
+      // Grid resolution
+      const nX = Math.max(8, Math.round(length * 4));
+      const nY = Math.max(8, Math.round(W * 3));
+      const dxLocal = length / nX;
+      const dyLocal = W / nY;
+      // Draw individual quads (painter: back→front = y: 0→W, x: L→0 to preserve iso stacking)
+      const quads = [];
+      for (let ix = 0; ix < nX; ix++) {
+        for (let iy = 0; iy < nY; iy++) {
+          const x0f = start + ix * dxLocal, x1f = start + (ix + 1) * dxLocal;
+          const y0f = iy * dyLocal, y1f = (iy + 1) * dyLocal;
+          // depth at corners
+          const d00 = bajaDepthAt(s, x0f - start, y0f, prevDepth, nextD) / 12;
+          const d10 = bajaDepthAt(s, x1f - start, y0f, prevDepth, nextD) / 12;
+          const d11 = bajaDepthAt(s, x1f - start, y1f, prevDepth, nextD) / 12;
+          const d01 = bajaDepthAt(s, x0f - start, y1f, prevDepth, nextD) / 12;
+          // average depth for painter's sort
+          const avgD = (d00 + d10 + d11 + d01) / 4;
+          // Quad corners in iso space
+          const pts = [P(x0f, y0f, d00), P(x1f, y0f, d10), P(x1f, y1f, d11), P(x0f, y1f, d01)];
+          quads.push({ pts, avgD, x: x0f, y: y0f });
         }
-        ax += s.length;
+      }
+      // Paint order: back (small y, large x) first, front (large y, small x) last.
+      // Using screen-y of centroid works best.
+      quads.sort((a, b) => {
+        const ay = (a.pts[0][1] + a.pts[2][1]) / 2;
+        const by = (b.pts[0][1] + b.pts[2][1]) / 2;
+        return ay - by;
       });
-    }
+      quads.forEach(q => {
+        const d = `M${q.pts[0][0].toFixed(2)},${q.pts[0][1].toFixed(2)}L${q.pts[1][0].toFixed(2)},${q.pts[1][1].toFixed(2)}L${q.pts[2][0].toFixed(2)},${q.pts[2][1].toFixed(2)}L${q.pts[3][0].toFixed(2)},${q.pts[3][1].toFixed(2)}Z`;
+        const color = depthColor(q.avgD * 12);
+        el('path', { d, fill: color, 'fill-opacity': 0.55, stroke: color, 'stroke-width': 0.3 }, svg);
+      });
+      // Stair risers — strong outlines where depth jumps
+      // width-side stairs: vertical risers at each step's y-boundary, spanning x0..x1, from prev step to this
+      if (g.stairsW) {
+        const stW = g.stairsW;
+        for (let k = 1; k <= stW.count; k++) {
+          const yFt = stW.axis === 'y+'
+            ? stW.y0 + (stW.y1 - stW.y0) * (k / stW.count)
+            : stW.y1 - (stW.y1 - stW.y0) * (k / stW.count);
+          const prevD = (stW.depFromIn + (stW.depToIn - stW.depFromIn) * ((k-1) / stW.count)) / 12;
+          const thisD = (stW.depFromIn + (stW.depToIn - stW.depFromIn) * (k / stW.count)) / 12;
+          const x0a = start + stW.x0, x1a = start + stW.x1;
+          // riser as 2 verticals + 1 tread
+          el('path', { d: wobble([P(x0a, yFt, prevD), P(x0a, yFt, thisD)], 0.2, 830+k+i*100), class:'ink', 'stroke-width':0.8 }, svg);
+          el('path', { d: wobble([P(x1a, yFt, prevD), P(x1a, yFt, thisD)], 0.2, 840+k+i*100), class:'ink-soft', 'stroke-width':0.8 }, svg);
+          el('path', { d: wobble([P(x0a, yFt, thisD), P(x1a, yFt, thisD)], 0.2, 850+k+i*100), class:'ink', 'stroke-width':0.8 }, svg);
+        }
+      }
+      if (g.stairsL) {
+        const stL = g.stairsL;
+        for (let k = 1; k <= stL.count; k++) {
+          const xFt = start + stL.x0 + (stL.x1 - stL.x0) * (k / stL.count);
+          const prevD = (stL.depFromIn + (stL.depToIn - stL.depFromIn) * ((k-1) / stL.count)) / 12;
+          const thisD = (stL.depFromIn + (stL.depToIn - stL.depFromIn) * (k / stL.count)) / 12;
+          const y0a = stL.y0, y1a = stL.y1;
+          el('path', { d: wobble([P(xFt, y0a, prevD), P(xFt, y0a, thisD)], 0.2, 870+k+i*100), class:'ink', 'stroke-width':0.8 }, svg);
+          el('path', { d: wobble([P(xFt, y1a, prevD), P(xFt, y1a, thisD)], 0.2, 880+k+i*100), class:'ink-soft', 'stroke-width':0.8 }, svg);
+          el('path', { d: wobble([P(xFt, y0a, thisD), P(xFt, y1a, thisD)], 0.2, 890+k+i*100), class:'ink', 'stroke-width':0.8 }, svg);
+        }
+      }
+      // Shelf outline at shelf depth
+      const sh = g.shelfDepth / 12;
+      el('path', { d: wobbleClosed([
+        P(start + g.shelfX0, g.shelfY0, sh),
+        P(start + g.shelfX1, g.shelfY0, sh),
+        P(start + g.shelfX1, g.shelfY1, sh),
+        P(start + g.shelfX0, g.shelfY1, sh),
+      ], 0.3, 900+i), class:'ink','stroke-width':1.1, fill:'none' }, svg);
+    });
+
+    // ribs across floor at each section boundary
+    resolvedIso.forEach(({ s, i, length, start, prevDepth }) => {
+      if (i === 0) return;
+      const x = start;
+      const dFt = prevDepth / 12;
+      const dFt2 = s.depthIn / 12;
+      if (Math.abs(dFt - dFt2) > 1e-6 && s.type === 'flat') {
+        el('path', { d: wobble([P(x,0,dFt), P(x,0,dFt2)], 0.3, 410+i), class:'ink', 'stroke-width':1.1 }, svg);
+        el('path', { d: wobble([P(x,W,dFt), P(x,W,dFt2)], 0.3, 420+i), class:'ink', 'stroke-width':1.1 }, svg);
+        el('path', { d: wobble([P(x,0,dFt2), P(x,W,dFt2)], 0.3, 430+i), class:'ink-soft', 'stroke-width':0.9 }, svg);
+      }
+    });
+    // tread risers across pool width for stair sections
+    resolvedIso.forEach(({ s, length, start, prevDepth }) => {
+      if (s.type !== 'stairs') return;
+      const meta = stairMeta(s, prevDepth);
+      const n = meta.count;
+      for (let k = 1; k <= n; k++) {
+        const stepX = start + (length * k) / n;
+        const prevStepFt = (prevDepth + (s.depthIn - prevDepth) * ((k-1) / n)) / 12;
+        const stepFt = (prevDepth + (s.depthIn - prevDepth) * (k / n)) / 12;
+        // riser front & back
+        el('path', { d: wobble([P(stepX,0,prevStepFt), P(stepX,0,stepFt)], 0.3, 810+k), class:'ink', 'stroke-width':1 }, svg);
+        el('path', { d: wobble([P(stepX,W,prevStepFt), P(stepX,W,stepFt)], 0.3, 820+k), class:'ink-soft', 'stroke-width':0.9 }, svg);
+        // tread edge across width
+        el('path', { d: wobble([P(stepX,0,stepFt), P(stepX,W,stepFt)], 0.3, 830+k), class:'ink-soft', 'stroke-width':0.8 }, svg);
+      }
+    });
 
     // Near side wall: rim at y=0 down to floor profile at y=0
     const nearWallPoly = [
@@ -1296,13 +1797,177 @@
   const PRESETS = [
     { name: 'Entry',   type: 'flat',  depthIn: 4,   length: 2 },
     { name: 'Step',    type: 'flat',  depthIn: 15,  length: 1.5 },
-    { name: 'Baja',    type: 'flat',  depthIn: 10,  length: 5 },
-    { name: 'Stairs',  type: 'slope', depthIn: 42,  length: 3 },
+    { name: 'Baja',    type: 'baja',  depthIn: 42,  length: 6,
+      shelfDepthIn: 10, shelfWidthFt: 10, shelfLengthFt: 5, shelfSide: 'near',
+      stairsWidth:  { on: true, treadRiseIn: 10, treadLenIn: 12 },
+      stairsLength: { on: true, treadRiseIn: 10, treadLenIn: 12 },
+    },
+    { name: 'Stairs',  type: 'stairs', depthIn: 42, treadRiseIn: 11, treadLenIn: 12 },
     { name: 'Shallow', type: 'flat',  depthIn: 42,  length: 10 },
     { name: 'Slope',   type: 'slope', depthIn: 72,  length: 6 },
     { name: 'Deep',    type: 'flat',  depthIn: 96,  length: 10 },
     { name: 'Custom',  type: 'flat',  depthIn: 36,  length: 4 },
   ];
+
+  // Suggest a tread rise (inches, 8-12, step 0.5) that divides depthChange evenly.
+  // Prefer values closer to 10. Returns { rise, count }.
+  function suggestTreadRise(depthChangeIn) {
+    const dc = Math.abs(depthChangeIn);
+    if (dc <= 0.01) return { rise: 10, count: 1 };
+    let best = null;
+    for (let r = 8; r <= 12 + 1e-6; r += 0.5) {
+      const count = dc / r;
+      const rounded = Math.round(count);
+      // how close is the division to an integer?
+      const evenError = Math.abs(count - rounded);
+      if (rounded < 1) continue;
+      // prefer small evenError, then closeness to 10
+      const score = evenError * 100 + Math.abs(r - 10) * 0.1;
+      if (!best || score < best.score) best = { rise: r, count: rounded, score, evenError };
+    }
+    // if we couldn't divide cleanly, fall back to ceil at rise=10
+    if (!best || best.evenError > 0.05) {
+      const count = Math.max(1, Math.ceil(dc / 10));
+      return { rise: +(dc / count).toFixed(2), count };
+    }
+    // use exact rise that divides evenly
+    return { rise: +(dc / best.count).toFixed(2), count: best.count };
+  }
+
+  // Compute effective length of a section, accounting for stair auto-calc.
+  function sectionLengthFt(s, prevDepthIn) {
+    if (s.type === 'stairs') {
+      const dc = Math.abs((s.depthIn || 0) - (prevDepthIn || 0));
+      const rise = +s.treadRiseIn || 10;
+      const count = Math.max(1, Math.round(dc / rise));
+      const treadLenIn = +s.treadLenIn || 12;
+      return (count * treadLenIn) / 12; // ft
+    }
+    return +s.length || 0;
+  }
+
+  // Get stair metadata (count, actual rise) for a stair section
+  function stairMeta(s, prevDepthIn) {
+    const dc = Math.abs((s.depthIn || 0) - (prevDepthIn || 0));
+    const riseInput = +s.treadRiseIn || 10;
+    const count = Math.max(1, Math.round(dc / riseInput));
+    const actualRise = dc / count;
+    const treadLenIn = +s.treadLenIn || 12;
+    return { count, actualRise, treadLenIn, descending: (s.depthIn || 0) > (prevDepthIn || 0) };
+  }
+
+  // ========== BAJA SHELF HELPERS (new L-shape model) ==========
+  // A baja section is a rectangle of length × width at section's "water" depth (s.depthIn).
+  // Inside it sits a shelf rectangle (shelfLengthFt × shelfWidthFt) anchored at start-X,
+  // on the near or far side (shelfSide). Two optional stair runs sit at the shelf's
+  // *inner* boundaries:
+  //   - width-side stairs: along the shelf's inner-y edge (parallel to x). Descends
+  //     across-pool from shelf depth to baja-water depth.
+  //   - length-side stairs: along the shelf's end-x edge (parallel to y). Descends
+  //     along-pool from shelf depth to the NEXT section's start depth.
+  // Returns { shelfX0,shelfX1, shelfY0,shelfY1, stairsW, stairsL }
+  //   stairsW = { x0,x1, y0,y1, depFromIn, depToIn, axis:'y' (runs stack in y) }
+  //   stairsL = { x0,x1, y0,y1, depFromIn, depToIn, axis:'x' (runs stack in x) }
+  function bajaGeometry(s, nextDepthIn) {
+    const W = state.width;
+    const L = Math.max(0.01, +s.length || 0);
+    const sw = Math.min(W, Math.max(0, +s.shelfWidthFt || 0));
+    const sl = Math.min(L, Math.max(0, +s.shelfLengthFt || 0));
+    const side = s.shelfSide === 'far' ? 'far' : 'near';
+    // Shelf rect in section-local coords (x: 0..L, y: 0..W)
+    const shelfX0 = 0, shelfX1 = sl;
+    const shelfY0 = side === 'near' ? 0 : W - sw;
+    const shelfY1 = side === 'near' ? sw : W;
+    const shelfDepth = +s.shelfDepthIn || 10;
+    const waterDepth = +s.depthIn || 42;
+    const nextDepth = +nextDepthIn || waterDepth;
+
+    // Width-side stairs: occupy a band at the shelf's inner-y edge, going INTO
+    // the baja-water region. Band thickness = stepRun (based on treadLenIn × count).
+    let stairsW = null;
+    if (s.stairsWidth && s.stairsWidth.on && sw > 0 && sl > 0) {
+      const treadRise = +s.stairsWidth.treadRiseIn || 10;
+      const treadLen = +s.stairsWidth.treadLenIn || 12;
+      const dc = Math.abs(waterDepth - shelfDepth);
+      const count = Math.max(1, Math.round(dc / treadRise));
+      const runFt = (count * treadLen) / 12;
+      // stairs go OUTWARD from shelf inner edge, capped at remaining room
+      const roomFt = side === 'near' ? (W - shelfY1) : shelfY0;
+      const actRun = Math.min(runFt, roomFt);
+      const y0 = side === 'near' ? shelfY1 : shelfY0 - actRun;
+      const y1 = y0 + actRun;
+      stairsW = {
+        x0: shelfX0, x1: shelfX1,    // spans the shelf's x range
+        y0, y1,
+        depFromIn: shelfDepth, depToIn: waterDepth,
+        count, treadRise, treadLen,
+        axis: side === 'near' ? 'y+' : 'y-', // direction of descent
+      };
+    }
+    // Length-side stairs: band at the shelf's end-x edge, going INTO the rest of
+    // the section's length (toward the next section). Depth goes shelf → nextDepth.
+    let stairsL = null;
+    if (s.stairsLength && s.stairsLength.on && sw > 0 && sl > 0) {
+      const treadRise = +s.stairsLength.treadRiseIn || 10;
+      const treadLen = +s.stairsLength.treadLenIn || 12;
+      const dc = Math.abs(nextDepth - shelfDepth);
+      const count = Math.max(1, Math.round(dc / treadRise));
+      const runFt = (count * treadLen) / 12;
+      const roomFt = L - shelfX1;
+      const actRun = Math.min(runFt, roomFt);
+      const x0 = shelfX1, x1 = shelfX1 + actRun;
+      stairsL = {
+        x0, x1,
+        y0: shelfY0, y1: shelfY1,     // spans the shelf's y range
+        depFromIn: shelfDepth, depToIn: nextDepth,
+        count, treadRise, treadLen,
+        axis: 'x+',
+      };
+    }
+    return {
+      L, W, side,
+      shelfX0, shelfX1, shelfY0, shelfY1,
+      shelfDepth, waterDepth, nextDepth,
+      stairsW, stairsL,
+    };
+  }
+
+  // Depth (inches) at local (xFt, yFt) inside a baja section. prevDepthIn unused here;
+  // nextDepthIn is needed for length-side stairs. Strategy: take the MAX depth (deepest
+  // floor) across the applicable zones so the L-corner wraps naturally.
+  function bajaDepthAt(s, xFt, yFt, prevDepthIn, nextDepthIn) {
+    const g = bajaGeometry(s, nextDepthIn);
+    const inShelf = xFt >= g.shelfX0 - 1e-6 && xFt <= g.shelfX1 + 1e-6
+                 && yFt >= g.shelfY0 - 1e-6 && yFt <= g.shelfY1 + 1e-6;
+    const inStW = g.stairsW && xFt >= g.stairsW.x0 - 1e-6 && xFt <= g.stairsW.x1 + 1e-6
+               && yFt >= g.stairsW.y0 - 1e-6 && yFt <= g.stairsW.y1 + 1e-6;
+    const inStL = g.stairsL && xFt >= g.stairsL.x0 - 1e-6 && xFt <= g.stairsL.x1 + 1e-6
+               && yFt >= g.stairsL.y0 - 1e-6 && yFt <= g.stairsL.y1 + 1e-6;
+
+    // Not in shelf or stair -> baja water depth
+    if (!inShelf && !inStW && !inStL) return g.waterDepth;
+
+    let deepest = -Infinity;
+    if (inShelf) deepest = Math.max(deepest, g.shelfDepth);
+    if (inStW) {
+      // step index 1..count along y
+      const run = g.stairsW.y1 - g.stairsW.y0;
+      const t = g.stairsW.axis === 'y+'
+        ? (yFt - g.stairsW.y0) / Math.max(0.001, run)
+        : (g.stairsW.y1 - yFt) / Math.max(0.001, run);
+      const k = Math.min(g.stairsW.count, Math.max(1, Math.ceil(t * g.stairsW.count)));
+      const d = g.stairsW.depFromIn + (g.stairsW.depToIn - g.stairsW.depFromIn) * (k / g.stairsW.count);
+      deepest = Math.max(deepest, d);
+    }
+    if (inStL) {
+      const run = g.stairsL.x1 - g.stairsL.x0;
+      const t = (xFt - g.stairsL.x0) / Math.max(0.001, run);
+      const k = Math.min(g.stairsL.count, Math.max(1, Math.ceil(t * g.stairsL.count)));
+      const d = g.stairsL.depFromIn + (g.stairsL.depToIn - g.stairsL.depFromIn) * (k / g.stairsL.count);
+      deepest = Math.max(deepest, d);
+    }
+    return deepest === -Infinity ? g.waterDepth : deepest;
+  }
 
   function renderSectionEditor() {
     const host = $('sections_list');
@@ -1311,6 +1976,97 @@
       const row = document.createElement('div');
       row.className = 'sec-row';
       row.dataset.id = s.id;
+      // prev depth for stair autocalc
+      const prevDepth = i > 0 ? (+state.sections[i-1].depthIn || 0) : 0;
+      let inputsHTML = '';
+      if (s.type === 'stairs') {
+        const meta = stairMeta(s, prevDepth);
+        const calcLen = sectionLengthFt(s, prevDepth);
+        const suggested = suggestTreadRise(Math.abs((s.depthIn||0) - prevDepth));
+        inputsHTML = `
+          <div class="sec-inputs">
+            <label>End depth
+              <span class="num"><input type="number" class="sec-depth" min="0" max="144" step="0.5" value="${s.depthIn}"/><em>in</em></span>
+            </label>
+            <label>Tread rise
+              <span class="num"><input type="number" class="sec-rise" min="4" max="14" step="0.5" value="${+s.treadRiseIn || suggested.rise}"/><em>in</em></span>
+            </label>
+            <label>Tread length
+              <span class="num"><input type="number" class="sec-tread" min="6" max="24" step="0.5" value="${+s.treadLenIn || 12}"/><em>in</em></span>
+            </label>
+          </div>
+          <div class="sec-stairs-info">
+            <span class="tag">${meta.count} ${meta.count === 1 ? 'step' : 'steps'}</span>
+            <span class="tag">${fmt1(meta.actualRise)}″ actual rise</span>
+            <span class="tag">length: ${fmt1(calcLen)}′</span>
+            <button class="sec-suggest" title="Suggest tread rise">↺ suggest</button>
+          </div>`;
+      } else if (s.type === 'baja') {
+        const side = s.shelfSide === 'far' ? 'far' : 'near';
+        const stW = s.stairsWidth || { on: false, treadRiseIn: 10, treadLenIn: 12 };
+        const stL = s.stairsLength || { on: false, treadRiseIn: 10, treadLenIn: 12 };
+        inputsHTML = `
+          <div class="sec-inputs">
+            <label>Water depth
+              <span class="num"><input type="number" class="sec-depth" min="0" max="144" step="0.5" value="${s.depthIn}"/><em>in</em></span>
+            </label>
+            <label>Shelf depth
+              <span class="num"><input type="number" class="sec-shelf-depth" min="0" max="48" step="0.5" value="${+s.shelfDepthIn || 10}"/><em>in</em></span>
+            </label>
+            <label>Length
+              <span class="num"><input type="number" class="sec-len" min="0.25" max="60" step="0.25" value="${s.length}"/><em>ft</em></span>
+            </label>
+          </div>
+          <div class="sec-inputs">
+            <label>Shelf width
+              <span class="num"><input type="number" class="sec-shelf-w" min="0.5" max="${Math.max(0.5, state.width)}" step="0.25" value="${+s.shelfWidthFt || Math.min(10, state.width)}"/><em>ft</em></span>
+            </label>
+            <label>Shelf length
+              <span class="num"><input type="number" class="sec-shelf-l" min="0.5" max="${Math.max(0.5, +s.length || 1)}" step="0.25" value="${+s.shelfLengthFt || Math.min(5, +s.length || 1)}"/><em>ft</em></span>
+            </label>
+          </div>
+          <div class="sec-baja">
+            <div class="baja-head">
+              <span>Shelf side</span>
+              <div class="baja-side-seg">
+                <button data-side="near" class="${side==='near'?'on':''}">Near</button>
+                <button data-side="far" class="${side==='far'?'on':''}">Far</button>
+              </div>
+            </div>
+            <div class="baja-stair-block">
+              <div class="baja-stair-head">
+                <button class="baja-stair-toggle ${stW.on?'on':''}" data-stair="width" title="Toggle"></button>
+                <span class="stair-name">Width-side stairs <span style="color:var(--ink-faint)">shelf → baja water</span></span>
+              </div>
+              ${stW.on ? `
+                <div class="baja-stair-inputs">
+                  <label>rise<input type="number" class="sw-rise" min="4" max="14" step="0.5" value="${+stW.treadRiseIn || 10}"/><em>in</em></label>
+                  <label>tread<input type="number" class="sw-tread" min="6" max="24" step="0.5" value="${+stW.treadLenIn || 12}"/><em>in</em></label>
+                </div>` : ''}
+            </div>
+            <div class="baja-stair-block">
+              <div class="baja-stair-head">
+                <button class="baja-stair-toggle ${stL.on?'on':''}" data-stair="length" title="Toggle"></button>
+                <span class="stair-name">Length-side stairs <span style="color:var(--ink-faint)">shelf → next section</span></span>
+              </div>
+              ${stL.on ? `
+                <div class="baja-stair-inputs">
+                  <label>rise<input type="number" class="sl-rise" min="4" max="14" step="0.5" value="${+stL.treadRiseIn || 10}"/><em>in</em></label>
+                  <label>tread<input type="number" class="sl-tread" min="6" max="24" step="0.5" value="${+stL.treadLenIn || 12}"/><em>in</em></label>
+                </div>` : ''}
+            </div>
+          </div>`;
+      } else {
+        inputsHTML = `
+          <div class="sec-inputs">
+            <label>Depth
+              <span class="num"><input type="number" class="sec-depth" min="0" max="144" step="0.5" value="${s.depthIn}"/><em>in</em></span>
+            </label>
+            <label>Length
+              <span class="num"><input type="number" class="sec-len" min="0.25" max="60" step="0.25" value="${s.length}"/><em>ft</em></span>
+            </label>
+          </div>`;
+      }
       row.innerHTML = `
         <div class="sec-head">
           <button class="sec-move" data-act="up" title="Up">↑</button>
@@ -1322,28 +2078,88 @@
           <div class="sec-seg">
             <button data-type="flat" class="${s.type==='flat'?'on':''}">Flat</button>
             <button data-type="slope" class="${s.type==='slope'?'on':''}">Sloped</button>
+            <button data-type="stairs" class="${s.type==='stairs'?'on':''}">Stairs</button>
+            <button data-type="baja" class="${s.type==='baja'?'on':''}">Baja</button>
           </div>
-          <div class="sec-inputs">
-            <label>Depth
-              <span class="num"><input type="number" class="sec-depth" min="0" max="144" step="0.5" value="${s.depthIn}"/><em>in</em></span>
-            </label>
-            <label>Length
-              <span class="num"><input type="number" class="sec-len" min="0.25" max="60" step="0.25" value="${s.length}"/><em>ft</em></span>
-            </label>
-          </div>
+          ${inputsHTML}
         </div>`;
       host.appendChild(row);
       // events
       row.querySelector('.sec-name').addEventListener('input', e => { s.name = e.target.value; scheduleRender(); });
-      row.querySelector('.sec-depth').addEventListener('input', e => { s.depthIn = +e.target.value; scheduleRender(); });
-      row.querySelector('.sec-len').addEventListener('input', e => { s.length = +e.target.value; scheduleRender(); });
+      row.querySelector('.sec-depth').addEventListener('input', e => {
+        s.depthIn = +e.target.value;
+        if (s.type === 'stairs') renderSectionEditor();
+        scheduleRender();
+      });
+      const lenInput = row.querySelector('.sec-len');
+      if (lenInput) lenInput.addEventListener('input', e => { s.length = +e.target.value; scheduleRender(); });
+      const riseInput = row.querySelector('.sec-rise');
+      if (riseInput) riseInput.addEventListener('input', e => {
+        s.treadRiseIn = +e.target.value;
+        renderSectionEditor();
+        scheduleRender();
+      });
+      const treadInput = row.querySelector('.sec-tread');
+      if (treadInput) treadInput.addEventListener('input', e => {
+        s.treadLenIn = +e.target.value;
+        renderSectionEditor();
+        scheduleRender();
+      });
+      const suggestBtn = row.querySelector('.sec-suggest');
+      if (suggestBtn) suggestBtn.addEventListener('click', () => {
+        const sug = suggestTreadRise(Math.abs((s.depthIn||0) - prevDepth));
+        s.treadRiseIn = sug.rise;
+        renderSectionEditor();
+        scheduleRender();
+      });
       row.querySelectorAll('.sec-seg button').forEach(b => {
         b.addEventListener('click', () => {
-          s.type = b.dataset.type;
+          const newType = b.dataset.type;
+          if (newType === 'stairs' && s.type !== 'stairs') {
+            const sug = suggestTreadRise(Math.abs((s.depthIn||0) - prevDepth));
+            s.treadRiseIn = s.treadRiseIn || sug.rise;
+            s.treadLenIn = s.treadLenIn || 12;
+          }
+          if (newType === 'baja' && s.type !== 'baja') {
+            s.shelfDepthIn = s.shelfDepthIn || 10;
+            s.depthIn = s.depthIn || 42;
+            s.shelfWidthFt = s.shelfWidthFt || Math.min(10, state.width);
+            s.shelfLengthFt = s.shelfLengthFt || Math.min(5, +s.length || 6);
+            s.shelfSide = s.shelfSide || 'near';
+            s.stairsWidth  = s.stairsWidth  || { on: true, treadRiseIn: 10, treadLenIn: 12 };
+            s.stairsLength = s.stairsLength || { on: true, treadRiseIn: 10, treadLenIn: 12 };
+          }
+          s.type = newType;
           renderSectionEditor();
           scheduleRender();
         });
       });
+      // Baja shelf events
+      const shelfDepthInput = row.querySelector('.sec-shelf-depth');
+      if (shelfDepthInput) shelfDepthInput.addEventListener('input', e => { s.shelfDepthIn = +e.target.value; scheduleRender(); });
+      const shelfWInput = row.querySelector('.sec-shelf-w');
+      if (shelfWInput) shelfWInput.addEventListener('input', e => { s.shelfWidthFt = +e.target.value; scheduleRender(); });
+      const shelfLInput = row.querySelector('.sec-shelf-l');
+      if (shelfLInput) shelfLInput.addEventListener('input', e => { s.shelfLengthFt = +e.target.value; scheduleRender(); });
+      row.querySelectorAll('.baja-side-seg button').forEach(b => {
+        b.addEventListener('click', () => { s.shelfSide = b.dataset.side; renderSectionEditor(); scheduleRender(); });
+      });
+      row.querySelectorAll('.baja-stair-toggle').forEach(b => {
+        b.addEventListener('click', () => {
+          const key = b.dataset.stair === 'width' ? 'stairsWidth' : 'stairsLength';
+          s[key] = s[key] || { treadRiseIn: 10, treadLenIn: 12 };
+          s[key].on = !s[key].on;
+          renderSectionEditor(); scheduleRender();
+        });
+      });
+      const swRise = row.querySelector('.sw-rise');
+      if (swRise) swRise.addEventListener('input', e => { s.stairsWidth.treadRiseIn = +e.target.value; scheduleRender(); });
+      const swTread = row.querySelector('.sw-tread');
+      if (swTread) swTread.addEventListener('input', e => { s.stairsWidth.treadLenIn = +e.target.value; scheduleRender(); });
+      const slRise = row.querySelector('.sl-rise');
+      if (slRise) slRise.addEventListener('input', e => { s.stairsLength.treadRiseIn = +e.target.value; scheduleRender(); });
+      const slTread = row.querySelector('.sl-tread');
+      if (slTread) slTread.addEventListener('input', e => { s.stairsLength.treadLenIn = +e.target.value; scheduleRender(); });
       row.querySelector('.sec-del').addEventListener('click', () => {
         state.sections.splice(i, 1);
         renderSectionEditor();
@@ -1380,7 +2196,7 @@
       raf = 0;
       try { renderTop(); } catch (e) { console.error('renderTop failed:', e); }
       try { renderIso(); } catch (e) { console.error('renderIso failed:', e); }
-      try { renderSection(); } catch (e) { console.error('renderSection failed:', e); }
+      try { renderSectionAll(); } catch (e) { console.error('renderSection failed:', e); }
       try { renderStats(); } catch (e) { console.error('renderStats failed:', e); }
     };
     // use setTimeout — rAF is throttled when iframe not focused
@@ -1577,25 +2393,41 @@
         ctx.fillRect(0, 0, W, H);
         ctx.drawImage(img, 0, 0, W, H);
         URL.revokeObjectURL(url);
-        // Watermark logo (bottom-right), muted
+        // Title strip at top + watermark logo at bottom
         if (opts.watermark) {
           try {
             const logoImg = document.querySelector('.brand img');
             if (logoImg && logoImg.complete && logoImg.naturalWidth) {
-              const targetW = Math.min(W * 0.12, 180);
+              const targetW = Math.min(W * 0.22, 360);
               const ratio = logoImg.naturalHeight / logoImg.naturalWidth;
               const targetH = targetW * ratio;
               ctx.save();
-              ctx.globalAlpha = 0.35;
+              ctx.globalAlpha = 0.45;
               ctx.drawImage(
                 logoImg,
-                W - targetW - 16,
-                H - targetH - 10,
+                W - targetW - 24,
+                H - targetH - 18,
                 targetW, targetH
               );
               ctx.restore();
             }
           } catch (e) { /* ignore */ }
+        }
+        // Title label (top-left), muted
+        if (opts.title) {
+          ctx.save();
+          ctx.textBaseline = 'alphabetic';
+          const titleSize = Math.round(Math.max(18, W * 0.018));
+          const subSize = Math.round(Math.max(11, W * 0.011));
+          ctx.font = `600 ${titleSize}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
+          ctx.fillStyle = ink;
+          ctx.fillText(opts.title, 24, 24 + titleSize);
+          if (opts.subtitle) {
+            ctx.font = `500 ${subSize}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
+            ctx.fillStyle = inkSoft;
+            ctx.fillText(opts.subtitle, 24, 24 + titleSize + subSize + 6);
+          }
+          ctx.restore();
         }
         resolve({ canvas, vw, vh });
       };
@@ -1625,12 +2457,24 @@
     return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}`;
   }
 
+  const VIEW_TITLES = {
+    'svg_top': 'Plan · Top view',
+    'svg_sec': 'Cross-section A–A',
+    'svg_iso': 'Iso · 3/4 view',
+  };
+
   async function exportPNG(svgId, label) {
     try {
       setStatus('Rendering ' + label + '…');
-      const { canvas } = await svgToCanvas(svgId, 3, { watermark: true });
+      const pname = state.tweaks.projectName || 'Pool A';
+      const date = new Date().toLocaleDateString('en-US',{year:'numeric',month:'short',day:'2-digit'}).toUpperCase();
+      const { canvas } = await svgToCanvas(svgId, 3, {
+        watermark: true,
+        title: pname,
+        subtitle: `${(VIEW_TITLES[svgId] || label).toUpperCase()}  ·  ${date}`,
+      });
       const blob = await canvasToBlob(canvas, 'image/png');
-      const name = `${slugify(state.tweaks.projectName)}-${label}-${dateStr()}.png`;
+      const name = `${slugify(pname)}-${label}-${dateStr()}.png`;
       downloadBlob(blob, name);
       setStatus('Saved ' + name);
     } catch (e) {
