@@ -922,10 +922,10 @@
               }, svg);
             }
           }
-          // WRAP: both stairs on, partial shelf. Each step k has three disjoint pieces
-          //   length arm (over shelf y-range):     x ∈ [k-1, k]*lTread, y ∈ shelf y-range
-          //   width arm  (over shelf x-range):     x ∈ shelf x-range,   y ∈ step-k band (outward)
-          //   corner                                x ∈ [k-1, k]*lTread, y ∈ step-k band
+          // WRAP: both stairs on, partial shelf. Each step k owns an L-band whose
+          // depth is step k. The corner zone is a count × count grid of cells, and
+          // cell (kx, ky) has depth from step max(kx, ky) — so we paint every cell
+          // (not just the diagonal) to avoid gaps.
           if (wrap && g.stairsW && g.stairsL) {
             const stW = g.stairsW, stL = g.stairsL;
             const ySign  = stW.axis === 'y+' ? 1 : -1;
@@ -934,58 +934,75 @@
             const shelfY0Ft = g.shelfY0, shelfY1Ft = g.shelfY1;
             const shelfX0Px = sx + g.shelfX0 * scale;
             const shelfX1Px = sx + g.shelfX1 * scale;
+            const cornerYBase = ySign > 0 ? stW.y0 : stW.y1; // inner edge of width stairs
+            // 1) Per-step shelf-side arms (length arm over shelf + width arm over shelf)
             for (let k = 1; k <= stL.count; k++) {
               const d = stL.depFromIn + (stL.depToIn - stL.depFromIn) * (k / stL.count);
               const color = depthColor(d);
-              // Length arm
+              // Length arm over shelf y-range
               const lx0 = sx + (stL.x0 + (k - 1) * lTread) * scale;
               const lx1 = sx + (stL.x0 + k * lTread) * scale;
               el('rect', { x: lx0, y: y0 + shelfY0Ft * widthScale,
                 width: lx1 - lx0, height: (shelfY1Ft - shelfY0Ft) * widthScale,
                 fill: color, 'fill-opacity': 0.55 }, svg);
-              // Width arm (over shelf x-range)
-              const wyA = ySign > 0
-                ? y0 + (stW.y0 + (k - 1) * wTread) * widthScale
-                : y0 + (stW.y1 - k * wTread) * widthScale;
-              const wyB = ySign > 0
-                ? y0 + (stW.y0 + k * wTread) * widthScale
-                : y0 + (stW.y1 - (k - 1) * wTread) * widthScale;
-              el('rect', { x: shelfX0Px, y: wyA,
-                width: shelfX1Px - shelfX0Px, height: wyB - wyA,
-                fill: color, 'fill-opacity': 0.55 }, svg);
-              // Corner square at step k
-              el('rect', { x: lx0, y: wyA, width: lx1 - lx0, height: wyB - wyA,
+              // Width arm over shelf x-range
+              const wyA = cornerYBase + ySign * (k - 1) * wTread;
+              const wyB = cornerYBase + ySign * k * wTread;
+              const wy0 = y0 + Math.min(wyA, wyB) * widthScale;
+              const wy1 = y0 + Math.max(wyA, wyB) * widthScale;
+              el('rect', { x: shelfX0Px, y: wy0,
+                width: shelfX1Px - shelfX0Px, height: wy1 - wy0,
                 fill: color, 'fill-opacity': 0.55 }, svg);
             }
+            // 2) Corner zone: paint every (kx, ky) cell with depth = step max(kx, ky)
+            for (let kx = 1; kx <= stL.count; kx++) {
+              for (let ky = 1; ky <= stW.count; ky++) {
+                const k = Math.max(kx, ky);
+                const d = stL.depFromIn + (stL.depToIn - stL.depFromIn) * (k / stL.count);
+                const color = depthColor(d);
+                const cellX0 = sx + (stL.x0 + (kx - 1) * lTread) * scale;
+                const cellX1 = sx + (stL.x0 + kx * lTread) * scale;
+                const yA = cornerYBase + ySign * (ky - 1) * wTread;
+                const yB = cornerYBase + ySign * ky * wTread;
+                const cellY0 = y0 + Math.min(yA, yB) * widthScale;
+                const cellY1 = y0 + Math.max(yA, yB) * widthScale;
+                el('rect', { x: cellX0, y: cellY0, width: cellX1 - cellX0, height: cellY1 - cellY0,
+                  fill: color, 'fill-opacity': 0.55 }, svg);
+              }
+            }
           }
-          // 4) First-step overlay (if on) — shallowest surface; rect matches shelf width.
+          // 4) First-step overlay (sits INSIDE the shelf's start-X corner; no own x extent)
           if (g.fsOn && g.fsLen > 0.05) {
             const fsColor = depthColor(g.fsDepth);
-            const fsX0 = sx, fsX1 = sx + g.fsLen * scale;
+            // First step's x-range is [shX0 .. shX0 + fsLen], y-range is shelf's y-range.
+            const fsX0 = sx + g.shelfX0 * scale;
+            const fsX1 = sx + (g.shelfX0 + g.fsLen) * scale;
             const fsLenPx = g.fsLen * scale;
+            const fsY0Shelf = y0 + g.shelfY0 * widthScale;
+            const fsY1Shelf = y0 + g.shelfY1 * widthScale;
             if (g.fsShape === 'full') {
-              // Match shelf width (full width if shelf is full; partial otherwise).
-              const fsY0 = y0 + g.shelfY0 * widthScale;
-              const fsY1 = y0 + g.shelfY1 * widthScale;
-              el('rect', { x: fsX0, y: fsY0, width: fsX1 - fsX0, height: fsY1 - fsY0,
-                fill: fsColor, 'fill-opacity': 0.8 }, svg);
-              // Solid outline so the first step reads clearly.
+              el('rect', { x: fsX0, y: fsY0Shelf, width: fsX1 - fsX0, height: fsY1Shelf - fsY0Shelf,
+                fill: fsColor, 'fill-opacity': 0.85 }, svg);
               el('path', {
-                d: wobbleClosed([[fsX0, fsY0],[fsX1, fsY0],[fsX1, fsY1],[fsX0, fsY1]], 0.3, 740),
+                d: wobbleClosed([[fsX0, fsY0Shelf],[fsX1, fsY0Shelf],[fsX1, fsY1Shelf],[fsX0, fsY1Shelf]], 0.3, 740),
                 class: 'ink', 'stroke-width': 1.4, fill: 'none',
               }, svg);
             } else {
-              // Triangle shapes — 45° right triangle with the right-angle at the pool corner.
-              const fsY0 = y0, fsY1 = y0 + poolH;
+              // Triangle 45° right triangle anchored at the shelf's start-X corner.
               const fsLenYPx = g.fsLen * widthScale;
+              // For triangles, anchor to the shelf corner adjacent to the pool wall (shY0 for near, shY1 for far).
               if (g.fsShape === 'tri-near' || g.fsShape === 'tri-both') {
-                const pts = [[fsX0, fsY0],[fsX0 + fsLenPx, fsY0],[fsX0, fsY0 + fsLenYPx]];
-                el('polygon', { points: pts.map(p=>p.join(',')).join(' '), fill: fsColor, 'fill-opacity': 0.8 }, svg);
+                // Near-side triangle: anchored at (shX0, shY0) — near wall of pool (or near edge of shelf).
+                const tyBase = fsY0Shelf;
+                const pts = [[fsX0, tyBase],[fsX0 + fsLenPx, tyBase],[fsX0, tyBase + fsLenYPx]];
+                el('polygon', { points: pts.map(p=>p.join(',')).join(' '), fill: fsColor, 'fill-opacity': 0.85 }, svg);
                 el('path', { d: wobbleClosed(pts, 0.3, 741), class: 'ink', 'stroke-width': 1.4, fill: 'none' }, svg);
               }
               if (g.fsShape === 'tri-far' || g.fsShape === 'tri-both') {
-                const pts = [[fsX0, fsY1],[fsX0 + fsLenPx, fsY1],[fsX0, fsY1 - fsLenYPx]];
-                el('polygon', { points: pts.map(p=>p.join(',')).join(' '), fill: fsColor, 'fill-opacity': 0.8 }, svg);
+                // Far-side triangle: anchored at (shX0, shY1) — far wall of pool (or far edge of shelf).
+                const tyBase = fsY1Shelf;
+                const pts = [[fsX0, tyBase],[fsX0 + fsLenPx, tyBase],[fsX0, tyBase - fsLenYPx]];
+                el('polygon', { points: pts.map(p=>p.join(',')).join(' '), fill: fsColor, 'fill-opacity': 0.85 }, svg);
                 el('path', { d: wobbleClosed(pts, 0.3, 742), class: 'ink', 'stroke-width': 1.4, fill: 'none' }, svg);
               }
             }
@@ -1200,7 +1217,9 @@
 
     // dims
     dimLine(svg, x0, y0 + poolH, x0 + poolW, y0 + poolH, fmtFt(L), { offset: 34, side: 1, textOffset: 16 });
-    dimLine(svg, x0 + poolW, y0, x0 + poolW, y0 + poolH, fmtFt(W), { offset: 34, side: 1, textOffset: 16, vertical: true });
+    // Width dim: place to the right of the pool (outside footprint). side:-1 flips the
+    // normal direction so the dim line + label land to the right of the pool edge.
+    dimLine(svg, x0 + poolW, y0, x0 + poolW, y0 + poolH, fmtFt(W), { offset: 34, side: -1, textOffset: 16, vertical: true });
 
     // Per-segment length dimensions above the pool (single row).
     // Entry sections break into: [first step] [shelf] [stairs].
@@ -1212,10 +1231,10 @@
           const next = resolved[i + 1];
           const nextDepth = next ? +next.s.depthIn : s.depthIn;
           const g = bajaGeometry(s, nextDepth);
-          if (g.fsOn && g.fsLen > 0.05) segs.push({ start, len: g.fsLen, label: 'STEP' });
-          if (g.shelfLength > 0.05) segs.push({ start: start + g.fsLen, len: g.shelfLength, label: 'SHELF' });
-          const stairLen = Math.max(0, length - g.fsLen - g.shelfLength);
-          if (stairLen > 0.05) segs.push({ start: start + g.fsLen + g.shelfLength, len: stairLen, label: 'STAIRS' });
+          // First step is an overlay inside the shelf; no separate dim segment.
+          if (g.shelfLength > 0.05) segs.push({ start, len: g.shelfLength, label: 'SHELF' });
+          const stairLen = Math.max(0, length - g.shelfLength);
+          if (stairLen > 0.05) segs.push({ start: start + g.shelfLength, len: stairLen, label: 'STAIRS' });
         } else {
           segs.push({ start, len: length, label: (s.name || '').toUpperCase() });
         }
@@ -1522,8 +1541,11 @@
 
     // Bench overlay — fills only where floor is deeper than bench top,
     // strictly clipped to [bStartFt, bEndFt]. Breaks into separate polygons
-    // if the floor pops above the bench top in the middle.
-    if (state.bench.on) {
+    // if the floor pops above the bench top in the middle. Drawn ONLY when
+    // the cross-section's cut y-position passes through the bench's band.
+    const benchOnThisCut = state.bench.on
+      && benchYRanges().some(([a,b]) => cutY >= a - 1e-6 && cutY <= b + 1e-6);
+    if (benchOnThisCut) {
       const bStartFt = Math.min(state.bench.startFt, state.bench.endFt);
       const bEndFt = Math.max(state.bench.startFt, state.bench.endFt);
       const bxS = x0 + bStartFt * scale;
@@ -1566,23 +1588,30 @@
           fill: '#d9c6a0', 'fill-opacity': 0.75,
         }, svg);
 
-        // hatching within this run
+        // Hatching within this run. Each hatch line is clipped so it never extends
+        // below the floor across its own x-extent (handles stair step-downs cleanly).
         const bh = el('g', { opacity: 0.5 }, svg);
         const hatchStep = 8;
+        const hatchW = 6; // horizontal extent of each diagonal line
         const runStart = run[0].px;
-        const runEnd = run[run.length-1].px;
-        for (let x = runStart; x <= runEnd; x += hatchStep) {
-          // find floor at this x by linear search
-          let fy = by + 20;
+        const runEnd = run[run.length - 1].px;
+        const floorAt = (xp) => {
           for (let k = 0; k < run.length - 1; k++) {
-            if (x >= run[k].px && x <= run[k+1].px) {
-              const t = (x - run[k].px) / (run[k+1].px - run[k].px || 1);
-              fy = run[k].floorPy + (run[k+1].floorPy - run[k].floorPy) * t;
-              break;
+            if (xp >= run[k].px && xp <= run[k + 1].px) {
+              const t = (xp - run[k].px) / (run[k + 1].px - run[k].px || 1);
+              return run[k].floorPy + (run[k + 1].floorPy - run[k].floorPy) * t;
             }
           }
-          const bottomY = Math.max(fy, by);
-          el('line', { x1: x, y1: by, x2: x + 6, y2: bottomY, class:'ink-faint','stroke-width':0.5 }, bh);
+          return xp < run[0].px ? run[0].floorPy : run[run.length - 1].floorPy;
+        };
+        for (let x = runStart; x <= runEnd - 1; x += hatchStep) {
+          const x2 = Math.min(runEnd, x + hatchW);
+          // minimum floor depth (py) across the diagonal's x-range — keeps the line above any step drop
+          let minFloorPy = Infinity;
+          for (let px = x; px <= x2; px += 1) minFloorPy = Math.min(minFloorPy, floorAt(px));
+          const bottomY = Math.max(minFloorPy, by);
+          if (bottomY <= by + 0.5) continue; // nothing to draw
+          el('line', { x1: x, y1: by, x2: x2, y2: bottomY, class:'ink-faint', 'stroke-width':0.5 }, bh);
         }
 
         // top sitting surface
@@ -2096,21 +2125,15 @@
   }
 
   // Derived length (ft) for an entry section — NOT an independent input.
-  // = first-step tread + shelf length + length-stairs run (width-stairs don't extend x).
+  // Shelf is anchored to the pool wall (x=0). First step is an OVERLAY inside the
+  // shelf's start-X corner — it does NOT add to section length.
+  // Length = shelf length + length-stairs run.
   function entryLengthFt(s) {
-    const fs = s.firstStep || {};
     const sh = s.shelf || {};
     const st = s.stairs || {};
-    const fsLen = fs.on ? Math.max(0, (+fs.treadLenIn || 0) / 12) : 0;
     const shelfLen = Math.max(0, +sh.lengthFt || 0);
-    // stairs-to-next run along length (cumulative tread × count)
     let stairLen = 0;
     if (st.lengthOn) {
-      const next = (function(){
-        // find next section depth — approximate here; caller passes via _fitOverrides path
-        return null;
-      })();
-      // compute count from delta between shelf and next; fall back to 0 if no next
       const idx = state.sections.indexOf(s);
       const nxt = state.sections[idx + 1];
       const nextD = nxt ? (+nxt.depthIn || 0) : (+sh.depthIn || 0);
@@ -2125,7 +2148,7 @@
       }
       stairLen = count * ((+st.treadLenIn || 12) / 12);
     }
-    return Math.max(0.25, fsLen + shelfLen + stairLen);
+    return Math.max(0.25, shelfLen + stairLen);
   }
 
   // Compute effective length of a section, accounting for fit-to-desired overrides.
@@ -2163,29 +2186,31 @@
   // Returns: everything needed to render + query depth.
   function entryGeometry(s, nextDepthIn) {
     const W = state.width;
-    // Entry length is DERIVED from its own parts; don't trust s.length blindly.
+    // Entry length is DERIVED from shelf + stair run; first step does NOT extend length.
     const L = Math.max(0.01, entryLengthFt(s));
     s.length = L;
     const next = +nextDepthIn || 0;
 
-    // --- First step ---
+    // --- First step (overlay inside the shelf's start-X corner; no own length) ---
     const fs = s.firstStep || { on: false, shape: 'full', treadLenIn: 18, depthIn: 8 };
     const fsOn = !!fs.on;
-    const fsLen = fsOn ? Math.min(L, (+fs.treadLenIn || 18) / 12) : 0;
+    // Overlay extent along x. Capped by shelf length (can't extend past the shelf).
     const fsDepth = fsOn ? (+fs.depthIn || 8) : 0;
     const fsShape = fs.shape || 'full';
 
-    // --- Shelf ---
+    // --- Shelf (anchored at x=0, the pool wall) ---
     const sh = s.shelf || { depthIn: 16, side: 'full', widthFt: W, lengthFt: 5 };
     const shelfSide = (sh.side === 'near' || sh.side === 'far' || sh.side === 'full') ? sh.side : 'full';
     const shelfDepth = +sh.depthIn || 16;
     const shelfWidth = shelfSide === 'full' ? W : Math.min(W, Math.max(0, +sh.widthFt || 0));
-    const shelfLengthMax = Math.max(0, L - fsLen);
-    const shelfLength = Math.min(shelfLengthMax, Math.max(0, +sh.lengthFt || 0));
-    const shX0 = fsLen;
-    const shX1 = fsLen + shelfLength;
+    const shelfLength = Math.max(0, +sh.lengthFt || 0);
+    const shX0 = 0;
+    const shX1 = shelfLength;
     const shY0 = shelfSide === 'far' ? W - shelfWidth : 0;
     const shY1 = shelfSide === 'far' ? W : shelfWidth;
+
+    // First-step overlay length — capped by shelf length (overlay lives within shelf)
+    const fsLen = fsOn ? Math.min(shelfLength, Math.max(0, (+fs.treadLenIn || 18) / 12)) : 0;
 
     // --- Stairs (shelf → next) ---
     const st = s.stairs || { widthOn: false, lengthOn: true, treadLenIn: 12 };
@@ -2259,14 +2284,13 @@
   function entryDepthAt(s, xFt, yFt, prevDepthIn, nextDepthIn) {
     const g = entryGeometry(s, nextDepthIn);
 
-    // 1) First-step zone
-    if (g.fsOn && xFt < g.fsLen - 1e-9) {
-      // Check triangle shape: inside the triangle area, we're on the step (firstStep depth).
-      // Outside, we're in pool water at shelfDepth (if the shelf extends to y there) or nextDepth.
+    // 1) Shelf footprint (shelf is anchored at x=0)
+    const inShelfX = xFt >= g.shX0 - 1e-9 && xFt <= g.shX1 + 1e-9;
+    const inShelfY = (g.shelfSide === 'full') || (yFt >= g.shY0 - 1e-9 && yFt <= g.shY1 + 1e-9);
+
+    // First step is an OVERLAY inside the shelf's start-X corner (y-range matches shelf).
+    if (g.fsOn && inShelfX && inShelfY && xFt <= g.fsLen + 1e-9) {
       const inTri = (corner) => {
-        // 45° isosceles right triangle with corner at the pool corner
-        // corner='near': vertices (0,0),(fsLen,0),(0,fsLen) — hypotenuse from (fsLen,0) to (0,fsLen)
-        // point inside if x + y <= fsLen (for near), x + (W-y) <= fsLen (for far)
         if (corner === 'near') return xFt + yFt <= g.fsLen + 1e-9 && yFt <= g.fsLen + 1e-9;
         return xFt + (g.W - yFt) <= g.fsLen + 1e-9 && (g.W - yFt) <= g.fsLen + 1e-9;
       };
@@ -2276,15 +2300,8 @@
       else if (g.fsShape === 'tri-far') onStep = inTri('far');
       else if (g.fsShape === 'tri-both') onStep = inTri('near') || inTri('far');
       if (onStep) return g.fsDepth;
-      // not on step -> fall through: this point is beyond step surface.
-      // Depth here should be shelf depth if we're in the shelf y-range within this x? No — shelf starts at x=fsLen.
-      // So at x<fsLen outside triangle, the floor drops to shelfDepth (the next surface). Use shelfDepth.
-      return g.shelfDepth;
+      // else fall through to shelf depth below
     }
-
-    // 2) Shelf footprint
-    const inShelfX = xFt >= g.shX0 - 1e-9 && xFt <= g.shX1 + 1e-9;
-    const inShelfY = (g.shelfSide === 'full') || (yFt >= g.shY0 - 1e-9 && yFt <= g.shY1 + 1e-9);
 
     if (inShelfX && inShelfY) return g.shelfDepth;
 
