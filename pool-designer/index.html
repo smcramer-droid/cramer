@@ -958,28 +958,35 @@
                 fill: color, 'fill-opacity': 0.55 }, svg);
             }
           }
-          // 4) First-step overlay (if on) — paint on top of everything as it's the shallowest surface.
+          // 4) First-step overlay (if on) — shallowest surface; rect matches shelf width.
           if (g.fsOn && g.fsLen > 0.05) {
             const fsColor = depthColor(g.fsDepth);
             const fsX0 = sx, fsX1 = sx + g.fsLen * scale;
-            const fsY0 = y0, fsY1 = y0 + poolH;
             const fsLenPx = g.fsLen * scale;
-            const fsWPx = poolH; // same as pool width in px (W * widthScale)
             if (g.fsShape === 'full') {
+              // Match shelf width (full width if shelf is full; partial otherwise).
+              const fsY0 = y0 + g.shelfY0 * widthScale;
+              const fsY1 = y0 + g.shelfY1 * widthScale;
               el('rect', { x: fsX0, y: fsY0, width: fsX1 - fsX0, height: fsY1 - fsY0,
-                fill: fsColor, 'fill-opacity': 0.75 }, svg);
+                fill: fsColor, 'fill-opacity': 0.8 }, svg);
+              // Solid outline so the first step reads clearly.
+              el('path', {
+                d: wobbleClosed([[fsX0, fsY0],[fsX1, fsY0],[fsX1, fsY1],[fsX0, fsY1]], 0.3, 740),
+                class: 'ink', 'stroke-width': 1.4, fill: 'none',
+              }, svg);
             } else {
               // Triangle shapes — 45° right triangle with the right-angle at the pool corner.
-              // tri-near: corner (0,0), legs along x and y of length fsLen
-              // tri-far:  corner (0,W),  legs along x and -y of length fsLen
-              const fsLenYPx = g.fsLen * widthScale; // triangle leg in y-direction in px (scale by widthScale)
+              const fsY0 = y0, fsY1 = y0 + poolH;
+              const fsLenYPx = g.fsLen * widthScale;
               if (g.fsShape === 'tri-near' || g.fsShape === 'tri-both') {
-                const pts = `${fsX0},${fsY0} ${fsX0+fsLenPx},${fsY0} ${fsX0},${fsY0+fsLenYPx}`;
-                el('polygon', { points: pts, fill: fsColor, 'fill-opacity': 0.75 }, svg);
+                const pts = [[fsX0, fsY0],[fsX0 + fsLenPx, fsY0],[fsX0, fsY0 + fsLenYPx]];
+                el('polygon', { points: pts.map(p=>p.join(',')).join(' '), fill: fsColor, 'fill-opacity': 0.8 }, svg);
+                el('path', { d: wobbleClosed(pts, 0.3, 741), class: 'ink', 'stroke-width': 1.4, fill: 'none' }, svg);
               }
               if (g.fsShape === 'tri-far' || g.fsShape === 'tri-both') {
-                const pts = `${fsX0},${fsY1} ${fsX0+fsLenPx},${fsY1} ${fsX0},${fsY1-fsLenYPx}`;
-                el('polygon', { points: pts, fill: fsColor, 'fill-opacity': 0.75 }, svg);
+                const pts = [[fsX0, fsY1],[fsX0 + fsLenPx, fsY1],[fsX0, fsY1 - fsLenYPx]];
+                el('polygon', { points: pts.map(p=>p.join(',')).join(' '), fill: fsColor, 'fill-opacity': 0.8 }, svg);
+                el('path', { d: wobbleClosed(pts, 0.3, 742), class: 'ink', 'stroke-width': 1.4, fill: 'none' }, svg);
               }
             }
           }
@@ -1051,14 +1058,14 @@
       }
     });
 
-    // Baja shelf outline + stair treads
+    // Entry shelf outline + stair tread outlines (plan view)
     resolved.forEach(({ s, length, start, prevDepth }, idx) => {
       if (s.type !== 'entry') return;
       const sx = x0 + start * scale;
       const sw = length * scale;
       const next = resolved[idx + 1];
       const nextDepth = next ? +next.s.depthIn : s.depthIn;
-      const g = bajaGeometry(s, nextDepth);
+      const g = entryGeometry(s, nextDepth);
       // Shelf outline (dashed)
       if (g.shelfX1 - g.shelfX0 > 0.01 && g.shelfY1 - g.shelfY0 > 0.01) {
         const shX0 = sx + g.shelfX0 * scale, shX1 = sx + g.shelfX1 * scale;
@@ -1068,46 +1075,65 @@
           class: 'ink', 'stroke-width': 1.4, fill: 'none', 'stroke-dasharray': '6 3',
         }, svg);
       }
-      // Width-side stair treads — tick lines parallel to x (stacked in y)
-      if (g.stairsW) {
-        const stW = g.stairsW;
-        const bx0 = sx + stW.x0 * scale, bx1 = sx + stW.x1 * scale;
-        for (let k = 1; k < stW.count; k++) {
-          const yFt = stW.axis === 'y+'
-            ? stW.y0 + (stW.y1 - stW.y0) * (k / stW.count)
-            : stW.y1 - (stW.y1 - stW.y0) * (k / stW.count);
-          const yPx = y0 + yFt * widthScale;
+
+      const wrap = g.wrap;
+      const stW = g.stairsW, stL = g.stairsL;
+
+      if (wrap && stW && stL) {
+        // Continuous L-shaped tread outlines.
+        // For side='near': inner shelf y is 0..sw; width stairs go +y from sw.
+        //   Step-k boundary L: horizontal at y = sw + k*wTread (x: shX0 .. shX1 + k*lTread)
+        //                      vertical   at x = shX1 + k*lTread (y: 0 .. sw + k*wTread)
+        // For side='far': mirror in y.
+        const wTread = (stW.y1 - stW.y0) / stW.count;
+        const lTread = (stL.x1 - stL.x0) / stL.count;
+        const ySign = stW.axis === 'y+' ? 1 : -1;
+        const wY0Ft = ySign > 0 ? stW.y0 : stW.y1;     // inner edge of width stairs (== shelf inner y)
+        const shInnerYFt = ySign > 0 ? g.shelfY1 : g.shelfY0; // shelf inner y (where width stairs begin)
+        const shOuterYFt = ySign > 0 ? g.shelfY0 : g.shelfY1; // shelf outer y (pool wall side)
+        // For each step k = 1..count, draw the L outline of step k boundary.
+        for (let k = 1; k <= stL.count; k++) {
+          const xBnd = sx + (g.shelfX1 + k * lTread) * scale;
+          const yBnd = y0 + (shInnerYFt + ySign * k * wTread) * widthScale;
+          const yShelfOuter = y0 + shOuterYFt * widthScale;
+          const xShelfStart = sx + g.shelfX0 * scale;
+          // L: horizontal arm (from shelf x-start, along y=yBnd, to corner) + vertical arm (down/up to shelf outer y)
           el('path', {
-            d: wobble([[bx0 + 2, yPx],[bx1 - 2, yPx]], 0.3, 760 + k),
-            class: 'ink-soft', 'stroke-width': 0.9,
+            d: wobble([[xShelfStart, yBnd],[xBnd, yBnd],[xBnd, yShelfOuter]], 0.3, 770 + k),
+            class: 'ink', 'stroke-width': k === stL.count ? 1.3 : 1.0, fill: 'none',
           }, svg);
         }
-        // outline around stairsW region (solid)
-        el('path', {
-          d: wobbleClosed([
-            [bx0, y0 + stW.y0 * widthScale],[bx1, y0 + stW.y0 * widthScale],
-            [bx1, y0 + stW.y1 * widthScale],[bx0, y0 + stW.y1 * widthScale]
-          ], 0.3, 755), class:'ink','stroke-width':1, fill:'none',
-        }, svg);
-      }
-      // Length-side stair treads — tick lines parallel to y (stacked in x)
-      if (g.stairsL) {
-        const stL = g.stairsL;
-        const by0 = y0 + stL.y0 * widthScale, by1 = y0 + stL.y1 * widthScale;
-        for (let k = 1; k < stL.count; k++) {
-          const xFt = stL.x0 + (stL.x1 - stL.x0) * (k / stL.count);
-          const xPx = sx + xFt * scale;
-          el('path', {
-            d: wobble([[xPx, by0 + 2],[xPx, by1 - 2]], 0.3, 770 + k),
-            class: 'ink-soft', 'stroke-width': 0.9,
-          }, svg);
+        // Outer outline of the L stair zone (k = count): same as above's last L, already drawn at heavier weight.
+      } else {
+        // No wrap — draw width and length tread lines independently
+        if (stW) {
+          const bx0 = sx + stW.x0 * scale, bx1 = sx + stW.x1 * scale;
+          for (let k = 1; k < stW.count; k++) {
+            const yFt = stW.axis === 'y+'
+              ? stW.y0 + (stW.y1 - stW.y0) * (k / stW.count)
+              : stW.y1 - (stW.y1 - stW.y0) * (k / stW.count);
+            const yPx = y0 + yFt * widthScale;
+            el('path', { d: wobble([[bx0 + 2, yPx],[bx1 - 2, yPx]], 0.3, 760 + k),
+              class: 'ink-soft', 'stroke-width': 0.9 }, svg);
+          }
+          el('path', { d: wobbleClosed([
+              [bx0, y0 + stW.y0 * widthScale],[bx1, y0 + stW.y0 * widthScale],
+              [bx1, y0 + stW.y1 * widthScale],[bx0, y0 + stW.y1 * widthScale]
+            ], 0.3, 755), class:'ink','stroke-width':1.2, fill:'none' }, svg);
         }
-        el('path', {
-          d: wobbleClosed([
-            [sx + stL.x0 * scale, by0],[sx + stL.x1 * scale, by0],
-            [sx + stL.x1 * scale, by1],[sx + stL.x0 * scale, by1]
-          ], 0.3, 775), class:'ink','stroke-width':1, fill:'none',
-        }, svg);
+        if (stL) {
+          const by0 = y0 + stL.y0 * widthScale, by1 = y0 + stL.y1 * widthScale;
+          for (let k = 1; k < stL.count; k++) {
+            const xFt = stL.x0 + (stL.x1 - stL.x0) * (k / stL.count);
+            const xPx = sx + xFt * scale;
+            el('path', { d: wobble([[xPx, by0 + 2],[xPx, by1 - 2]], 0.3, 770 + k),
+              class: 'ink-soft', 'stroke-width': 0.9 }, svg);
+          }
+          el('path', { d: wobbleClosed([
+              [sx + stL.x0 * scale, by0],[sx + stL.x1 * scale, by0],
+              [sx + stL.x1 * scale, by1],[sx + stL.x0 * scale, by1]
+            ], 0.3, 775), class:'ink','stroke-width':1.2, fill:'none' }, svg);
+        }
       }
     });
 
@@ -1622,16 +1648,8 @@
       }, svg);
       lblT.textContent = hatchLabel;
     }
-    // Desired-length reference line (always)
-    {
-      const desY = maxFloorY + 22;
-      el('line', { x1: xStart, y1: desY, x2: desiredX1, y2: desY, stroke:'var(--ink-soft)', 'stroke-width':1, 'stroke-dasharray':'3 4' }, svg);
-      const tickH = 6;
-      el('line', { x1: xStart, y1: desY - tickH, x2: xStart, y2: desY + tickH, class:'ink-soft', 'stroke-width':1 }, svg);
-      el('line', { x1: desiredX1, y1: desY - tickH, x2: desiredX1, y2: desY + tickH, class:'ink-soft', 'stroke-width':1 }, svg);
-      const tt = el('text', { x: (xStart + desiredX1)/2, y: desY - 4, class:'label', 'text-anchor':'middle' }, svg);
-      tt.textContent = `DESIRED ${fmtFt(desired)}`;
-    }
+    // (Cross-section: desired-length reference line removed per request — already shown
+    //  in the sidebar status + via the SHORT/LONG hatch overlay above.)
 
     // A–A labels + overall length dim
     const la = el('text', { x: x0 - 50, y: deckY - 18, class:'dim-text' }, svg); la.textContent = 'A';
@@ -1830,33 +1848,62 @@
         const color = depthColor(q.avgD * 12);
         el('path', { d, fill: color, 'fill-opacity': 0.55, stroke: color, 'stroke-width': 0.3 }, svg);
       });
-      // Stair risers — strong outlines where depth jumps
-      // width-side stairs: vertical risers at each step's y-boundary, spanning x0..x1, from prev step to this
-      if (g.stairsW) {
-        const stW = g.stairsW;
-        for (let k = 1; k <= stW.count; k++) {
-          const yFt = stW.axis === 'y+'
-            ? stW.y0 + (stW.y1 - stW.y0) * (k / stW.count)
-            : stW.y1 - (stW.y1 - stW.y0) * (k / stW.count);
-          const prevD = (stW.depFromIn + (stW.depToIn - stW.depFromIn) * ((k-1) / stW.count)) / 12;
-          const thisD = (stW.depFromIn + (stW.depToIn - stW.depFromIn) * (k / stW.count)) / 12;
-          const x0a = start + stW.x0, x1a = start + stW.x1;
-          // riser as 2 verticals + 1 tread
-          el('path', { d: wobble([P(x0a, yFt, prevD), P(x0a, yFt, thisD)], 0.2, 830+k+i*100), class:'ink', 'stroke-width':0.8 }, svg);
-          el('path', { d: wobble([P(x1a, yFt, prevD), P(x1a, yFt, thisD)], 0.2, 840+k+i*100), class:'ink-soft', 'stroke-width':0.8 }, svg);
-          el('path', { d: wobble([P(x0a, yFt, thisD), P(x1a, yFt, thisD)], 0.2, 850+k+i*100), class:'ink', 'stroke-width':0.8 }, svg);
-        }
-      }
-      if (g.stairsL) {
-        const stL = g.stairsL;
+      // Stair tread outlines — when both stairs on (wrap), draw continuous L tread edges.
+      // Otherwise draw width and length tread edges independently.
+      const stW = g.stairsW, stL = g.stairsL;
+      if (g.wrap && stW && stL) {
+        const wTread = (stW.y1 - stW.y0) / stW.count;
+        const lTread = (stL.x1 - stL.x0) / stL.count;
+        const ySign = stW.axis === 'y+' ? 1 : -1;
+        const shInnerYFt = ySign > 0 ? g.shelfY1 : g.shelfY0;
+        const shOuterYFt = ySign > 0 ? g.shelfY0 : g.shelfY1;
         for (let k = 1; k <= stL.count; k++) {
-          const xFt = start + stL.x0 + (stL.x1 - stL.x0) * (k / stL.count);
-          const prevD = (stL.depFromIn + (stL.depToIn - stL.depFromIn) * ((k-1) / stL.count)) / 12;
-          const thisD = (stL.depFromIn + (stL.depToIn - stL.depFromIn) * (k / stL.count)) / 12;
-          const y0a = stL.y0, y1a = stL.y1;
-          el('path', { d: wobble([P(xFt, y0a, prevD), P(xFt, y0a, thisD)], 0.2, 870+k+i*100), class:'ink', 'stroke-width':0.8 }, svg);
-          el('path', { d: wobble([P(xFt, y1a, prevD), P(xFt, y1a, thisD)], 0.2, 880+k+i*100), class:'ink-soft', 'stroke-width':0.8 }, svg);
-          el('path', { d: wobble([P(xFt, y0a, thisD), P(xFt, y1a, thisD)], 0.2, 890+k+i*100), class:'ink', 'stroke-width':0.8 }, svg);
+          const d = (g.shelfDepth + (g.descending ? 1 : -1) * k * g.rise) / 12;
+          const dPrev = (g.shelfDepth + (g.descending ? 1 : -1) * (k - 1) * g.rise) / 12;
+          const xBnd = start + g.shelfX1 + k * lTread;
+          const yBnd = shInnerYFt + ySign * k * wTread;
+          // Continuous L tread edge at depth d:
+          //   horizontal arm: x ∈ [shelfX0 .. xBnd], y = yBnd
+          //   vertical arm:   x = xBnd, y ∈ [yBnd .. shOuterYFt]
+          const xShelfStart = start + g.shelfX0;
+          const lWeight = k === stL.count ? 1.4 : 1.1;
+          el('path', { d: wobble([
+              P(xShelfStart, yBnd, d), P(xBnd, yBnd, d), P(xBnd, shOuterYFt, d)
+            ], 0.2, 830 + k + i*100), class:'ink', 'stroke-width': lWeight, fill:'none' }, svg);
+          // Risers: vertical drop from prev tread to this tread, along the same L
+          el('path', { d: wobble([
+              P(xShelfStart, yBnd, dPrev), P(xBnd, yBnd, dPrev), P(xBnd, shOuterYFt, dPrev)
+            ], 0.2, 840 + k + i*100), class:'ink-soft', 'stroke-width': 0.7, fill:'none' }, svg);
+          // Front-edge risers: short vertical at endpoints
+          el('path', { d: wobble([P(xBnd, shOuterYFt, dPrev), P(xBnd, shOuterYFt, d)], 0.2, 850 + k + i*100),
+            class:'ink', 'stroke-width':0.9 }, svg);
+          el('path', { d: wobble([P(xShelfStart, yBnd, dPrev), P(xShelfStart, yBnd, d)], 0.2, 860 + k + i*100),
+            class:'ink-soft', 'stroke-width':0.7 }, svg);
+        }
+      } else {
+        if (stW) {
+          for (let k = 1; k <= stW.count; k++) {
+            const yFt = stW.axis === 'y+'
+              ? stW.y0 + (stW.y1 - stW.y0) * (k / stW.count)
+              : stW.y1 - (stW.y1 - stW.y0) * (k / stW.count);
+            const prevD = (stW.depFromIn + (stW.depToIn - stW.depFromIn) * ((k-1) / stW.count)) / 12;
+            const thisD = (stW.depFromIn + (stW.depToIn - stW.depFromIn) * (k / stW.count)) / 12;
+            const x0a = start + stW.x0, x1a = start + stW.x1;
+            el('path', { d: wobble([P(x0a, yFt, prevD), P(x0a, yFt, thisD)], 0.2, 830+k+i*100), class:'ink', 'stroke-width':0.9 }, svg);
+            el('path', { d: wobble([P(x1a, yFt, prevD), P(x1a, yFt, thisD)], 0.2, 840+k+i*100), class:'ink-soft', 'stroke-width':0.7 }, svg);
+            el('path', { d: wobble([P(x0a, yFt, thisD), P(x1a, yFt, thisD)], 0.2, 850+k+i*100), class:'ink', 'stroke-width':1.0 }, svg);
+          }
+        }
+        if (stL) {
+          for (let k = 1; k <= stL.count; k++) {
+            const xFt = start + stL.x0 + (stL.x1 - stL.x0) * (k / stL.count);
+            const prevD = (stL.depFromIn + (stL.depToIn - stL.depFromIn) * ((k-1) / stL.count)) / 12;
+            const thisD = (stL.depFromIn + (stL.depToIn - stL.depFromIn) * (k / stL.count)) / 12;
+            const y0a = stL.y0, y1a = stL.y1;
+            el('path', { d: wobble([P(xFt, y0a, prevD), P(xFt, y0a, thisD)], 0.2, 870+k+i*100), class:'ink', 'stroke-width':0.9 }, svg);
+            el('path', { d: wobble([P(xFt, y1a, prevD), P(xFt, y1a, thisD)], 0.2, 880+k+i*100), class:'ink-soft', 'stroke-width':0.7 }, svg);
+            el('path', { d: wobble([P(xFt, y0a, thisD), P(xFt, y1a, thisD)], 0.2, 890+k+i*100), class:'ink', 'stroke-width':1.0 }, svg);
+          }
         }
       }
       // Shelf outline at shelf depth
