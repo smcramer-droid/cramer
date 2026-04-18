@@ -617,18 +617,40 @@
   // ============== HELPERS ==============
   // Returns sections with computed length/start/end/prevDepth so all renderers
   // can iterate consistently (handles stair auto-calc).
+  // Resolve sections with computed lengths. Flat sections with `autoFit: true` absorb
+  // whatever slack is needed to make total length == desired length (split evenly
+  // across all auto-fit sections). Minimum length per fit section is 0.5 ft.
   function resolvedSections() {
-    let acc = 0;
+    const n = state.sections.length;
+    const lengths = new Array(n);
+    const fitIdxs = [];
+    // First pass: compute non-fit lengths, tracking prevDepth for stair auto-calc
     let prevDepth = 0;
+    for (let i = 0; i < n; i++) {
+      const s = state.sections[i];
+      if (s.autoFit && s.type === 'flat') {
+        fitIdxs.push(i);
+        lengths[i] = null; // to be filled after slack calc
+      } else {
+        lengths[i] = sectionLengthFt ? sectionLengthFt(s, prevDepth) : (+s.length || 0);
+      }
+      prevDepth = (s.depthIn ?? prevDepth);
+    }
+    // Distribute slack = desiredLength - sum(fixed lengths) across fit sections
+    if (fitIdxs.length) {
+      const fixedSum = lengths.reduce((sum, v) => sum + (v || 0), 0);
+      const slack = (+state.desiredLength || 0) - fixedSum;
+      const per = slack / fitIdxs.length;
+      fitIdxs.forEach(i => { lengths[i] = Math.max(0.5, per); });
+    }
+    // Second pass: build resolved array with start/end
+    let acc = 0;
+    prevDepth = 0;
     return state.sections.map((s, i) => {
-      const length = sectionLengthFt ? sectionLengthFt(s, prevDepth) : (+s.length || 0);
-      const out = {
-        s, i, length,
-        start: acc, end: acc + length,
-        prevDepth,
-      };
+      const length = lengths[i];
+      const out = { s, i, length, start: acc, end: acc + length, prevDepth };
       acc += length;
-      prevDepth = s.depthIn || 0;
+      prevDepth = (s.depthIn ?? prevDepth);
       return out;
     });
   }
@@ -2069,7 +2091,12 @@
     if (actEl) actEl.textContent = fmt1(actual);
     const diffEl = $('len_diff');
     if (diffEl) {
-      if (Math.abs(diff) < 0.05) {
+      const fitCount = state.sections.filter(x => x.autoFit && x.type === 'flat').length;
+      if (fitCount > 0) {
+        const names = state.sections.filter(x => x.autoFit && x.type === 'flat').map(x => x.name.toUpperCase()).join(', ');
+        diffEl.textContent = `AUTO-FITTING · ${names}`;
+        diffEl.style.color = '#3a7a3a';
+      } else if (Math.abs(diff) < 0.05) {
         diffEl.textContent = 'ON TARGET';
         diffEl.style.color = '#3a7a3a';
       } else if (diff < 0) {
@@ -2595,15 +2622,29 @@
             </div>
           </div>`;
       } else {
+        const showFit = s.type === 'flat';
+        const autoFit = !!s.autoFit;
+        // If auto-fitting, show the computed length (read-only)
+        let computedLen = +s.length || 0;
+        if (autoFit) {
+          const r = resolvedSections().find(r => r.i === i);
+          if (r) computedLen = r.length;
+        }
         inputsHTML = `
           <div class="sec-inputs">
             <label>Depth
               <span class="num"><input type="number" class="sec-depth" min="0" max="144" step="0.5" value="${s.depthIn}"/><em>in</em></span>
             </label>
             <label>Length
-              <span class="num"><input type="number" class="sec-len" min="0.25" max="60" step="0.25" value="${s.length}"/><em>ft</em></span>
+              <span class="num" style="${autoFit?'border-bottom-style:dotted;opacity:0.75':''}">
+                <input type="number" class="sec-len" min="0.25" max="60" step="0.25" value="${autoFit ? fmt1(computedLen) : s.length}" ${autoFit?'disabled':''}/><em>ft</em>
+              </span>
             </label>
-          </div>`;
+          </div>
+          ${showFit ? `
+          <div class="entry-tri-row" style="margin-top:2px">
+            <label><input type="checkbox" class="sec-autofit" ${autoFit?'checked':''}/>Fit to desired length</label>
+          </div>` : ''}`;
       }
       row.innerHTML = `
         <div class="sec-head">
@@ -2630,6 +2671,12 @@
       });
       const lenInput = row.querySelector('.sec-len');
       if (lenInput) lenInput.addEventListener('input', e => { s.length = +e.target.value; scheduleRender(); });
+      const autoFitInput = row.querySelector('.sec-autofit');
+      if (autoFitInput) autoFitInput.addEventListener('change', e => {
+        s.autoFit = e.target.checked;
+        renderSectionEditor();
+        scheduleRender();
+      });
       const riseInput = row.querySelector('.sec-rise');
       if (riseInput) riseInput.addEventListener('input', e => {
         s.treadRiseIn = +e.target.value;
