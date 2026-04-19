@@ -273,11 +273,15 @@
   .stat .v{ font-family:"JetBrains Mono",monospace; font-size:16px; color:var(--ink); font-weight:500; }
   .stat .v small{font-size:10px; color:var(--ink-soft); margin-left:3px}
 
-  /* Main */
+  /* Main — default single-column stack; desktop (>=1100px) gets 2-col */
   main{
     padding:28px 36px 60px;
-    display:grid; grid-template-columns: 1fr 1fr;
-    grid-template-rows: auto auto auto; gap:24px; align-content:start;
+    display:grid; grid-template-columns: 1fr;
+    gap:24px; align-content:start;
+  }
+  @media (min-width: 1100px){
+    main{ grid-template-columns: 1fr 1fr; }
+    .view.big{ grid-column: 1 / span 2; }
   }
   .view{
     border:1.5px solid var(--ink);
@@ -288,7 +292,7 @@
     padding:18px 20px 22px; position:relative;
     box-shadow:3px 3px 0 rgba(60,40,20,.08);
   }
-  .view.big{ grid-column: 1 / span 2; }
+  .view.big{ grid-column: auto; }
   .view header{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; gap:8px; }
   .view h2{ margin:0; font-family:"Caveat",cursive; font-weight:700; font-size:26px; }
   .view .tag{ font-family:"Special Elite",monospace; font-size:10px; letter-spacing:2px; color:var(--ink-soft); text-transform:uppercase; }
