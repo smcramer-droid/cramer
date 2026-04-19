@@ -273,14 +273,21 @@
   .stat .v{ font-family:"JetBrains Mono",monospace; font-size:16px; color:var(--ink); font-weight:500; }
   .stat .v small{font-size:10px; color:var(--ink-soft); margin-left:3px}
 
-  /* Main — default single-column stack; desktop (>=1100px) gets 2-col */
+  /* Main — default single-column stack; desktop (>=1100px) gets 2-col.
+     v: single-stack-2026-04-19 (cache-bust) */
   main{
     padding:28px 36px 60px;
-    display:grid; grid-template-columns: 1fr;
+    display:flex !important;
+    flex-direction:column !important;
     gap:24px; align-content:start;
   }
+  main > .view, main > .titleblock{ width:100%; box-sizing:border-box; }
   @media (min-width: 1100px){
-    main{ grid-template-columns: 1fr 1fr; }
+    main{
+      display:grid !important;
+      flex-direction: row !important;
+      grid-template-columns: 1fr 1fr !important;
+    }
     .view.big{ grid-column: 1 / span 2; }
   }
   .view{
