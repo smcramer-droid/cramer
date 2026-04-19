@@ -289,9 +289,16 @@
     box-shadow:3px 3px 0 rgba(60,40,20,.08);
   }
   .view.big{ grid-column: 1 / span 2; }
-  .view header{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; }
+  .view header{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; gap:8px; }
   .view h2{ margin:0; font-family:"Caveat",cursive; font-weight:700; font-size:26px; }
   .view .tag{ font-family:"Special Elite",monospace; font-size:10px; letter-spacing:2px; color:var(--ink-soft); text-transform:uppercase; }
+  .view-actions{ display:flex; align-items:center; gap:8px; }
+  .view-save{
+    background:transparent; border:1.5px solid var(--ink); cursor:pointer;
+    font-family:"Special Elite",monospace; font-size:10px; letter-spacing:1.2px;
+    padding:4px 9px; color:var(--ink); text-transform:uppercase; line-height:1;
+  }
+  .view-save:hover{ background:var(--ink); color:var(--paper); }
   .view svg{ width:100%; height:auto; display:block; }
   .corner-note{
     position:absolute; bottom:-14px; right:14px; background:var(--paper);
@@ -322,9 +329,49 @@
 
   @media (max-width: 1024px){
     .app{grid-template-columns:1fr}
-    aside{position:relative; height:auto}
+    aside{position:relative; height:auto; border-right:none; border-bottom:1.5px dashed var(--ink-soft);}
     main{grid-template-columns:1fr}
     .view.big{grid-column:auto}
+  }
+  /* iPhone / narrow mobile */
+  @media (max-width: 640px){
+    aside{padding:18px 14px 24px}
+    main{padding:14px 12px 48px; gap:14px}
+    .brand img{width:68px}
+    .brand .stamp{font-size:9px}
+    .sub{margin:0 0 14px}
+    fieldset{padding:10px 0 2px}
+    legend{font-size:10px}
+    .row{grid-template-columns:1fr 1fr; gap:10px}
+    /* Inputs at 16px prevent iOS Safari from auto-zooming on focus */
+    .input input[type=number], .input input[type=text]{font-size:16px}
+    .entry-inputs input, .baja-stair-inputs input, .baja-stair-inputs select{font-size:14px}
+    #dialog_input{font-size:16px}
+    /* Bigger touch targets */
+    .presets button, .sec-actions button, .seg button, .sec-seg button,
+    .baja-stair-toggle, .entry-toggle, .switch{min-height:32px}
+    .switch{width:50px; height:26px}
+    .switch::after{width:18px; height:18px}
+    .switch.on::after{left:28px}
+    .view{padding:12px 12px 18px; box-shadow:2px 2px 0 rgba(60,40,20,.08)}
+    .view h2{font-size:22px}
+    .view .tag{font-size:9px}
+    .titleblock{flex-wrap:wrap; gap:8px; padding:8px 12px}
+    .titleblock .meta{gap:10px; flex-wrap:wrap; font-size:9px}
+    /* Tweaks slide-out becomes a bottom sheet */
+    #tweaks{
+      width:100%; max-width:100%; right:0; left:0; bottom:0; top:auto;
+      border:1.5px solid var(--ink); border-bottom:none; box-shadow:0 -3px 0 rgba(60,40,20,.15);
+      transform:translateY(calc(100% - 36px));
+    }
+    #tweaks.open{transform:translateY(0)}
+    #tweaks #tweaks_handle{
+      position:absolute; left:0; right:0; top:0; bottom:auto; width:auto; height:36px;
+      writing-mode:horizontal-tb; transform:none;
+      display:flex; align-items:center; justify-content:center;
+    }
+    /* Make the view header + inline save button wrap gracefully */
+    .view header{flex-wrap:wrap; gap:6px}
   }
 
   /* Tweaks */
@@ -394,6 +441,12 @@
         <button id="dialog_clear" title="Clear" style="background:transparent; border:1.5px dashed var(--ink-soft); cursor:pointer;
           font-family:'Special Elite',monospace; font-size:10.5px; letter-spacing:1px; padding:8px 10px; color:var(--ink-soft); text-transform:uppercase;">
           Clear
+        </button>
+      </div>
+      <div style="display:flex; gap:6px; margin-top:6px; align-items:center">
+        <button id="dialog_save_pdf" title="Save full sheet as PDF" style="flex:1; background:transparent; border:1.5px solid var(--ink); cursor:pointer;
+          font-family:'Special Elite',monospace; font-size:10px; letter-spacing:1.2px; padding:8px 10px; color:var(--ink); text-transform:uppercase;">
+          ↓ Save Full Sheet
         </button>
       </div>
       <div id="dialog_log" style="font-family:'Caveat',cursive; font-size:15px; color:var(--ink-soft);
@@ -519,7 +572,10 @@
     <div class="view">
       <header>
         <h2>Plan · top view</h2>
-        <span class="tag">↑ N</span>
+        <div class="view-actions">
+          <span class="tag">↑ N</span>
+          <button class="view-save" data-svg="svg_top" data-label="plan" title="Save PNG">↓ PNG</button>
+        </div>
       </header>
       <svg id="svg_top" viewBox="0 0 700 440" preserveAspectRatio="xMidYMid meet"></svg>
       <div class="corner-note">looking down</div>
@@ -528,7 +584,10 @@
     <div class="view">
       <header>
         <h2>Iso</h2>
-        <span class="tag">iso 30°</span>
+        <div class="view-actions">
+          <span class="tag">iso 30°</span>
+          <button class="view-save" data-svg="svg_iso" data-label="iso" title="Save PNG">↓ PNG</button>
+        </div>
       </header>
       <svg id="svg_iso" viewBox="0 0 700 440" preserveAspectRatio="xMidYMid meet"></svg>
       <div class="corner-note">3/4 view</div>
@@ -537,7 +596,10 @@
     <div class="view big">
       <header>
         <h2 id="sec_title">Cross-section A–A</h2>
-        <span class="tag" id="sec_tag">longitudinal</span>
+        <div class="view-actions">
+          <span class="tag" id="sec_tag">longitudinal</span>
+          <button class="view-save" data-svg="svg_sec" data-label="section-AA" title="Save PNG">↓ PNG</button>
+        </div>
       </header>
       <svg id="svg_sec" viewBox="0 0 1200 420" preserveAspectRatio="xMidYMid meet"></svg>
       <div class="corner-note">not to scale</div>
@@ -545,7 +607,10 @@
     <div class="view big" id="sec2_view" style="display:none">
       <header>
         <h2 id="sec2_title">Cross-section B–B</h2>
-        <span class="tag" id="sec2_tag">through deep side</span>
+        <div class="view-actions">
+          <span class="tag" id="sec2_tag">through deep side</span>
+          <button class="view-save" data-svg="svg_sec_2" data-label="section-BB" title="Save PNG">↓ PNG</button>
+        </div>
       </header>
       <svg id="svg_sec_2" viewBox="0 0 1200 420" preserveAspectRatio="xMidYMid meet"></svg>
       <div class="corner-note">not to scale</div>
@@ -3355,6 +3420,20 @@
   $('ex_png_sec').addEventListener('click', () => exportPNG('svg_sec', 'section-AA'));
   $('ex_png_iso').addEventListener('click', () => exportPNG('svg_iso', 'iso'));
   $('ex_pdf').addEventListener('click', exportPDF);
+
+  // Inline "↓ PNG" buttons on each view's header
+  document.querySelectorAll('.view-save').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const svgId = btn.dataset.svg;
+      const label = btn.dataset.label || 'view';
+      exportPNG(svgId, label);
+    });
+  });
+  // Dialogue box "Save Full Sheet" button
+  if ($('dialog_save_pdf')) $('dialog_save_pdf').addEventListener('click', () => {
+    const log = $('dialog_log'); if (log) log.textContent = 'Building sheet…';
+    exportPDF();
+  });
 })();
 
 </script>
