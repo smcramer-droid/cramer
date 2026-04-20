@@ -1353,6 +1353,7 @@
     }
 
     // Pool wall concrete — tan shell around the water footprint, thicknesses per side
+    const widthScale = poolH / state.width; // y-scale (ft → px); needed for wall dims below
     const wN_px = ((state.wallIn && state.wallIn.near) || 12) / 12 * widthScale;
     const wF_px = ((state.wallIn && state.wallIn.far)  || 12) / 12 * widthScale;
     const wL_px = ((state.wallIn && state.wallIn.left) || 12) / 12 * scale;
@@ -1378,7 +1379,7 @@
 
     // per-section shaded bands by depth
     const resolved = resolvedSections();
-    const widthScale = poolH / state.width; // y-scale (ft → px)
+    // widthScale already defined above where the wall cap was drawn
     resolved.forEach(({ s, i, length, start }) => {
       const sx = x0 + start * scale;
       const sw = length * scale;
