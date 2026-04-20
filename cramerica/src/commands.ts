@@ -17,6 +17,8 @@ import type { Env } from "./types";
 export async function handleCommand(env: Env, chatId: number, text: string): Promise<boolean> {
   if (!text.startsWith("/")) return false;
   const cmd = text.split(/\s+/)[0]!.toLowerCase();
+  // Log the user command so status history shows it landed.
+  await appendMessage(env, "user", text).catch(() => {});
 
   switch (cmd) {
     case "/start":
@@ -40,7 +42,9 @@ export async function handleCommand(env: Env, chatId: number, text: string): Pro
         await sendMessage(env, chatId, `Intake isn't finished (${answered}/${total}). Run /start to continue.`);
         return true;
       }
-      await sendMessage(env, chatId, "Regenerating the program. Give me a minute.");
+      const ack = "Regenerating the program. Give me a minute.";
+      await sendMessage(env, chatId, ack);
+      await appendMessage(env, "assistant", ack);
       await finalizeAssessment(env);
       return true;
     }

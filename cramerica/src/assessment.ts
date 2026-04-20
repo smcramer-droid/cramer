@@ -201,39 +201,59 @@ Now produce the JSON.`;
   const now = etNow();
   const profile = await getProfile(env);
 
-  if (parsed) {
-    const p = parsed.profile;
-    await env.DB.prepare(
-      "UPDATE profile SET weight_lbs=COALESCE(?, weight_lbs), body_fat_pct=COALESCE(?, body_fat_pct), age=COALESCE(?, age), height_in=COALESCE(?, height_in), handicap=COALESCE(?, handicap), assessment_complete=1, updated_at=datetime('now') WHERE id=1"
-    ).bind(p.weight_lbs, p.body_fat_pct, p.age, p.height_in, p.handicap).run();
-
-    await ensureWeekSessions(env, now.weekStart);
-    for (const s of parsed.week_1) {
+  try {
+    if (parsed) {
+      const p = parsed.profile ?? {};
       await env.DB.prepare(
-        "UPDATE strength_session SET plan_json=? WHERE week_start=? AND letter=?"
-      ).bind(JSON.stringify(s), now.weekStart, s.letter).run();
-    }
-    await env.DB.prepare(
-      "INSERT OR REPLACE INTO program (week_start, plan_json, summary) VALUES (?, ?, ?)"
-    ).bind(now.weekStart, JSON.stringify(parsed.week_1), parsed.seven_week_arc).run();
+        "UPDATE profile SET weight_lbs=COALESCE(?, weight_lbs), body_fat_pct=COALESCE(?, body_fat_pct), age=COALESCE(?, age), height_in=COALESCE(?, height_in), handicap=COALESCE(?, handicap), assessment_complete=1, updated_at=datetime('now') WHERE id=1"
+      ).bind(p.weight_lbs ?? null, p.body_fat_pct ?? null, p.age ?? null, p.height_in ?? null, p.handicap ?? null).run();
 
-    if (profile.chat_id) {
-      const summary = formatProgramSummary(parsed);
-      await sendMessage(env, profile.chat_id, summary);
-      await appendMessage(env, "assistant", summary);
+      await ensureWeekSessions(env, now.weekStart);
+      const sessions = Array.isArray(parsed.week_1) ? parsed.week_1 : [];
+      for (const s of sessions) {
+        if (!s || !["A","B","C"].includes(s.letter)) continue;
+        await env.DB.prepare(
+          "UPDATE strength_session SET plan_json=? WHERE week_start=? AND letter=?"
+        ).bind(JSON.stringify(s), now.weekStart, s.letter).run();
+      }
+      await env.DB.prepare(
+        "INSERT OR REPLACE INTO program (week_start, plan_json, summary) VALUES (?, ?, ?)"
+      ).bind(now.weekStart, JSON.stringify(sessions), parsed.seven_week_arc ?? "").run();
+
+      if (profile.chat_id) {
+        const summary = formatProgramSummary(parsed);
+        await sendMessage(env, profile.chat_id, summary);
+        await appendMessage(env, "assistant", summary);
+      }
+    } else {
+      // Fallback: mark complete; use default program already seeded.
+      await env.DB.prepare(
+        "UPDATE profile SET assessment_complete=1, updated_at=datetime('now') WHERE id=1"
+      ).run();
+      if (profile.chat_id) {
+        const lastErr = await env.DB
+          .prepare("SELECT message FROM error_log WHERE source='assessment.finalize' ORDER BY id DESC LIMIT 1")
+          .first<{ message: string }>();
+        const msg = buildSnagMessage(lastErr?.message);
+        await sendMessage(env, profile.chat_id, msg);
+        await appendMessage(env, "assistant", msg);
+      }
     }
-  } else {
-    // Fallback: mark complete; use default program already seeded.
-    await env.DB.prepare(
-      "UPDATE profile SET assessment_complete=1, updated_at=datetime('now') WHERE id=1"
-    ).run();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack : null;
+    await logError(env, "assessment.finalize.persist", msg, {
+      stack,
+      parsed_shape: parsed ? {
+        profile: typeof parsed.profile,
+        week_1_count: Array.isArray(parsed.week_1) ? parsed.week_1.length : null,
+        seven_week_arc_len: typeof parsed.seven_week_arc === "string" ? parsed.seven_week_arc.length : null,
+        coach_summary_len: typeof parsed.coach_summary === "string" ? parsed.coach_summary.length : null,
+      } : null,
+    });
     if (profile.chat_id) {
-      const lastErr = await env.DB
-        .prepare("SELECT message FROM error_log WHERE source='assessment.finalize' ORDER BY id DESC LIMIT 1")
-        .first<{ message: string }>();
-      const msg = buildSnagMessage(lastErr?.message);
-      await sendMessage(env, profile.chat_id, msg);
-      await appendMessage(env, "assistant", msg);
+      await sendMessage(env, profile.chat_id, `Program gen crashed after the Opus call: ${msg.slice(0, 300)}. Run npm run status for details.`).catch(() => {});
+      await appendMessage(env, "assistant", `[crash] ${msg.slice(0, 300)}`).catch(() => {});
     }
   }
 }
