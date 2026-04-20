@@ -2114,10 +2114,26 @@
       wt.textContent = 'WATERLINE';
     }
 
-    // Coping: 7" above water at both walls
-    const copingH = Math.min(14, (state.copingRiseIn/12) * scale);
-    el('rect', { x: x0 - 14, y: deckY - 2, width: 14, height: (waterY - deckY) + 2, fill:'#c8b894', stroke:'var(--ink)', 'stroke-width':1 }, svg);
-    el('rect', { x: x0 + pxW, y: deckY - 2, width: 14, height: (waterY - deckY) + 2, fill:'#c8b894', stroke:'var(--ink)', 'stroke-width':1 }, svg);
+    // Coping: 7" above water at both walls — drawn at the configured wall thickness.
+    const wallLeftPx  = Math.max(14, ((state.wallIn && state.wallIn.left ) || 12) / 12 * scale);
+    const wallRightPx = Math.max(14, ((state.wallIn && state.wallIn.right) || 12) / 12 * scale);
+    el('rect', { x: x0 - wallLeftPx, y: deckY - 2, width: wallLeftPx,
+      height: (waterY - deckY) + 2, fill:'#c8b894', stroke:'var(--ink)', 'stroke-width':1 }, svg);
+    el('rect', { x: x0 + pxW, y: deckY - 2, width: wallRightPx,
+      height: (waterY - deckY) + 2, fill:'#c8b894', stroke:'var(--ink)', 'stroke-width':1 }, svg);
+    // Small wall-thickness callouts inside the caps so the dim is obvious.
+    if (wallLeftPx >= 20) {
+      const t = el('text', { x: x0 - wallLeftPx / 2, y: deckY + (waterY - deckY) / 2 + 3,
+        class: 'label', 'text-anchor': 'middle',
+        style: 'font-size:9px; fill:var(--ink-soft); letter-spacing:1px' }, svg);
+      t.textContent = `${state.wallIn.left}″`;
+    }
+    if (wallRightPx >= 20) {
+      const t = el('text', { x: x0 + pxW + wallRightPx / 2, y: deckY + (waterY - deckY) / 2 + 3,
+        class: 'label', 'text-anchor': 'middle',
+        style: 'font-size:9px; fill:var(--ink-soft); letter-spacing:1px' }, svg);
+      t.textContent = `${state.wallIn.right}″`;
+    }
 
     // Pool shell: left wall (deckY down to first floor depth), then floor, right wall
     const leftFloorY = floorPts[0][1];
@@ -2634,6 +2650,50 @@
 
     // Top rim on top of everything
     el('path', { d: wobbleClosed(rim, 0.5, 801), class:'ink', 'stroke-width': 2, fill:'none' }, svg);
+
+    // === Pool wall-thickness light outline ===
+    // A thin tan cap showing the concrete wall footprint at the deck. Extends
+    // outward by the configured wallIn thicknesses; depth ~7" for readability.
+    {
+      const pw = state.wallIn || { near: 12, far: 12, left: 12, right: 12 };
+      const wN_ft = (pw.near  || 0) / 12;
+      const wF_ft = (pw.far   || 0) / 12;
+      const wL_ft = (pw.left  || 0) / 12;
+      const wR_ft = (pw.right || 0) / 12;
+      const capZtop = -(state.copingRiseIn / 12);
+      const capZbot = capZtop + 7/12;
+      const outerTop = [
+        P(-wL_ft, -wN_ft, capZtop),
+        P(L + wR_ft, -wN_ft, capZtop),
+        P(L + wR_ft, W + wF_ft, capZtop),
+        P(-wL_ft, W + wF_ft, capZtop),
+      ];
+      const outerBot = [
+        P(-wL_ft, -wN_ft, capZbot),
+        P(L + wR_ft, -wN_ft, capZbot),
+        P(L + wR_ft, W + wF_ft, capZbot),
+        P(-wL_ft, W + wF_ft, capZbot),
+      ];
+      const capStroke = '#8a7150';
+      // Outer perimeter at deck top — dashed (hidden edge behind pool rim)
+      el('path', { d: wobbleClosed(outerTop, 0.4, 1400),
+        stroke: capStroke, 'stroke-width': 0.9, 'stroke-dasharray': '4 3', fill: 'none' }, svg);
+      // Vertical corner drops (wall face, 7" deep)
+      for (let i = 0; i < 4; i++) {
+        el('line', { x1: outerTop[i][0], y1: outerTop[i][1],
+          x2: outerBot[i][0], y2: outerBot[i][1],
+          stroke: capStroke, 'stroke-width': 0.9 }, svg);
+      }
+      // Outer perimeter 7" below — dashed
+      el('path', { d: wobbleClosed(outerBot, 0.4, 1401),
+        stroke: capStroke, 'stroke-width': 0.9, 'stroke-dasharray': '4 3', fill: 'none' }, svg);
+      // Connector lines from inner rim corners to outer rim corners (wall top width)
+      for (let i = 0; i < 4; i++) {
+        el('line', { x1: rim[i][0], y1: rim[i][1],
+          x2: outerTop[i][0], y2: outerTop[i][1],
+          stroke: capStroke, 'stroke-width': 0.8 }, svg);
+      }
+    }
 
     // (section labels removed on iso view — labeled on plan instead)
 
