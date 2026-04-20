@@ -18,9 +18,11 @@ migrations_dir = "migrations"
 [vars]
 TIMEZONE = "America/New_York"
 TARGET_DATE = "2026-06-12"
-# Sonnet for daily coaching turns; Opus for Sunday program regen.
+# Sonnet for daily coaching AND weekly program gen. Opus 4.7 on structured
+# outputs can exceed the 30s Worker wall-clock, so we default to Sonnet
+# and can swap in Opus later if we move program gen to a queue/cron.
 CLAUDE_MODEL_DAILY = "claude-sonnet-4-6"
-CLAUDE_MODEL_WEEKLY = "claude-opus-4-7"
+CLAUDE_MODEL_WEEKLY = "claude-sonnet-4-6"
 
 # Secrets (set via `wrangler secret put` — never commit):
 #   TELEGRAM_BOT_TOKEN
