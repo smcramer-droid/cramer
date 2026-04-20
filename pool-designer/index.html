@@ -321,6 +321,9 @@
   /* Site cut line styling */
   #svg_site_top .cut-line{ stroke:var(--accent); stroke-width:2; stroke-dasharray:6 4; cursor:ns-resize; }
   #svg_site_top .cut-handle{ fill:var(--accent); stroke:var(--ink); stroke-width:1; cursor:ns-resize; }
+  /* Spa group on the site plan is draggable */
+  #svg_site_top [data-spa]{ cursor:move; }
+  #svg_site_top [data-spa]:hover rect:first-child{ stroke:var(--accent); stroke-width:2.2; }
   .view-save{
     background:transparent; border:1.5px solid var(--ink); cursor:pointer;
     font-family:"Special Elite",monospace; font-size:10px; letter-spacing:1.2px;
@@ -871,7 +874,7 @@
         <header>
           <h2>Site plan</h2>
           <div class="view-actions">
-            <span class="tag">drag the cut line</span>
+            <span class="tag">drag the spa · drag the cut line</span>
             <button class="view-save" data-svg="svg_site_top" data-label="site-plan" title="Save PNG">↓ PNG</button>
           </div>
         </header>
@@ -3604,35 +3607,61 @@
     el('text', { x: VBW - padR + 20, y: deckY + 4, class:'dim-text' }, svg).textContent = 'C';
   }
 
-  // Drag handling for the site plan's cut line
-  (function wireSiteCutDrag() {
+  // Drag handling for the site plan: spa move + cut line move.
+  // Priority: if the pointer-down lands inside the spa group, drag the spa.
+  // If it lands on the cut line (or handle), drag the cut. Otherwise, move the
+  // cut line to the click point (keeps "click anywhere to reposition cut").
+  (function wireSiteInteractions() {
     const svg = $('svg_site_top'); if (!svg) return;
-    let dragging = false;
-    const toFt = (clientY) => {
+    let mode = null;              // 'spa' | 'cut'
+    let spaStartCur = null;       // pointer ft at drag start
+    let spaStartPlacement = null; // spa placement ft at drag start
+    const toPt = (clientX, clientY) => {
       const map = svg._siteMap; if (!map) return null;
       const rect = svg.getBoundingClientRect();
       const vb = (svg.getAttribute('viewBox') || '0 0 0 0').split(/\s+/).map(Number);
-      const vbH = vb[3] || rect.height;
+      const vbW = vb[2] || rect.width, vbH = vb[3] || rect.height;
+      const x = ((clientX - rect.left) / rect.width) * vbW;
       const y = ((clientY - rect.top) / rect.height) * vbH;
-      return (y - map.y0) / map.scale;
+      return { xFt: (x - map.x0) / map.scale, yFt: (y - map.y0) / map.scale };
     };
     const start = (e) => {
       const pt = e.touches ? e.touches[0] : e;
-      const ft = toFt(pt.clientY); if (ft == null) return;
-      dragging = true;
-      state.siteCut.yFt = ft;
-      scheduleRender();
+      const inSpa = e.target && e.target.closest && e.target.closest('[data-spa]');
+      const onCut = e.target && e.target.classList &&
+        (e.target.classList.contains('cut-line') || e.target.classList.contains('cut-handle'));
+      const pos = toPt(pt.clientX, pt.clientY); if (!pos) return;
+      if (inSpa) {
+        mode = 'spa';
+        spaStartCur = pos;
+        spaStartPlacement = { xFt: state.spa.placement.xFt, yFt: state.spa.placement.yFt };
+      } else {
+        mode = 'cut';
+        state.siteCut.yFt = pos.yFt;
+        scheduleRender();
+      }
       e.preventDefault();
     };
     const move = (e) => {
-      if (!dragging) return;
+      if (!mode) return;
       const pt = e.touches ? e.touches[0] : e;
-      const ft = toFt(pt.clientY); if (ft == null) return;
-      state.siteCut.yFt = ft;
+      const pos = toPt(pt.clientX, pt.clientY); if (!pos) return;
+      if (mode === 'spa') {
+        const dx = pos.xFt - spaStartCur.xFt;
+        const dy = pos.yFt - spaStartCur.yFt;
+        const nx = +(spaStartPlacement.xFt + dx).toFixed(2);
+        const ny = +(spaStartPlacement.yFt + dy).toFixed(2);
+        state.spa.placement.xFt = nx;
+        state.spa.placement.yFt = ny;
+        if ($('spa_px')) $('spa_px').value = nx;
+        if ($('spa_py')) $('spa_py').value = ny;
+      } else if (mode === 'cut') {
+        state.siteCut.yFt = pos.yFt;
+      }
       scheduleRender();
       e.preventDefault();
     };
-    const end = () => { dragging = false; };
+    const end = () => { mode = null; };
     svg.addEventListener('mousedown', start);
     svg.addEventListener('mousemove', move);
     window.addEventListener('mouseup', end);
