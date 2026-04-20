@@ -1303,17 +1303,14 @@
     return `hsl(${hue}, ${sat}%, ${light}%)`;
   }
 
-  // Generalized axonometric projection. Uses state.isoView { azimuth, elevation }
-  // (in degrees). Returned function maps a 3D pool/spa/site coordinate
-  // (x along-length, y across-width, z depth = +downward) to a 2D [X, Y] screen
-  // vector prior to autofit scaling.
-  function makeIsoProject() {
-    const az = ((state.isoView && state.isoView.azimuth) || 45) * Math.PI / 180;
-    const el = ((state.isoView && state.isoView.elevation) || 35) * Math.PI / 180;
+  // Generalized axonometric projection per iso view ('pool' | 'spa' | 'site').
+  function makeIsoProject(viewKey) {
+    const view = (state.isoView && state.isoView[viewKey]) || { azimuth: 45, elevation: 35 };
+    const az = (view.azimuth || 45) * Math.PI / 180;
+    const el = (view.elevation || 35) * Math.PI / 180;
     const cosA = Math.cos(az), sinA = Math.sin(az);
     const cosE = Math.cos(el), sinE = Math.sin(el);
     return (x, y, z) => {
-      // Rotate around z-axis by azimuth, then tilt by elevation.
       const xr = x * cosA - y * sinA;
       const yr = x * sinA + y * cosA;
       return [xr, yr * sinE + z * cosE];
@@ -2313,8 +2310,8 @@
     if (L <= 0) return;
     const maxD = maxDepthIn() / 12;
 
-    // Generalized axonometric: azimuth + elevation from state.isoView (drag to orbit).
-    const project = makeIsoProject();
+    // Generalized axonometric — Pool iso uses its own angle.
+    const project = makeIsoProject('pool');
 
     // Autofit
     const corners = [];
@@ -2768,13 +2765,13 @@
         const floorZ = spaWaterZ + d / 12;
         const xs0 = r * cs, xs1 = (r + 1) * cs;
         const ys0 = c * cs, ys1 = (c + 1) * cs;
-        // Floor tile
+        // Floor tile — no stroke, so adjacent same-depth tiles merge visually.
         quads.push({
           pts: [
             PP(xs0, ys0, floorZ), PP(xs1, ys0, floorZ),
             PP(xs1, ys1, floorZ), PP(xs0, ys1, floorZ),
           ],
-          fill: depthColor(d), opacity: 0.7, stroke: depthColor(d), kind: 'floor'
+          fill: depthColor(d), opacity: 0.85, stroke: 'none', kind: 'floor'
         });
         // Riser to +x neighbor (r+1, c)
         if (r < rows - 1) {
@@ -3561,8 +3558,8 @@
     const wN = sp.wallIn.near / 12, wF = sp.wallIn.far / 12;
     const L = sp.lengthFt + wL + wR;
     const W = sp.widthFt + wN + wF;
-    // Generalized axonometric (drag the iso to orbit)
-    const project = makeIsoProject();
+    // Generalized axonometric — Spa iso uses its own angle.
+    const project = makeIsoProject('spa');
     // Autofit: test corners including the spa deck + a bit of air above
     const deckH = sp.deckAboveWaterIn / 12 + 0.5;
     const corners = [];
@@ -3685,11 +3682,20 @@
 
   // Site plan — pool + spa at their placement, with a draggable cut line.
   state.siteCut = state.siteCut || { yFt: state.width / 2 };
-  // Iso view angles — shared by all three iso renderers (pool, spa, site).
+  // Iso view angles — each iso renderer (pool, spa, site) has its own.
   // Azimuth = rotation around the vertical axis (0 = looking along +y).
   // Elevation = tilt above horizontal (0 = edge-on, 90 = top-down).
   // Clamped to a range that keeps the "near wall in front" convention intact.
-  state.isoView = state.isoView || { azimuth: 45, elevation: 35 };
+  state.isoView = state.isoView || {
+    pool: { azimuth: 45, elevation: 35 },
+    spa:  { azimuth: 45, elevation: 35 },
+    site: { azimuth: 45, elevation: 35 },
+  };
+  // Back-compat: if an old snapshot stored a single {azimuth, elevation}, promote it.
+  if (state.isoView.azimuth != null) {
+    const shared = { azimuth: state.isoView.azimuth, elevation: state.isoView.elevation };
+    state.isoView = { pool: {...shared}, spa: {...shared}, site: {...shared} };
+  }
   // Per-view cuts (all draggable)
   state.poolCuts = state.poolCuts || {
     A: { yFt: state.width / 2 },       // longitudinal cut y-position
@@ -3782,7 +3788,8 @@
     const spaX0 = sp.placement.xFt - wL, spaX1 = sp.placement.xFt + sp.lengthFt + wR;
     const spaY0 = sp.placement.yFt - wN, spaY1 = sp.placement.yFt + sp.widthFt + wF;
     const spaTopZ = -(((+state.copingRiseIn || 0) + (+sp.deckAbovePoolDeckIn || 0)) / 12);
-    const project = makeIsoProject();
+    // Generalized axonometric — Site iso uses its own angle.
+    const project = makeIsoProject('site');
     const corners = [];
     for (const [x,y,z] of [
       [0, 0, 0], [L, 0, 0], [L, W, 0], [0, W, 0],
@@ -4091,58 +4098,70 @@
     svg.addEventListener('touchend', end);
   })();
 
-  // Drag-to-orbit on any iso SVG, plus live badge + reset buttons.
+  // Drag-to-orbit on each iso SVG independently, plus live badge + reset buttons.
+  const ISO_KEY_BY_SVG = { svg_iso: 'pool', svg_spa_iso: 'spa', svg_site_iso: 'site' };
   function updateIsoBadges() {
-    const az = Math.round(state.isoView.azimuth);
-    const el = Math.round(state.isoView.elevation);
-    document.querySelectorAll('.iso-az').forEach(n => { n.textContent = `${az}°`; });
-    document.querySelectorAll('.iso-el').forEach(n => { n.textContent = `${el}°`; });
+    Object.entries(ISO_KEY_BY_SVG).forEach(([svgId, key]) => {
+      const svg = $(svgId); if (!svg) return;
+      const v = state.isoView[key] || { azimuth: 45, elevation: 35 };
+      // Find the header associated with this SVG (previous sibling's header)
+      const view = svg.closest('.view');
+      if (!view) return;
+      const az = view.querySelector('.iso-az');
+      const el = view.querySelector('.iso-el');
+      if (az) az.textContent = `${Math.round(v.azimuth)}°`;
+      if (el) el.textContent = `${Math.round(v.elevation)}°`;
+    });
   }
   (function wireIsoOrbit() {
-    const ids = ['svg_iso', 'svg_spa_iso', 'svg_site_iso'];
-    let drag = null;
     const AZ_MIN = 15, AZ_MAX = 75, EL_MIN = 15, EL_MAX = 65;
     const SENSITIVITY = 0.35;
-    const start = (e) => {
-      const pt = e.touches ? e.touches[0] : e;
-      drag = {
-        startX: pt.clientX, startY: pt.clientY,
-        az0: state.isoView.azimuth, el0: state.isoView.elevation,
+    let drag = null; // { key, startX, startY, az0, el0 }
+    Object.entries(ISO_KEY_BY_SVG).forEach(([svgId, key]) => {
+      const svg = $(svgId); if (!svg) return;
+      svg.style.cursor = 'grab';
+      const start = (e) => {
+        svg.style.cursor = 'grabbing';
+        const pt = e.touches ? e.touches[0] : e;
+        const v = state.isoView[key];
+        drag = { key, startX: pt.clientX, startY: pt.clientY, az0: v.azimuth, el0: v.elevation };
+        e.preventDefault();
       };
-      e.preventDefault();
-    };
+      svg.addEventListener('mousedown', start);
+      svg.addEventListener('touchstart', start, { passive: false });
+    });
     const move = (e) => {
       if (!drag) return;
       const pt = e.touches ? e.touches[0] : e;
       const dx = pt.clientX - drag.startX;
       const dy = pt.clientY - drag.startY;
-      state.isoView.azimuth   = Math.max(AZ_MIN, Math.min(AZ_MAX, drag.az0 + dx * SENSITIVITY));
-      state.isoView.elevation = Math.max(EL_MIN, Math.min(EL_MAX, drag.el0 - dy * SENSITIVITY));
+      const v = state.isoView[drag.key];
+      v.azimuth   = Math.max(AZ_MIN, Math.min(AZ_MAX, drag.az0 + dx * SENSITIVITY));
+      v.elevation = Math.max(EL_MIN, Math.min(EL_MAX, drag.el0 - dy * SENSITIVITY));
       updateIsoBadges();
       scheduleRender();
       e.preventDefault();
     };
-    const end = () => { drag = null; };
-    ids.forEach(id => {
-      const svg = $(id); if (!svg) return;
-      svg.style.cursor = 'grab';
-      svg.addEventListener('mousedown', (e) => { svg.style.cursor = 'grabbing'; start(e); });
-      svg.addEventListener('touchstart', start, { passive: false });
-    });
     window.addEventListener('mousemove', move);
     window.addEventListener('touchmove', move, { passive: false });
-    window.addEventListener('mouseup', () => {
-      ids.forEach(id => { const svg = $(id); if (svg) svg.style.cursor = 'grab'; });
-      end();
-    });
+    const end = () => {
+      drag = null;
+      Object.keys(ISO_KEY_BY_SVG).forEach(id => { const s = $(id); if (s) s.style.cursor = 'grab'; });
+    };
+    window.addEventListener('mouseup', end);
     window.addEventListener('touchend', end);
-    // Reset button — any .iso-reset restores the default angle.
+    // Reset buttons — each button restores its own view's default angle.
     document.querySelectorAll('.iso-reset').forEach(btn => {
       btn.addEventListener('click', () => {
-        state.isoView.azimuth = 45;
-        state.isoView.elevation = 35;
-        updateIsoBadges();
-        scheduleRender();
+        const view = btn.closest('.view');
+        const svg = view && view.querySelector('svg');
+        const key = svg && ISO_KEY_BY_SVG[svg.id];
+        if (key) {
+          state.isoView[key].azimuth = 45;
+          state.isoView[key].elevation = 35;
+          updateIsoBadges();
+          scheduleRender();
+        }
       });
     });
     updateIsoBadges();
