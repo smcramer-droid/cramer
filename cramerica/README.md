@@ -36,37 +36,57 @@ cramerica/
         └── message.ts    incoming reply: parse logs → Claude → reply
 ```
 
-## First-time deploy
+## First-time deploy (one command)
+
+```bash
+cd cramerica
+npx wrangler login          # one-time browser sign-in to Cloudflare
+npm run setup               # the script does everything else
+```
+
+`npm run setup` (see `scripts/setup.sh`):
+
+1. Installs dependencies if needed.
+2. Creates the D1 database (or reuses an existing one named `cramerica`).
+3. Writes the `database_id` into `wrangler.toml` automatically.
+4. Applies migrations.
+5. Deploys the Worker and captures the URL.
+6. Prompts once for your **TELEGRAM_BOT_TOKEN** and **ANTHROPIC_API_KEY**
+   (input hidden), generates the webhook secret itself, writes all three
+   to Cloudflare.
+7. Registers the webhook with Telegram.
+8. Tells you to go hit `/start` in Telegram.
+
+The script is idempotent — safe to re-run if anything misfires.
+
+### Manual deploy (if you'd rather)
+
+<details>
+<summary>Expand for the step-by-step path.</summary>
 
 ```bash
 cd cramerica
 npm install
 
-# 1. Create D1 database. Copy database_id into wrangler.toml.
-npm run db:create
+npx wrangler login
+npx wrangler d1 create cramerica        # copy the database_id it prints
+# → paste the id into wrangler.toml, replacing REPLACE_WITH_D1_ID
 
-# 2. Apply migrations (run both local + remote for parity).
-npm run db:migrate
-npm run db:migrate:local
+npx wrangler d1 migrations apply cramerica --remote
+npx wrangler deploy                      # copy the worker URL it prints
 
-# 3. Set secrets. Rotate the bot token in BotFather first (/revoke).
-wrangler secret put TELEGRAM_BOT_TOKEN
-wrangler secret put ANTHROPIC_API_KEY
-wrangler secret put TELEGRAM_WEBHOOK_SECRET   # any long random string
+npx wrangler secret put TELEGRAM_BOT_TOKEN
+npx wrangler secret put ANTHROPIC_API_KEY
+npx wrangler secret put TELEGRAM_WEBHOOK_SECRET   # any long random string
 
-# 4. Deploy.
-npm run deploy
-
-# 5. Register the webhook with Telegram.
 BOT_TOKEN=<token> \
 WEBHOOK_URL=https://cramerica.<subdomain>.workers.dev/webhook \
-WEBHOOK_SECRET=<same string you just set as secret> \
+WEBHOOK_SECRET=<same string you set as secret> \
 node scripts/set-webhook.mjs
 
-# 6. In Telegram, send the bot /start — this captures your chat_id and
-#    kicks off the week-1 intake conversation. Answer the 10 questions and
-#    Opus will generate your first week's program automatically.
+# In Telegram, send your bot /start
 ```
+</details>
 
 ## Development
 
