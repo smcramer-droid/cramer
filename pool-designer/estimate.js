@@ -101,13 +101,39 @@
     excCuft: 2745, tileLf: 96, copingLf: 96, plasterSf: 915,
   };
 
+  // Primaries are always user-entered. Derived default to auto-computed from
+  // primaries; each can be locked to manual override (from the designer spec
+  // or direct user entry for non-rectangular pools).
+  const DESIGN_PRIMARIES = ['widthFt','lengthFt','avgDepthFt','maxDepthFt'];
+  const DESIGN_DERIVED   = ['poolSf','perimeterFt','tileLf','copingLf','waterVolumeGal','plasterSf','excCuft'];
+
   function defaultState() {
     return {
       items: DEFAULT_ITEMS.map(it => ({ ...it })),
       inputs: { ...DEFAULT_INPUTS },
       design: { ...DEFAULT_DESIGN },
+      designManual: {},  // {fieldName: true} means locked/manual; absent => auto-computed
       markup: { ...DEFAULT_MARKUP },
     };
+  }
+
+  // Compute derived design quantities from primaries + any locked (manual)
+  // upstream values. Mutates state.design in-place, only overwriting derived
+  // fields that are not marked manual.
+  function recomputeDesign(state) {
+    const d = state.design;
+    const m = state.designManual || {};
+    const W = +d.widthFt || 0;
+    const L = +d.lengthFt || 0;
+    const avgD = +d.avgDepthFt || 0;
+
+    if (!m.poolSf)         d.poolSf = W * L;
+    if (!m.perimeterFt)    d.perimeterFt = 2 * (W + L);
+    if (!m.tileLf)         d.tileLf = d.perimeterFt;
+    if (!m.copingLf)       d.copingLf = d.perimeterFt;
+    if (!m.waterVolumeGal) d.waterVolumeGal = d.poolSf * avgD * 7.4805;
+    if (!m.plasterSf)      d.plasterSf = d.poolSf + d.perimeterFt * avgD;
+    if (!m.excCuft)        d.excCuft = (W + 2) * (L + 2) * (avgD + 1);
   }
 
   // Pull design quantities from a loaded spec into the flat shape used by state.design.
@@ -213,9 +239,11 @@
 
   // Expose for the next chunk.
   window.__est = { $, DEFAULT_INPUTS, DEFAULT_MARKUP, DEFAULT_ITEMS, DEFAULT_DESIGN,
+    DESIGN_PRIMARIES, DESIGN_DERIVED,
     GROUPS_ORDER, COMMON_UNITS, VARS_LIST,
     money, money0, fmt0, fmt1, fmt2, fmtFt,
-    loadState, saveState, defaultState, evalExpr, loadSpec, demoSpec, buildCtx, designFromSpec };
+    loadState, saveState, defaultState, evalExpr, loadSpec, demoSpec,
+    buildCtx, designFromSpec, recomputeDesign };
 })();
 
 // ==================== Render chunk ====================
@@ -223,17 +251,20 @@
   const E = window.__est;
   const { $, money, money0, fmt0, fmt1, fmtFt, GROUPS_ORDER, COMMON_UNITS, VARS_LIST, evalExpr, buildCtx } = E;
 
-  // Render the editable design-quantities grid (width, area, perimeter, etc.).
-  // Prefilled from state.design (which may have been loaded from designer spec or
-  // entered manually). Changes persist to state.design via readDesign + recalc.
-  E.renderDesignInputs = function(state, onChange) {
+  // Render the editable design-quantities grid.
+  // Primaries (W, L, avg/max depth) are always editable.
+  // Derived (area, perimeter, volume, etc.) default to auto-computed from
+  // primaries; clicking their "auto" pill switches to manual override.
+  E.renderDesignInputs = function(state, onChange, onLockToggle) {
     const host = $('design_inputs');
     host.innerHTML = '';
-    const fields = [
-      ['widthFt',        'width ft',       0.5],
-      ['lengthFt',       'length ft',      0.5],
-      ['avgDepthFt',     'avg depth ft',   0.1],
-      ['maxDepthFt',     'max depth ft',   0.1],
+    const primaries = [
+      ['widthFt',    'width ft',     0.5],
+      ['lengthFt',   'length ft',    0.5],
+      ['avgDepthFt', 'avg depth ft', 0.1],
+      ['maxDepthFt', 'max depth ft', 0.1],
+    ];
+    const derived = [
       ['poolSf',         'area ft²',       1],
       ['perimeterFt',    'perimeter lf',   1],
       ['waterVolumeGal', 'volume gal',     100],
@@ -242,19 +273,67 @@
       ['copingLf',       'coping lf',      1],
       ['plasterSf',      'plaster ft²',    1],
     ];
-    fields.forEach(([key, lbl, step]) => {
+    const m = state.designManual || {};
+
+    primaries.forEach(([key, lbl, step]) => {
       const w = document.createElement('label');
-      w.innerHTML = `<span class="lbl">${lbl}</span><input type="number" data-dkey="${key}" min="0" step="${step}" value="${+(state.design[key] || 0)}"/>`;
+      w.innerHTML = `<span class="lbl">${lbl}</span>
+        <input type="number" data-dkey="${key}" min="0" step="${step}" value="${+(state.design[key] || 0)}"/>`;
       host.appendChild(w);
     });
+    derived.forEach(([key, lbl, step]) => {
+      const manual = !!m[key];
+      const w = document.createElement('label');
+      w.className = 'derived';
+      w.innerHTML = `<span class="lbl">${lbl}</span>
+        <input type="number" data-dkey="${key}" data-derived="1" ${manual?'':'readonly tabindex="-1"'} min="0" step="${step}" value="${fmt(+(state.design[key] || 0))}"/>
+        <span class="lock ${manual?'manual':'auto'}" data-lock-for="${key}" title="click to ${manual?'auto-compute from dims':'lock as manual override'}">${manual?'manual':'auto'}</span>`;
+      host.appendChild(w);
+    });
+
     host.oninput = onChange;
     host.onchange = onChange;
+
+    // Lock toggles (click handler delegated on host).
+    host.querySelectorAll('.lock').forEach(el => {
+      el.addEventListener('click', () => onLockToggle(el.dataset.lockFor));
+    });
   };
 
-  // Read current design input values back from the DOM into state.design.
+  // Format numbers for the design inputs. Use integer for big values,
+  // one decimal for depths + small dims (avoids "16000.00000..." noise).
+  function fmt(n) {
+    const v = +n || 0;
+    if (Math.abs(v) >= 100) return Math.round(v).toString();
+    return (Math.round(v * 10) / 10).toString();
+  }
+
+  // Read current design input values back from DOM, then recompute any
+  // auto-derived fields from the primaries. Mutates state.design.
   E.readDesign = function(state) {
+    const m = state.designManual || {};
     const inputs = $('design_inputs').querySelectorAll('input[data-dkey]');
-    inputs.forEach(i => { state.design[i.dataset.dkey] = +i.value || 0; });
+    inputs.forEach(i => {
+      const k = i.dataset.dkey;
+      const isDerived = i.dataset.derived === '1';
+      // Skip readonly auto-derived fields; they get recomputed below.
+      if (isDerived && !m[k]) return;
+      state.design[k] = +i.value || 0;
+    });
+    E.recomputeDesign(state);
+  };
+
+  // Write auto-derived design values back to their DOM inputs (so you see
+  // area/perimeter/etc. update live when you type a primary).
+  E.updateDesignDOM = function(state) {
+    const m = state.designManual || {};
+    E.DESIGN_DERIVED.forEach(k => {
+      if (m[k]) return;  // manual override: leave the user's value alone
+      const el = $('design_inputs').querySelector(`input[data-dkey="${k}"]`);
+      if (!el) return;
+      if (document.activeElement === el) return;  // don't clobber while user is focused
+      el.value = fmt(+state.design[k] || 0);
+    });
   };
 
   // Render the project-input controls (plumb, rebar, plaster tier, deck, lights, autocover).
@@ -498,15 +577,29 @@
   // ---------- Boot ----------
   // Load persisted state if any. If none and a designer spec is present, seed
   // state.design from the spec. Otherwise fall back to demo defaults.
+  // Convenience: mark all derived design fields as manual. Used when loading
+  // from a designer spec (where the authoritative values come from a real
+  // pool shape — not a rectangle — so auto-recompute would overwrite them).
+  const allDerivedManual = () =>
+    Object.fromEntries(E.DESIGN_DERIVED.map(k => [k, true]));
+
   let state = loadState();
   let spec = loadSpec();
   if (!state) {
     state = defaultState();
-    if (spec) state.design = E.designFromSpec(spec);
+    if (spec) {
+      state.design = E.designFromSpec(spec);
+      state.designManual = allDerivedManual();
+    }
   }
-  // Migrate older persisted states that predate state.design.
+  // Migrate older persisted states that predate state.design / designManual.
   if (!state.design) {
     state.design = spec ? E.designFromSpec(spec) : { ...E.DEFAULT_DESIGN };
+  }
+  if (!state.designManual) {
+    // Preserve any values the user/spec already set — default to manual so
+    // they don't get overwritten by the new W × L auto-compute.
+    state.designManual = allDerivedManual();
   }
   if (!spec) $('warn_spec').style.display = '';
 
@@ -529,6 +622,7 @@
     syncMarginMarkup(state);
     saveState(state);
     setProjectLabel();
+    E.updateDesignDOM(state);
     const ctx = buildCtx(state);
     // Re-render items so qty/ext cells update live; preserves input focus via DOM reuse? No, full rebuild.
     // To keep focus during typing, only recompute qty/ext cells instead of full rebuild.
@@ -574,10 +668,29 @@
     if (modeEl) m.mode = modeEl.value;
   }
 
+  function toggleLock(key) {
+    state.designManual = state.designManual || {};
+    // Capture any in-flight edits in other fields first.
+    E.readDesign(state);
+    E.readInputs(state);
+    E.readItems(state);
+    readMarkup();
+    syncMarginMarkup(state);
+    // Flip the lock. If flipping to auto, recomputeDesign overwrites the value
+    // with the computed one. If flipping to manual, keep the current value.
+    if (state.designManual[key]) delete state.designManual[key];
+    else state.designManual[key] = true;
+    E.recomputeDesign(state);
+    saveState(state);
+    fullRender();
+  }
+
   function fullRender() {
     setProjectLabel();
+    // Make sure derived values are fresh before rendering inputs.
+    E.recomputeDesign(state);
     const ctx0 = buildCtx(state);
-    E.renderDesignInputs(state, recalc);
+    E.renderDesignInputs(state, recalc, toggleLock);
     E.renderInputs(state, recalc);
     E.renderItems(state, ctx0, recalc);
     E.renderMarkup(state);
@@ -620,6 +733,7 @@
     if (!s) { alert('No designer spec found. Open the designer and click → Open estimator.'); return; }
     spec = s;
     state.design = E.designFromSpec(s);
+    state.designManual = allDerivedManual();
     saveState(state);
     $('warn_spec').style.display = 'none';
     fullRender();
@@ -664,6 +778,7 @@
         items: next.items,
         inputs: { ...E.DEFAULT_INPUTS, ...(next.inputs || {}) },
         design: { ...E.DEFAULT_DESIGN, ...(next.design || {}) },
+        designManual: next.designManual || allDerivedManual(),
         markup: { ...E.DEFAULT_MARKUP, ...(next.markup || {}) },
       };
       saveState(state);
