@@ -6,7 +6,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
-    <meta name="theme-color" content="#0b4f75" />
+    <meta name="theme-color" content="#ff8a3d" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Pasadena Pools Tools" />
@@ -15,38 +15,24 @@
     <title>Pasadena Pools · Internal Tools</title>
     <style>
       :root {
-        --bg-0: #eaf5fb;
-        --bg-1: #d5ecf7;
-        --ink: #0f2e44;
-        --ink-soft: #426079;
-        --brand: #0b4f75;
-        --brand-2: #1c94c9;
-        --accent: #6bc6e8;
+        --bg-0: #fff4e3;
+        --bg-1: #cdeef7;
+        --bg-2: #ffe0c2;
+        --ink: #123a4a;
+        --ink-soft: #4a6a7a;
+        --brand: #ff8a3d;
+        --brand-2: #ffb347;
+        --sky: #29c1e0;
+        --sky-2: #67d8eb;
+        --sun: #ffd166;
+        --leaf: #3dd598;
         --card: #ffffff;
-        --card-border: rgba(11, 79, 117, 0.08);
-        --shadow: 0 10px 25px -12px rgba(11, 79, 117, 0.25),
-          0 2px 6px -2px rgba(11, 79, 117, 0.12);
-        --shadow-hover: 0 18px 38px -14px rgba(11, 79, 117, 0.38),
-          0 4px 10px -2px rgba(11, 79, 117, 0.18);
-        --radius: 18px;
-      }
-
-      @media (prefers-color-scheme: dark) {
-        :root {
-          --bg-0: #06131c;
-          --bg-1: #0a2233;
-          --ink: #e9f4fb;
-          --ink-soft: #9cb6c9;
-          --brand: #58b6dc;
-          --brand-2: #3ea4cf;
-          --accent: #8fd6ef;
-          --card: #0f2a3d;
-          --card-border: rgba(143, 214, 239, 0.14);
-          --shadow: 0 10px 25px -12px rgba(0, 0, 0, 0.6),
-            0 2px 6px -2px rgba(0, 0, 0, 0.4);
-          --shadow-hover: 0 18px 38px -14px rgba(0, 0, 0, 0.75),
-            0 4px 10px -2px rgba(0, 0, 0, 0.5);
-        }
+        --card-border: rgba(18, 58, 74, 0.08);
+        --shadow: 0 12px 28px -14px rgba(255, 138, 61, 0.35),
+          0 2px 8px -2px rgba(41, 193, 224, 0.18);
+        --shadow-hover: 0 20px 42px -14px rgba(255, 138, 61, 0.5),
+          0 6px 14px -2px rgba(41, 193, 224, 0.3);
+        --radius: 20px;
       }
 
       * { box-sizing: border-box; }
@@ -59,8 +45,9 @@
           "Helvetica Neue", Arial, sans-serif;
         color: var(--ink);
         background:
-          radial-gradient(1200px 600px at 10% -10%, var(--bg-1), transparent 60%),
-          radial-gradient(900px 500px at 110% 10%, var(--bg-1), transparent 55%),
+          radial-gradient(1200px 600px at 10% -10%, var(--bg-1), transparent 65%),
+          radial-gradient(900px 500px at 110% 10%, var(--bg-2), transparent 60%),
+          radial-gradient(600px 400px at 50% 110%, var(--sun), transparent 70%),
           var(--bg-0);
         -webkit-font-smoothing: antialiased;
         -webkit-tap-highlight-color: transparent;
@@ -85,36 +72,32 @@
       }
 
       .logo-wrap {
-        width: 84px;
-        height: 84px;
-        border-radius: 22px;
-        background: linear-gradient(135deg, var(--brand) 0%, var(--brand-2) 100%);
+        min-height: 64px;
+        max-width: 320px;
+        width: 100%;
         display: grid;
         place-items: center;
-        box-shadow: var(--shadow);
-        overflow: hidden;
+        padding: 6px 10px;
       }
 
       .logo-wrap img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
+        max-width: 100%;
+        max-height: 72px;
+        height: auto;
+        width: auto;
         display: block;
-      }
-
-      .logo-wrap img:not([src]),
-      .logo-wrap img[src=""],
-      .logo-wrap img.fallback {
-        display: none;
       }
 
       .logo-fallback {
         display: none;
+        background: linear-gradient(135deg, var(--brand) 0%, var(--brand-2) 100%);
         color: #fff;
         font-weight: 700;
-        letter-spacing: 0.5px;
-        font-size: 13px;
-        padding: 0 10px;
+        letter-spacing: 1px;
+        font-size: 16px;
+        padding: 16px 24px;
+        border-radius: 14px;
+        box-shadow: var(--shadow);
         text-align: center;
         line-height: 1.15;
       }
@@ -171,13 +154,29 @@
 
       .tool-icon {
         flex: 0 0 auto;
-        width: 60px;
-        height: 60px;
-        border-radius: 14px;
+        width: 64px;
+        height: 64px;
+        border-radius: 16px;
         display: grid;
         place-items: center;
         background: linear-gradient(145deg, var(--brand) 0%, var(--brand-2) 100%);
         color: #fff;
+        box-shadow: 0 8px 18px -8px rgba(255, 138, 61, 0.55);
+      }
+
+      .tool--dig .tool-icon {
+        background: linear-gradient(145deg, var(--brand) 0%, var(--brand-2) 100%);
+        box-shadow: 0 8px 18px -8px rgba(255, 138, 61, 0.55);
+      }
+
+      .tool--layout .tool-icon {
+        background: linear-gradient(145deg, var(--sky) 0%, var(--sky-2) 100%);
+        box-shadow: 0 8px 18px -8px rgba(41, 193, 224, 0.55);
+      }
+
+      .tool--design .tool-icon {
+        background: linear-gradient(145deg, var(--leaf) 0%, var(--sun) 100%);
+        box-shadow: 0 8px 18px -8px rgba(61, 213, 152, 0.55);
       }
 
       .tool-icon svg {
@@ -205,7 +204,7 @@
 
       .tool-url {
         font-size: 12px;
-        color: var(--brand-2);
+        color: var(--sky);
         margin: 0;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -234,20 +233,21 @@
           <span class="logo-fallback">PASADENA<br />POOLS</span>
         </div>
         <h1>Internal Tools</h1>
-        <p class="tagline">Quick access to the apps we use every day.</p>
+        <p class="tagline">Everything we use on the job, one tap away.</p>
       </header>
 
       <main class="grid">
-        <a class="tool" href="https://tools.pasadena-pools.pages.dev/" target="_blank" rel="noopener">
+        <a class="tool tool--dig" href="https://tools.pasadena-pools.pages.dev/" target="_blank" rel="noopener">
           <span class="tool-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M14.7 6.3a4 4 0 0 0-5.4 5.4l-6 6a1.5 1.5 0 0 0 2.1 2.1l6-6a4 4 0 0 0 5.4-5.4l-2.3 2.3-2.1-2.1 2.3-2.3Z" />
-              <circle cx="18" cy="6" r="1.5" />
+              <path d="M14 4l6 6-9 9H5v-6l9-9Z" />
+              <path d="M13 5l6 6" />
+              <path d="M3 21h8" />
             </svg>
           </span>
           <div class="tool-body">
-            <p class="tool-title">Pool Tools Hub</p>
-            <p class="tool-desc">Central collection of calculators and utilities.</p>
+            <p class="tool-title">Dig Sheet Generator</p>
+            <p class="tool-desc">Build dig sheets for new pool excavations.</p>
             <p class="tool-url">tools.pasadena-pools.pages.dev</p>
           </div>
           <svg class="tool-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -255,7 +255,7 @@
           </svg>
         </a>
 
-        <a class="tool" href="https://pool-equipment-layout.pages.dev/" target="_blank" rel="noopener">
+        <a class="tool tool--layout" href="https://pool-equipment-layout.pages.dev/" target="_blank" rel="noopener">
           <span class="tool-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <rect x="3" y="3" width="18" height="18" rx="2" />
@@ -274,7 +274,7 @@
           </svg>
         </a>
 
-        <a class="tool" href="https://pool-design.pages.dev/" target="_blank" rel="noopener">
+        <a class="tool tool--design" href="https://pool-design.pages.dev/" target="_blank" rel="noopener">
           <span class="tool-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M4 14c2-2 4-2 6 0s4 2 6 0 4-2 6 0" />
