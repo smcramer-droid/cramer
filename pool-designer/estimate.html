@@ -221,9 +221,26 @@
 
     .pills{font-size:13px;gap:10px}
 
-    /* Project inputs: two columns max, readable sizes */
-    .inputs{grid-template-columns:1fr 1fr;gap:8px 10px}
-    .inputs label .lbl{min-width:auto;font-size:11px}
+    /* Project inputs: stack label above field so the 16px inputs have room */
+    .inputs{grid-template-columns:1fr 1fr;gap:10px 10px}
+    .inputs label{
+      display:flex;flex-direction:column;align-items:stretch;gap:3px;
+    }
+    .inputs label .lbl{min-width:0;font-size:11px}
+    .inputs label > input[type=number],
+    .inputs label > select{width:100%;padding:7px 8px;min-height:38px}
+    /* Checkbox row stays inline */
+    .inputs label:has(input[type=checkbox]){
+      flex-direction:row;align-items:center;gap:8px;
+    }
+    /* Derived: label on top, input + lock pill on bottom row */
+    .inputs label.derived{
+      display:grid;gap:3px 6px;grid-template-columns:1fr auto;grid-template-rows:auto auto;
+      align-items:center;
+    }
+    .inputs label.derived .lbl{grid-column:1 / -1;grid-row:1}
+    .inputs label.derived > input{grid-column:1;grid-row:2;width:100%;padding:7px 8px;min-height:38px}
+    .inputs label.derived .lock{grid-column:2;grid-row:2;padding:6px 8px;font-size:10px}
 
     /* Markup stacks on narrow screens */
     .markup{grid-template-columns:1fr;gap:0}
