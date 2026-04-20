@@ -599,7 +599,7 @@
         location.addEventListener("input", () => {
           entry.location = location.value;
           if (cat.id === "saltCell") recomputeSaltPower();
-          saveAndRender(cat.id === "saltCell");
+          saveAndRender(true);
           updateSummary();
         });
 
@@ -607,7 +607,7 @@
         qty.addEventListener("input", () => {
           entry.qty = Number(qty.value) || 0;
           if (cat.id === "saltCell") recomputeSaltPower();
-          saveAndRender(cat.id === "saltCell");
+          saveAndRender(true);
           updateSummary();
         });
 
