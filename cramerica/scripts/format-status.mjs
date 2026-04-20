@@ -75,16 +75,17 @@ if (Array.isArray(data.weekSessions) && data.weekSessions.length) {
   console.log();
 }
 
-if (Array.isArray(data.recentErrors)) {
-  if (data.recentErrors.length === 0) {
+const errList = data.recentErrors ?? data.errors;
+if (Array.isArray(errList)) {
+  if (errList.length === 0) {
     console.log(c.bold("Errors:"), c.green("none"));
   } else {
-    console.log(c.bold(c.red(`Recent errors (${data.recentErrors.length}):`)));
-    for (const e of data.recentErrors.slice(0, 5)) {
+    console.log(c.bold(c.red(`Errors (${errList.length}):`)));
+    for (const e of errList) {
       console.log(`  ${c.dim(e.created_at)}  ${c.bold(e.source)}`);
       console.log(`    ${c.red(e.message)}`);
       if (e.details) {
-        const details = String(e.details).replace(/\s+/g, " ").slice(0, 300);
+        const details = String(e.details).replace(/\s+/g, " ").slice(0, 400);
         console.log(c.dim(`    ${details}`));
       }
     }
@@ -92,14 +93,58 @@ if (Array.isArray(data.recentErrors)) {
   console.log();
 }
 
-if (Array.isArray(data.recentMessages) && data.recentMessages.length) {
-  console.log(c.bold("Recent messages:"));
-  for (const m of data.recentMessages.slice().reverse()) {
+const msgList = data.recentMessages ?? data.messages;
+if (Array.isArray(msgList) && msgList.length) {
+  console.log(c.bold("Messages:"));
+  for (const m of msgList.slice().reverse()) {
     const who = m.role === "user" ? c.cyan("you") : c.dim("bot");
     const slot = m.slot ? c.dim(` [${m.slot}]`) : "";
     const clock = (m.created_at ?? "").slice(11, 16);
     const content = (m.content ?? "").replace(/\s+/g, " ").slice(0, 140);
     console.log(`  ${c.dim(clock)} ${who}${slot}  ${content}`);
+  }
+  console.log();
+}
+
+if (Array.isArray(data.daily_log)) {
+  console.log(c.bold("Daily log:"));
+  for (const l of data.daily_log) {
+    console.log(`  ${l.date}  protein=${l.protein_g} cal=${l.calories ?? "—"} cardio=${l.cardio_min}m plia=${l.pliability_min}m ${l.weight_lbs ? `wt=${l.weight_lbs}` : ""}`);
+  }
+  console.log();
+}
+
+if (Array.isArray(data.answers)) {
+  console.log(c.bold("Assessment:"));
+  for (const a of data.answers) {
+    console.log(`  Q: ${(a.question ?? "").slice(0, 100)}`);
+    console.log(`  A: ${c.cyan((a.answer ?? "").replace(/\s+/g, " ").slice(0, 200))}`);
+    console.log();
+  }
+}
+
+if (Array.isArray(data.program)) {
+  console.log(c.bold("Program:"));
+  for (const p of data.program) {
+    console.log(`  week_start=${p.week_start}  summary=${(p.summary ?? "").slice(0, 80)}`);
+  }
+  console.log();
+}
+
+if (Array.isArray(data.sessions)) {
+  console.log(c.bold("Strength sessions:"));
+  for (const s of data.sessions) {
+    const state = s.completed_date ? c.green(`done ${s.completed_date}`) : c.dim("open");
+    console.log(`  ${s.week_start} ${s.letter}  ${state}${s.plan_json ? "" : c.yellow(" (no plan)")}`);
+  }
+  console.log();
+}
+
+if (Array.isArray(data.checkins)) {
+  console.log(c.bold("Check-ins:"));
+  for (const ci of data.checkins) {
+    const fired = ci.fired_at ? c.green(ci.fired_at) : c.dim("not fired");
+    console.log(`  ${ci.date} ${ci.slot}  planned_min=${ci.planned_minute}  ${fired}`);
   }
   console.log();
 }
