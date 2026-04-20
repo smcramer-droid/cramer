@@ -204,6 +204,38 @@
       }
       .remove-entry:hover { background: rgba(226, 85, 85, 0.2); }
 
+      .body-row {
+        display: grid;
+        grid-template-columns: minmax(100px, 1.5fr) 110px 36px;
+        gap: 8px;
+        margin-bottom: 8px;
+        align-items: start;
+      }
+      .body-row input[type="text"],
+      .body-row input[type="number"] { min-height: 40px; }
+      .body-row .remove-body {
+        background: rgba(226, 85, 85, 0.1);
+        border: 1.5px solid rgba(226, 85, 85, 0.3);
+        color: var(--danger);
+        border-radius: 10px;
+        min-height: 40px;
+        cursor: pointer;
+        font-size: 18px;
+        padding: 0;
+      }
+      .body-row .remove-body:hover { background: rgba(226, 85, 85, 0.2); }
+
+      .body-group-head {
+        grid-column: 1 / -1;
+        padding: 14px 10px 6px;
+        font-weight: 700;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--sky);
+      }
+      .body-group-head:first-child { padding-top: 6px; }
+
       .add-another {
         display: inline-flex;
         align-items: center;
@@ -378,10 +410,13 @@
             <input type="date" id="date" />
           </div>
         </div>
-        <div class="field">
-          <label for="poolGal">Pool volume <span class="sub">(gallons — drives salt cell sizing)</span></label>
-          <input type="number" id="poolGal" min="0" step="500" placeholder="e.g. 20000" />
-        </div>
+      </section>
+
+      <section class="card">
+        <h2>Bodies of Water</h2>
+        <p class="item-info" style="margin: -4px 0 10px;">Define each body first (Pool, Spa, Water Feature...). Then each piece of equipment picks which body it belongs to — or "Whole Job" for shared items.</p>
+        <div id="bodiesList"></div>
+        <button type="button" class="add-another no-print" id="addBody" style="margin-top:6px;">+ Add body</button>
       </section>
 
       <section class="card">
@@ -529,9 +564,10 @@
 
       // ============ STATE / RENDER ============
       const state = {
-        core: {},   // id -> { optionId, qty }
-        misc: [],   // [{ id, name, qty }]
-        project: {}
+        bodies: [],                 // [{ id, name, gallons }]
+        core: {},                   // { catId -> [{ id, optionId, qty, bodyId }] }
+        misc: [],                   // [{ id, name, qty, bodyId }]
+        project: {}                 // { jobName, customer, sales, date }
       };
 
       function el(tag, attrs = {}, children = []) {
@@ -558,16 +594,94 @@
         return state.core[catId];
       }
 
+      function bodyById(bodyId) {
+        return state.bodies.find(b => b.id === bodyId) || null;
+      }
+
+      function bodyLabel(bodyId) {
+        if (!bodyId) return "Whole Job";
+        const b = bodyById(bodyId);
+        return b ? b.name : "Whole Job";
+      }
+
       function addEntry(catId, seed) {
         const cat = CATALOG.find(c => c.id === catId);
+        const list = entriesOf(catId);
+        // Cascade: inherit body from previous pick in same category if present.
+        const prev = list[list.length - 1];
+        const inherit = prev ? prev.bodyId : null;
         const entry = {
           id: genId(),
           optionId: (seed && seed.optionId) || "none",
           qty: (seed && seed.qty) != null ? seed.qty : (cat && cat.defaultQty) || 1,
-          location: (seed && seed.location) || ""
+          bodyId: (seed && "bodyId" in seed) ? seed.bodyId : inherit
         };
-        entriesOf(catId).push(entry);
+        list.push(entry);
         return entry;
+      }
+
+      function addBody(seed) {
+        const body = {
+          id: (seed && seed.id) || genId(),
+          name: (seed && seed.name) || "",
+          gallons: (seed && seed.gallons) || ""
+        };
+        state.bodies.push(body);
+        return body;
+      }
+
+      function removeBody(bodyId) {
+        state.bodies = state.bodies.filter(b => b.id !== bodyId);
+        // Orphan entries become Whole Job
+        for (const cat of CATALOG) {
+          for (const e of entriesOf(cat.id)) {
+            if (e.bodyId === bodyId) e.bodyId = null;
+          }
+        }
+        for (const m of state.misc) {
+          if (m.bodyId === bodyId) m.bodyId = null;
+        }
+        recomputeSaltPower();
+      }
+
+      function renderBodies() {
+        const host = document.getElementById("bodiesList");
+        host.innerHTML = "";
+        if (state.bodies.length === 0) {
+          host.appendChild(el("div", { class: "item-info", style: "padding: 4px 0 8px;" }, "No bodies yet. Click + Add body."));
+        }
+        for (const body of state.bodies) {
+          const nameInput = el("input", { type: "text", placeholder: "Name (e.g. Pool)", value: body.name || "" });
+          nameInput.addEventListener("input", () => {
+            body.name = nameInput.value;
+            saveAndRender(true);
+            updateSummary();
+          });
+          nameInput.addEventListener("blur", () => { saveAndRender(); }); // refresh dropdowns once user commits
+
+          const galInput = el("input", { type: "number", min: "0", step: "500", placeholder: "Gallons", value: body.gallons || "" });
+          galInput.addEventListener("input", () => {
+            body.gallons = galInput.value;
+            saveAndRender(true);
+            refreshSaltCellHints();
+          });
+
+          const removeBtn = el("button", { type: "button", class: "remove-body no-print", title: "Remove" }, "\u00d7");
+          removeBtn.addEventListener("click", () => {
+            removeBody(body.id);
+            saveAndRender();
+          });
+
+          host.appendChild(el("div", { class: "body-row" }, [nameInput, galInput, removeBtn]));
+        }
+      }
+
+      function refreshSaltCellHints() {
+        // Lightweight update for the saltCell hint text without full re-render.
+        const host = document.getElementById("coreItems");
+        if (!host) return;
+        // Easiest path: a full core re-render, but only if saltCell is visible.
+        renderCore();
       }
 
       function recommendSaltCell(gallons) {
@@ -588,19 +702,24 @@
             id: "auto-" + c.id,
             optionId: "pc520556",
             qty: c.qty,
-            location: c.location || ""
+            bodyId: c.bodyId || null
           });
         }
         state.core.saltPower = expected;
       }
 
       function renderEntryRow(cat, entry) {
-        const location = el("input", { type: "text", placeholder: "Location (e.g. Pool)", value: entry.location || "" });
-        location.addEventListener("input", () => {
-          entry.location = location.value;
+        const bodySelect = el("select");
+        bodySelect.appendChild(el("option", { value: "" }, "— Whole Job —"));
+        for (const b of state.bodies) {
+          const o = el("option", { value: b.id }, b.name || "(unnamed)");
+          if (entry.bodyId === b.id) o.selected = true;
+          bodySelect.appendChild(o);
+        }
+        bodySelect.addEventListener("change", () => {
+          entry.bodyId = bodySelect.value || null;
           if (cat.id === "saltCell") recomputeSaltPower();
-          saveAndRender(true);
-          updateSummary();
+          saveAndRender();
         });
 
         const qty = el("input", { type: "number", min: "0", step: "1", value: entry.qty });
@@ -630,7 +749,7 @@
           saveAndRender();
         });
 
-        const topLine = el("div", { class: "entry-line" }, [location, qty, select, removeBtn]);
+        const topLine = el("div", { class: "entry-line" }, [bodySelect, qty, select, removeBtn]);
         const opt = cat.options.find(o => o.id === entry.optionId);
         const children = [topLine];
         if (opt && opt.id !== "none") {
@@ -652,18 +771,21 @@
 
           if (cat.id === "saltCell") {
             const hint = el("div", { class: "hint" });
-            const gal = Number(state.project.poolGal || 0);
-            if (gal > 0) {
-              const rec = recommendSaltCell(gal);
-              hint.innerHTML = `<strong>Recommended for ${gal.toLocaleString()} gal:</strong> ${rec.label} — sized ~2× pool volume.`;
+            const sized = state.bodies.filter(b => Number(b.gallons) > 0);
+            if (sized.length) {
+              const bits = sized.map(b => {
+                const rec = recommendSaltCell(Number(b.gallons));
+                return `<strong>${b.name || "(unnamed)"}</strong> (${Number(b.gallons).toLocaleString()} gal) → ${rec.label}`;
+              });
+              hint.innerHTML = `Recommended (sized ~2× volume): ${bits.join(" · ")}`;
             } else {
-              hint.textContent = "Enter pool volume above for a sizing recommendation. Add another cell for the spa or water feature.";
+              hint.textContent = "Enter gallons on each body of water above to get sizing recommendations.";
             }
             card.appendChild(hint);
           }
           if (cat.id === "saltPower") {
             const hint = el("div", { class: "hint" });
-            hint.innerHTML = "Auto-paired with your salt cells. Each non-IC15 cell gets one <strong>520556</strong> power center inheriting its location.";
+            hint.innerHTML = "Auto-paired with your salt cells. Each non-IC15 cell gets one <strong>520556</strong> power center inheriting its body.";
             card.appendChild(hint);
           }
 
@@ -693,8 +815,14 @@
           host.appendChild(el("div", { class: "item-info", style: "padding: 4px 0 8px;" }, "No extra items yet. Click + Add item to include anything outside the core list."));
         }
         for (const row of state.misc) {
-          const locInput = el("input", { type: "text", placeholder: "Location", value: row.location || "" });
-          locInput.addEventListener("input", () => { row.location = locInput.value; saveAndRender(true); updateSummary(); });
+          const bodySelect = el("select");
+          bodySelect.appendChild(el("option", { value: "" }, "— Whole Job —"));
+          for (const b of state.bodies) {
+            const o = el("option", { value: b.id }, b.name || "(unnamed)");
+            if (row.bodyId === b.id) o.selected = true;
+            bodySelect.appendChild(o);
+          }
+          bodySelect.addEventListener("change", () => { row.bodyId = bodySelect.value || null; saveAndRender(); });
 
           const nameInput = el("input", { type: "text", placeholder: "Item (e.g. Automatic Cover T4)", value: row.name });
           nameInput.addEventListener("input", () => { row.name = nameInput.value; saveAndRender(true); updateSummary(); });
@@ -708,7 +836,7 @@
             saveAndRender();
           });
 
-          host.appendChild(el("div", { class: "misc-row" }, [locInput, nameInput, qtyInput, removeBtn]));
+          host.appendChild(el("div", { class: "misc-row" }, [bodySelect, nameInput, qtyInput, removeBtn]));
         }
       }
 
@@ -720,7 +848,8 @@
             const opt = cat.options.find(o => o.id === entry.optionId);
             if (!opt || opt.id === "none") continue;
             list.push({
-              location: entry.location || "",
+              bodyId: entry.bodyId || null,
+              location: bodyLabel(entry.bodyId),
               qty: entry.qty,
               item: cat.label,
               model: opt.model || "",
@@ -733,7 +862,8 @@
         for (const row of state.misc) {
           if (!row.name || !row.qty) continue;
           list.push({
-            location: row.location || "",
+            bodyId: row.bodyId || null,
+            location: bodyLabel(row.bodyId),
             qty: row.qty,
             item: row.name,
             model: "",
@@ -745,24 +875,47 @@
         return list;
       }
 
+      function groupedList() {
+        // Sort: Whole Job first, then each body in definition order, then unknown
+        const list = buildList();
+        const order = new Map();
+        order.set(null, 0);
+        state.bodies.forEach((b, i) => order.set(b.id, i + 1));
+        const groups = new Map();
+        for (const r of list) {
+          const k = r.bodyId || null;
+          if (!groups.has(k)) groups.set(k, { key: k, label: bodyLabel(k), rows: [] });
+          groups.get(k).rows.push(r);
+        }
+        const arr = Array.from(groups.values());
+        arr.sort((a, b) => (order.get(a.key) ?? 99) - (order.get(b.key) ?? 99));
+        return arr;
+      }
+
       function updateSummary() {
         const body = document.getElementById("summaryBody");
         body.innerHTML = "";
-        const list = buildList();
-        if (list.length === 0) {
+        const groups = groupedList();
+        const totalRows = groups.reduce((n, g) => n + g.rows.length, 0);
+        if (totalRows === 0) {
           const tr = el("tr");
           tr.appendChild(el("td", { class: "empty", colspan: "5" }, "Nothing selected yet."));
           body.appendChild(tr);
         } else {
-          for (const r of list) {
-            const notes = [r.manufacturer, r.info].filter(Boolean).join(" · ");
-            body.appendChild(el("tr", {}, [
-              el("td", {}, r.location),
-              el("td", { class: "qty-col" }, String(r.qty)),
-              el("td", {}, r.item),
-              el("td", {}, r.model),
-              el("td", {}, notes)
-            ]));
+          for (const g of groups) {
+            const head = el("tr");
+            head.appendChild(el("td", { class: "body-group-head", colspan: "5" }, g.label));
+            body.appendChild(head);
+            for (const r of g.rows) {
+              const notes = [r.manufacturer, r.info].filter(Boolean).join(" · ");
+              body.appendChild(el("tr", {}, [
+                el("td", {}, r.location),
+                el("td", { class: "qty-col" }, String(r.qty)),
+                el("td", {}, r.item),
+                el("td", {}, r.model),
+                el("td", {}, notes)
+              ]));
+            }
           }
         }
 
@@ -774,13 +927,18 @@
         if (p.customer) parts.push(`Customer: ${p.customer}`);
         if (p.sales) parts.push(`Salesperson: ${p.sales}`);
         if (p.date) parts.push(`Date: ${p.date}`);
-        if (p.poolGal) parts.push(`Pool size: ${p.poolGal} gal`);
+        const bodiesText = state.bodies.filter(b => b.name || b.gallons).map(b => {
+          const g = b.gallons ? ` (${Number(b.gallons).toLocaleString()} gal)` : "";
+          return `${b.name || "(unnamed)"}${g}`;
+        }).join(" / ");
+        if (bodiesText) parts.push(`Bodies: ${bodiesText}`);
         meta.textContent = parts.join(" · ");
       }
 
       function saveAndRender(skipRender) {
-        localStorage.setItem("pps.equipment.v2", JSON.stringify(state));
+        localStorage.setItem("pps.equipment.v3", JSON.stringify(state));
         if (!skipRender) {
+          renderBodies();
           renderCore();
           renderMisc();
         }
@@ -789,18 +947,50 @@
 
       function loadState() {
         try {
-          const raw = localStorage.getItem("pps.equipment.v2") || localStorage.getItem("pps.equipment.v1");
+          const raw = localStorage.getItem("pps.equipment.v3")
+            || localStorage.getItem("pps.equipment.v2")
+            || localStorage.getItem("pps.equipment.v1");
           if (!raw) return false;
           const s = JSON.parse(raw);
           if (!s || typeof s !== "object") return false;
+
           const proj = s.project || {};
           state.project = {
             jobName: proj.jobName ?? proj.projName ?? "",
             customer: proj.customer ?? proj.projCustomer ?? "",
             sales: proj.sales ?? proj.projSales ?? "",
-            date: proj.date ?? proj.projDate ?? "",
-            poolGal: proj.poolGal ?? ""
+            date: proj.date ?? proj.projDate ?? ""
           };
+
+          // Bodies: if saved has bodies, use them. Otherwise derive from old pool gallons + unique location strings.
+          if (Array.isArray(s.bodies) && s.bodies.length) {
+            state.bodies = s.bodies.map(b => ({
+              id: b.id || genId(),
+              name: b.name || "",
+              gallons: b.gallons || ""
+            }));
+          } else {
+            state.bodies = [];
+            const legacyPoolGal = proj.poolGal || "";
+            state.bodies.push({ id: genId(), name: "Pool", gallons: legacyPoolGal });
+            // Collect unique legacy locations across old entries
+            const locs = new Set();
+            const collect = v => { if (v && typeof v === "object") { if (Array.isArray(v)) v.forEach(collect); else if (v.location) locs.add(String(v.location).trim()); } };
+            if (s.core) for (const k in s.core) collect(s.core[k]);
+            if (Array.isArray(s.misc)) s.misc.forEach(collect);
+            for (const name of locs) {
+              if (!name) continue;
+              if (/^pool$/i.test(name)) continue; // already have one
+              state.bodies.push({ id: genId(), name, gallons: "" });
+            }
+          }
+          const bodyByName = new Map(state.bodies.map(b => [String(b.name || "").toLowerCase().trim(), b.id]));
+          const mapLoc = loc => {
+            if (!loc) return null;
+            const k = String(loc).toLowerCase().trim();
+            return bodyByName.get(k) || null;
+          };
+
           const migratedCore = {};
           for (const cat of CATALOG) {
             const v = s.core && s.core[cat.id];
@@ -810,11 +1000,16 @@
                 id: e.id || genId(),
                 optionId: e.optionId || "none",
                 qty: e.qty != null ? e.qty : 1,
-                location: e.location || ""
+                bodyId: e.bodyId || mapLoc(e.location)
               }));
             } else if (typeof v === "object" && v.optionId) {
               if (v.optionId !== "none" || v.qty) {
-                migratedCore[cat.id] = [{ id: genId(), optionId: v.optionId, qty: v.qty || 1, location: "" }];
+                migratedCore[cat.id] = [{
+                  id: genId(),
+                  optionId: v.optionId,
+                  qty: v.qty || 1,
+                  bodyId: v.bodyId || null
+                }];
               } else {
                 migratedCore[cat.id] = [];
               }
@@ -827,7 +1022,7 @@
             id: m.id || genId(),
             name: m.name || "",
             qty: m.qty != null ? m.qty : 1,
-            location: m.location || ""
+            bodyId: m.bodyId || mapLoc(m.location)
           }));
           return true;
         } catch {
@@ -844,14 +1039,13 @@
 
       // ============ PROJECT HEADER ============
       function wireProject() {
-        const fields = ["jobName", "customer", "sales", "date", "poolGal"];
+        const fields = ["jobName", "customer", "sales", "date"];
         for (const k of fields) {
           const input = document.getElementById(k);
           if (!input) continue;
           if (state.project[k]) input.value = state.project[k];
           input.addEventListener("input", () => {
             state.project[k] = input.value;
-            if (k === "poolGal") renderCore();
             saveAndRender(true);
             updateSummary();
           });
@@ -860,7 +1054,7 @@
 
       // ============ EXPORTS ============
       function toText() {
-        const list = buildList();
+        const groups = groupedList();
         const lines = [];
         const p = state.project;
         lines.push("PASADENA POOLS — Equipment List");
@@ -868,25 +1062,33 @@
         if (p.customer) lines.push(`Customer:    ${p.customer}`);
         if (p.sales) lines.push(`Salesperson: ${p.sales}`);
         if (p.date) lines.push(`Date:        ${p.date}`);
-        if (p.poolGal) lines.push(`Pool size:   ${p.poolGal} gal`);
+        for (const b of state.bodies) {
+          if (!b.name && !b.gallons) continue;
+          const g = b.gallons ? ` (${Number(b.gallons).toLocaleString()} gal)` : "";
+          lines.push(`Body:        ${b.name || "(unnamed)"}${g}`);
+        }
         lines.push("");
-        if (list.length === 0) {
+        const totalRows = groups.reduce((n, g) => n + g.rows.length, 0);
+        if (totalRows === 0) {
           lines.push("(No equipment selected)");
         } else {
-          for (const r of list) {
-            const notes = [r.manufacturer, r.info].filter(Boolean).join(" · ");
-            const locPart = r.location ? `[${r.location}] ` : "";
-            const modelPart = r.model ? ` — ${r.model}` : "";
-            const notePart = notes ? ` (${notes})` : "";
-            lines.push(`${String(r.qty).padStart(3, " ")}  ${locPart}${r.item}${modelPart}${notePart}`);
+          for (const g of groups) {
+            lines.push(`— ${g.label} —`);
+            for (const r of g.rows) {
+              const notes = [r.manufacturer, r.info].filter(Boolean).join(" · ");
+              const modelPart = r.model ? ` — ${r.model}` : "";
+              const notePart = notes ? ` (${notes})` : "";
+              lines.push(`${String(r.qty).padStart(3, " ")}  ${r.item}${modelPart}${notePart}`);
+            }
+            lines.push("");
           }
         }
-        return lines.join("\n");
+        return lines.join("\n").trimEnd();
       }
 
       function toCsv() {
         const list = buildList();
-        const rows = [["Location", "Qty", "Item", "Model", "Manufacturer", "Notes"]];
+        const rows = [["Body", "Qty", "Item", "Model", "Manufacturer", "Notes"]];
         for (const r of list) rows.push([r.location, r.qty, r.item, r.model, r.manufacturer, r.info]);
         return rows.map(cols => cols.map(v => {
           const s = String(v == null ? "" : v);
@@ -929,7 +1131,13 @@
           downloadFile(name, toCsv(), "text/csv");
         });
         document.getElementById("addMisc").addEventListener("click", () => {
-          state.misc.push({ id: genId(), name: "", qty: 1, location: "" });
+          // Cascade: inherit bodyId from previous misc row if present
+          const prev = state.misc[state.misc.length - 1];
+          state.misc.push({ id: genId(), name: "", qty: 1, bodyId: prev ? prev.bodyId : null });
+          saveAndRender();
+        });
+        document.getElementById("addBody").addEventListener("click", () => {
+          addBody({ name: "" });
           saveAndRender();
         });
       }
@@ -948,10 +1156,24 @@
         state.project.date = new Date().toISOString().slice(0, 10);
       }
       if (!hadSaved) {
+        addBody({ name: "Pool" });
         seedInitialEntries();
+        // seed default bodyId on newly-seeded entries
+        const firstBody = state.bodies[0];
+        if (firstBody) {
+          for (const cat of CATALOG) {
+            if (cat.id === "saltPower") continue;
+            for (const e of entriesOf(cat.id)) {
+              if (!e.bodyId) e.bodyId = firstBody.id;
+            }
+          }
+        }
+      } else if (state.bodies.length === 0) {
+        addBody({ name: "Pool" });
       }
       recomputeSaltPower();
       wireProject();
+      renderBodies();
       renderCore();
       renderMisc();
       wireActions();
