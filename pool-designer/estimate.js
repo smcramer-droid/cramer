@@ -302,14 +302,14 @@
     ).join('');
 
     tr.innerHTML = `
-      <td><input class="f-group" value="${esc(it.group||'')}" list="groups-dl" /></td>
-      <td><input class="f-desc" value="${esc(it.desc||'')}" /></td>
-      <td class="${q.ok ? '' : 'err'}"><input class="qexpr f-qexpr" value="${esc(it.qtyExpr||'')}" title="${q.ok?'':'error: '+(q.err||'invalid')}"/></td>
-      <td class="num calc">${q.ok ? fmt2(qty) : '—'}</td>
-      <td><select class="f-unit">${unitOpts}</select></td>
-      <td class="num"><input type="number" class="f-mat" step="0.01" value="${it.mat ?? 0}"/></td>
-      <td class="num"><input type="number" class="f-lab" step="0.01" value="${it.lab ?? 0}"/></td>
-      <td class="num calc ext">${money0(ext)}</td>
+      <td data-label="group"><input class="f-group" value="${esc(it.group||'')}" list="groups-dl" /></td>
+      <td data-label="description"><input class="f-desc" value="${esc(it.desc||'')}" /></td>
+      <td data-label="qty formula" class="${q.ok ? '' : 'err'}"><input class="qexpr f-qexpr" value="${esc(it.qtyExpr||'')}" title="${q.ok?'':'error: '+(q.err||'invalid')}"/></td>
+      <td data-label="qty" class="num calc">${q.ok ? fmt2(qty) : '—'}</td>
+      <td data-label="unit"><select class="f-unit">${unitOpts}</select></td>
+      <td data-label="$ mat/u" class="num"><input type="number" class="f-mat" step="0.01" value="${it.mat ?? 0}"/></td>
+      <td data-label="$ lab/u" class="num"><input type="number" class="f-lab" step="0.01" value="${it.lab ?? 0}"/></td>
+      <td data-label="ext $" class="num calc ext">${money0(ext)}</td>
       <td class="del"><button title="Remove" data-act="del">✕</button></td>
     `;
 

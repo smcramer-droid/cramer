@@ -189,9 +189,94 @@
     section{break-inside:avoid}
   }
   @media (max-width:760px){
-    table.items col.c-qexpr{width:22%}
-    table.items col.c-group{width:10%}
-    header.bar .summary{font-size:11px}
+    /* Prevent iOS Safari from auto-zooming when focusing any input.
+       Safari triggers zoom whenever a focused input has font-size < 16px. */
+    .inputs input[type=number], .inputs select,
+    .markup .kv input,
+    dialog.json textarea,
+    table.items tbody td input,
+    table.items tbody td select{
+      font-size:16px;
+    }
+
+    main{padding:10px 10px 60px}
+    section{margin-bottom:14px}
+
+    header.bar{padding:8px 10px 6px}
+    header.bar .row1{gap:8px}
+    header.bar h1{font-size:15px}
+    header.bar .proj{font-size:11px}
+    header.bar .right{width:100%;justify-content:flex-start}
+    header.bar .summary{font-size:11px;gap:10px}
+
+    .pills{font-size:13px;gap:10px}
+
+    /* Project inputs: two columns max, readable sizes */
+    .inputs{grid-template-columns:1fr 1fr;gap:8px 10px}
+    .inputs label .lbl{min-width:auto;font-size:11px}
+
+    /* Markup stacks on narrow screens */
+    .markup{grid-template-columns:1fr;gap:0}
+    .markup .kv input{width:90px;font-size:16px;padding:6px 8px}
+
+    /* ---- Line items: table → card layout ---- */
+    table.items{display:block}
+    table.items colgroup{display:none}
+    table.items thead{display:none}
+    table.items tbody{display:block}
+    table.items tbody tr{display:block}
+    table.items tbody tr.group-hd td{
+      display:block;width:auto;background:transparent;
+      padding:14px 0 4px;border:none;
+      font-size:11px;color:var(--mut);
+    }
+    table.items tbody tr[data-idx]{
+      display:block;margin-bottom:10px;padding:8px 10px;
+      border:1px solid var(--line2);border-radius:5px;
+      background:var(--bg);
+    }
+    table.items tbody tr[data-idx]:hover td{background:transparent}
+    table.items tbody tr[data-idx] td{
+      display:grid;grid-template-columns:92px 1fr;align-items:center;
+      gap:0 10px;padding:6px 0;border-bottom:1px solid var(--line);
+      width:auto;
+    }
+    table.items tbody tr[data-idx] td:last-child{border-bottom:none}
+    table.items tbody tr[data-idx] td::before{
+      content:attr(data-label);
+      font-family:var(--sans);font-size:10px;font-weight:600;
+      letter-spacing:0.06em;text-transform:uppercase;color:var(--mut);
+    }
+    table.items tbody tr[data-idx] td input,
+    table.items tbody tr[data-idx] td select{
+      padding:7px 8px;min-height:38px;
+      border:1px solid var(--line);border-radius:3px;background:var(--bg);
+    }
+    table.items tbody tr[data-idx] td input:focus,
+    table.items tbody tr[data-idx] td select:focus{
+      border-color:var(--accent);background:#fefce8;
+    }
+    table.items tbody tr[data-idx] td.calc{
+      padding:6px 0;font-size:14px;color:var(--fg);text-align:left;
+    }
+    table.items tbody tr[data-idx] td.calc.ext{font-weight:600}
+    table.items tbody tr[data-idx] td.num input{text-align:right}
+    table.items tbody tr[data-idx] td.del{
+      display:flex;justify-content:flex-end;padding-top:4px;
+    }
+    table.items tbody tr[data-idx] td.del::before{display:none}
+    table.items tbody tr[data-idx] td.del button{
+      width:auto;height:auto;padding:6px 14px;
+      border:1px solid var(--bad);border-radius:3px;
+      color:var(--bad);font-size:12px;opacity:1;
+    }
+
+    .toolbar{gap:6px}
+    .toolbar button{padding:6px 10px;font-size:12px}
+    .hint-row{width:100%;margin-top:8px}
+
+    .totals{padding:10px 12px}
+    .totals .row.price{font-size:14px}
   }
 </style>
 </head>
