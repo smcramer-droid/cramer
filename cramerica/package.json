@@ -1,0 +1,25 @@
+{
+  "name": "cramerica",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail",
+    "db:create": "wrangler d1 create cramerica",
+    "db:migrate": "wrangler d1 migrations apply cramerica --remote",
+    "db:migrate:local": "wrangler d1 migrations apply cramerica --local",
+    "db:query": "wrangler d1 execute cramerica --remote --command",
+    "webhook:set": "node scripts/set-webhook.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.40.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250401.0",
+    "typescript": "^5.7.0",
+    "wrangler": "^4.0.0"
+  }
+}

@@ -1,0 +1,28 @@
+name = "cramerica"
+main = "src/index.ts"
+compatibility_date = "2025-04-01"
+
+# Cron fires every 10 minutes. Scheduler logic decides whether
+# the current tick is the right moment (per randomized per-slot target).
+[triggers]
+crons = ["*/10 * * * *"]
+
+# D1 binding. Fill in database_id after running:
+#   wrangler d1 create cramerica
+[[d1_databases]]
+binding = "DB"
+database_name = "cramerica"
+database_id = "REPLACE_WITH_D1_ID"
+migrations_dir = "migrations"
+
+[vars]
+TIMEZONE = "America/New_York"
+TARGET_DATE = "2026-06-12"
+# Sonnet for daily coaching turns; Opus for Sunday program regen.
+CLAUDE_MODEL_DAILY = "claude-sonnet-4-6"
+CLAUDE_MODEL_WEEKLY = "claude-opus-4-7"
+
+# Secrets (set via `wrangler secret put` — never commit):
+#   TELEGRAM_BOT_TOKEN
+#   TELEGRAM_WEBHOOK_SECRET
+#   ANTHROPIC_API_KEY
