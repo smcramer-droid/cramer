@@ -311,6 +311,13 @@
   }
   .view-save:hover{ background:var(--ink); color:var(--paper); }
   .view svg{ width:100%; height:auto; display:block; }
+  /* Mirror toggle — flip the drawing horizontally but keep text readable. */
+  .view svg.mirrored{ transform: scaleX(-1); }
+  .view svg.mirrored text{
+    transform: scaleX(-1);
+    transform-origin: center;
+    transform-box: fill-box;
+  }
   .corner-note{
     position:absolute; bottom:-14px; right:14px; background:var(--paper);
     padding:0 8px; font-family:"Caveat",cursive; font-size:16px;
@@ -505,6 +512,10 @@
         <label>Deck above water</label>
         <div class="input"><input type="number" id="coping_rise" min="4" max="18" step="0.5" value="7"/><span class="u">in</span></div>
         <input type="range" id="coping_rise_r" min="4" max="18" step="0.5" value="7"/>
+      </div>
+      <div class="toggle-row" style="margin-top:8px">
+        <span>Entrance side · mirror views</span>
+        <div class="switch" id="mirror_toggle"></div>
       </div>
       <span id="actual_len" style="display:none">32.0</span>
     </fieldset>
@@ -704,6 +715,7 @@
     width: 16,               // ft (pool width)
     waterDepthRef: 0,        // not used — water level computed per-section
     showWater: true,
+    mirror: false,           // left-right flip for all views (render-time only)
     // coping rises 7" above waterline (user: top of deck = waterline + 7")
     copingRiseIn: 7,
     desiredLength: 32,       // ft — target length (user-set)
@@ -2855,6 +2867,21 @@
     });
   });
 
+  // Mirror toggle — flips the three view SVGs horizontally via CSS.
+  function applyMirror() {
+    ['svg_top', 'svg_iso', 'svg_sec', 'svg_sec_2'].forEach(id => {
+      const el = $(id);
+      if (el) el.classList.toggle('mirrored', !!state.mirror);
+    });
+    const btn = $('mirror_toggle');
+    if (btn) btn.classList.toggle('on', !!state.mirror);
+  }
+  if ($('mirror_toggle')) $('mirror_toggle').addEventListener('click', () => {
+    state.mirror = !state.mirror;
+    applyMirror();
+  });
+  applyMirror();
+
   $('water_toggle').addEventListener('click', () => {
     state.showWater = !state.showWater;
     $('water_toggle').classList.toggle('on', state.showWater);
@@ -3169,6 +3196,27 @@
         const s = t.getAttribute('style') || '';
         t.setAttribute('style', s.replace(/font-family\s*:[^;]+;?/gi, ''));
       });
+      // If the live view is mirrored, bake the horizontal flip into the exported SVG.
+      // Wrap all children in a <g> with a flip transform, and counter-flip each <text>
+      // around its own bounding box so labels read upright in the PNG.
+      if (state.mirror) {
+        const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+        g.setAttribute('transform', `translate(${vw},0) scale(-1,1)`);
+        // Move all non-defs children into the g
+        Array.from(clone.childNodes).forEach(n => {
+          if (n === defs) return;
+          g.appendChild(n);
+        });
+        clone.appendChild(g);
+        // Counter-flip every text so it reads forward. transform-box isn't reliable
+        // in raster; compute each text's x/y and use a transform with a literal origin.
+        g.querySelectorAll('text').forEach(t => {
+          const xAttr = parseFloat(t.getAttribute('x') || '0');
+          const yAttr = parseFloat(t.getAttribute('y') || '0');
+          const existing = t.getAttribute('transform') || '';
+          t.setAttribute('transform', `${existing} translate(${2 * xAttr},0) scale(-1,1)`.trim());
+        });
+      }
       const xml = new XMLSerializer().serializeToString(clone);
       const blob = new Blob(
         ['<?xml version="1.0" encoding="UTF-8"?>', xml],
