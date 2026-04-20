@@ -307,10 +307,7 @@
   wireHero();
   renderFeatures(estState);
 
-  // Customer-rounded total (to nearest $100)
-  const rawPrice = computePrice(estState);
-  const roundedPrice = Math.round(rawPrice / 100) * 100;
-  $('total_amt').textContent = money(roundedPrice);
+  $('total_amt').textContent = money(computePrice(estState));
 
   renderList('incl_list', proposal.inclusions);
   renderList('excl_list', proposal.exclusions);
