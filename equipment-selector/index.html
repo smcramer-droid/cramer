@@ -174,6 +174,53 @@
         padding-top: 4px;
       }
 
+      .entry {
+        margin-top: 8px;
+        padding: 10px;
+        border: 1px dashed rgba(18, 58, 74, 0.12);
+        border-radius: 12px;
+        background: #fff;
+      }
+      .entry-line {
+        display: grid;
+        grid-template-columns: minmax(110px, 1fr) 72px minmax(0, 2fr) 36px;
+        gap: 8px;
+        align-items: start;
+      }
+      .entry-line input[type="text"],
+      .entry-line input[type="number"],
+      .entry-line select {
+        min-height: 40px;
+      }
+      .remove-entry {
+        background: rgba(226, 85, 85, 0.1);
+        border: 1.5px solid rgba(226, 85, 85, 0.3);
+        color: var(--danger);
+        border-radius: 10px;
+        min-height: 40px;
+        cursor: pointer;
+        font-size: 18px;
+        padding: 0;
+      }
+      .remove-entry:hover { background: rgba(226, 85, 85, 0.2); }
+
+      .add-another {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 10px;
+        background: rgba(41, 193, 224, 0.12);
+        color: #0e6b7f;
+        border: 1.5px dashed rgba(41, 193, 224, 0.4);
+        font-weight: 600;
+        border-radius: 999px;
+        padding: 8px 16px;
+        cursor: pointer;
+        font-size: 13px;
+      }
+      .add-another:active { transform: scale(0.98); }
+      .add-another:hover { background: rgba(41, 193, 224, 0.2); }
+
       .hint {
         background: rgba(41, 193, 224, 0.12);
         color: #0e6b7f;
@@ -202,7 +249,7 @@
 
       .misc-row {
         display: grid;
-        grid-template-columns: 1fr 90px 36px;
+        grid-template-columns: minmax(100px, 1fr) minmax(0, 2fr) 72px 36px;
         gap: 8px;
         margin-bottom: 8px;
         align-items: start;
@@ -313,22 +360,22 @@
         <h2>Project</h2>
         <div class="row-2">
           <div class="field">
-            <label for="projName">Project / Job Name</label>
-            <input type="text" id="projName" autocomplete="off" />
+            <label for="jobName">Job Name</label>
+            <input type="text" id="jobName" autocomplete="off" />
           </div>
           <div class="field">
-            <label for="projCustomer">Customer</label>
-            <input type="text" id="projCustomer" autocomplete="off" />
+            <label for="customer">Customer</label>
+            <input type="text" id="customer" autocomplete="off" />
           </div>
         </div>
         <div class="row-2">
           <div class="field">
-            <label for="projSales">Salesperson</label>
-            <input type="text" id="projSales" autocomplete="off" />
+            <label for="sales">Salesperson</label>
+            <input type="text" id="sales" autocomplete="off" />
           </div>
           <div class="field">
-            <label for="projDate">Date</label>
-            <input type="date" id="projDate" />
+            <label for="date">Date</label>
+            <input type="date" id="date" />
           </div>
         </div>
         <div class="field">
@@ -354,6 +401,7 @@
         <table>
           <thead>
             <tr>
+              <th>Location</th>
               <th class="qty-col">Qty</th>
               <th>Item</th>
               <th>Model</th>
@@ -406,12 +454,13 @@
           label: "Heater",
           options: [
             { id: "none", label: "— Select —" },
-            { id: "jxiq400nk", label: "Jandy JXIQ400NK — 400K BTU NG", model: "JXIQ400NK", manufacturer: "Jandy", info: "400K BTU natural gas" },
-            { id: "jxiq250nk", label: "Jandy JXIQ250NK — 250K BTU NG", model: "JXIQ250NK", manufacturer: "Jandy", info: "250K BTU natural gas" },
-            { id: "etilp", label: "Pentair ETI461113 — 400K BTU propane", model: "ETI461113", manufacturer: "Pentair", info: "240/120V 15A, propane" },
-            { id: "mastertemp400", label: "Pentair MasterTemp ASME 400K BTU", model: "MasterTemp 400", manufacturer: "Pentair", info: "400K BTU" },
-            { id: "pen460736", label: "Pentair 460736 — 400K BTU", model: "460736", manufacturer: "Pentair", info: "400K BTU NG" },
-            { id: "pen462026", label: "Pentair 462026 — 250K BTU", model: "462026", manufacturer: "Pentair", info: "250K BTU NG" }
+            { id: "jxiq400nk", label: "Jandy JXIQ400NK — 400,000 BTU NG", model: "JXIQ400NK", manufacturer: "Jandy", info: "400,000 BTU natural gas" },
+            { id: "jxiq250nk", label: "Jandy JXIQ250NK — 250,000 BTU NG", model: "JXIQ250NK", manufacturer: "Jandy", info: "250,000 BTU natural gas" },
+            { id: "pen460736", label: "Pentair MasterTemp 460736 — 400,000 BTU NG", model: "460736", manufacturer: "Pentair", info: "MasterTemp 400,000 BTU natural gas" },
+            { id: "pen460732", label: "Pentair MasterTemp 460732 — 250,000 BTU NG", model: "460732", manufacturer: "Pentair", info: "MasterTemp 250,000 BTU natural gas" },
+            { id: "pen462026", label: "Pentair MasterTemp Low NOx 462026 — 250,000 BTU NG", model: "462026", manufacturer: "Pentair", info: "MasterTemp Low NOx 250,000 BTU natural gas" },
+            { id: "etilp", label: "Pentair ETI461113 — 400,000 BTU propane", model: "ETI461113", manufacturer: "Pentair", info: "ETI High-Eff 400,000 BTU propane, 240/120V 15A" },
+            { id: "mastertempasme", label: "Pentair MasterTemp ASME — 400,000 BTU (commercial)", model: "MasterTemp ASME 400", manufacturer: "Pentair", info: "Commercial/ASME 400,000 BTU" }
           ]
         },
         {
@@ -500,70 +549,28 @@
         return n;
       }
 
-      function renderCore() {
-        const host = document.getElementById("coreItems");
-        host.innerHTML = "";
-        for (const cat of CATALOG) {
-          const prev = state.core[cat.id] || {};
-          const select = el("select", { id: `sel_${cat.id}` });
-          for (const opt of cat.options) {
-            const o = el("option", { value: opt.id }, opt.label);
-            if (prev.optionId === opt.id) o.selected = true;
-            select.appendChild(o);
-          }
-          select.addEventListener("change", () => {
-            state.core[cat.id] = { optionId: select.value, qty: state.core[cat.id]?.qty ?? cat.defaultQty ?? 1 };
-            if (cat.id === "saltCell") autoPairSaltPower();
-            saveAndRender();
-          });
+      function genId() {
+        return crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random());
+      }
 
-          const qty = el("input", {
-            type: "number",
-            min: "0",
-            step: "1",
-            id: `qty_${cat.id}`,
-            value: prev.qty ?? cat.defaultQty ?? 1
-          });
-          qty.addEventListener("input", () => {
-            state.core[cat.id] = { optionId: state.core[cat.id]?.optionId ?? "none", qty: Number(qty.value) || 0 };
-            saveAndRender();
-          });
+      function entriesOf(catId) {
+        if (!Array.isArray(state.core[catId])) state.core[catId] = [];
+        return state.core[catId];
+      }
 
-          const info = el("div", { class: "item-info" });
-          const selOpt = cat.options.find(o => o.id === (prev.optionId || "none"));
-          if (selOpt && selOpt.id !== "none") {
-            info.textContent = [selOpt.manufacturer, selOpt.model, selOpt.info].filter(Boolean).join(" · ");
-          }
-
-          const hint = el("div", { class: "hint" });
-          if (cat.id === "saltCell") {
-            const gal = Number(document.getElementById("poolGal")?.value || 0);
-            if (gal > 0) {
-              const rec = recommendSaltCell(gal);
-              hint.innerHTML = `<strong>Recommended for ${gal.toLocaleString()} gal:</strong> ${rec.label} — sized ~2× pool volume.`;
-            } else {
-              hint.textContent = "Enter pool volume above to get a sizing recommendation.";
-            }
-          }
-
-          const item = el("div", { class: "item" }, [
-            el("div", { class: "item-head" }, [
-              el("div", { class: "item-title" }, cat.label)
-            ]),
-            el("div", { class: "item-qty" }, [
-              qty,
-              select
-            ]),
-            info,
-            (cat.id === "saltCell" || (cat.id === "saltPower" && state.core.saltCell?.optionId)) ? hint : null
-          ].filter(Boolean));
-
-          host.appendChild(item);
-        }
+      function addEntry(catId, seed) {
+        const cat = CATALOG.find(c => c.id === catId);
+        const entry = {
+          id: genId(),
+          optionId: (seed && seed.optionId) || "none",
+          qty: (seed && seed.qty) != null ? seed.qty : (cat && cat.defaultQty) || 1,
+          location: (seed && seed.location) || ""
+        };
+        entriesOf(catId).push(entry);
+        return entry;
       }
 
       function recommendSaltCell(gallons) {
-        // Size cell for ~2x pool volume. Compare against cell caps.
         const needed = gallons * 2;
         if (needed <= 15000) return { id: "ic15", label: "IntelliChlor IC15" };
         if (needed <= 20000) return { id: "ic20", label: "IntelliChlor IC20" };
@@ -571,13 +578,111 @@
         return { id: "ic60", label: "IntelliChlor IC60" };
       }
 
-      function autoPairSaltPower() {
-        const cell = state.core.saltCell?.optionId;
-        if (!cell || cell === "none") return;
-        if (cell === "ic15") {
-          state.core.saltPower = { optionId: "ic_bundled", qty: 1 };
-        } else {
-          state.core.saltPower = { optionId: "pc520556", qty: 1 };
+      function recomputeSaltPower() {
+        const cells = entriesOf("saltCell");
+        const expected = [];
+        for (const c of cells) {
+          if (!c.optionId || c.optionId === "none" || !c.qty) continue;
+          if (c.optionId === "ic15") continue;
+          expected.push({
+            id: "auto-" + c.id,
+            optionId: "pc520556",
+            qty: c.qty,
+            location: c.location || ""
+          });
+        }
+        state.core.saltPower = expected;
+      }
+
+      function renderEntryRow(cat, entry) {
+        const location = el("input", { type: "text", placeholder: "Location (e.g. Pool)", value: entry.location || "" });
+        location.addEventListener("input", () => {
+          entry.location = location.value;
+          if (cat.id === "saltCell") recomputeSaltPower();
+          saveAndRender(cat.id === "saltCell");
+          updateSummary();
+        });
+
+        const qty = el("input", { type: "number", min: "0", step: "1", value: entry.qty });
+        qty.addEventListener("input", () => {
+          entry.qty = Number(qty.value) || 0;
+          if (cat.id === "saltCell") recomputeSaltPower();
+          saveAndRender(cat.id === "saltCell");
+          updateSummary();
+        });
+
+        const select = el("select");
+        for (const opt of cat.options) {
+          const o = el("option", { value: opt.id }, opt.label);
+          if (entry.optionId === opt.id) o.selected = true;
+          select.appendChild(o);
+        }
+        select.addEventListener("change", () => {
+          entry.optionId = select.value;
+          if (cat.id === "saltCell") recomputeSaltPower();
+          saveAndRender();
+        });
+
+        const removeBtn = el("button", { type: "button", class: "remove-entry no-print", title: "Remove" }, "\u00d7");
+        removeBtn.addEventListener("click", () => {
+          state.core[cat.id] = (state.core[cat.id] || []).filter(e => e.id !== entry.id);
+          if (cat.id === "saltCell") recomputeSaltPower();
+          saveAndRender();
+        });
+
+        const topLine = el("div", { class: "entry-line" }, [location, qty, select, removeBtn]);
+        const opt = cat.options.find(o => o.id === entry.optionId);
+        const children = [topLine];
+        if (opt && opt.id !== "none") {
+          const info = [opt.manufacturer, opt.model, opt.info].filter(Boolean).join(" · ");
+          if (info) children.push(el("div", { class: "item-info" }, info));
+        }
+        return el("div", { class: "entry" }, children);
+      }
+
+      function renderCore() {
+        const host = document.getElementById("coreItems");
+        host.innerHTML = "";
+        for (const cat of CATALOG) {
+          const entries = entriesOf(cat.id);
+          const card = el("div", { class: "item" });
+          card.appendChild(el("div", { class: "item-head" }, [
+            el("div", { class: "item-title" }, cat.label)
+          ]));
+
+          if (cat.id === "saltCell") {
+            const hint = el("div", { class: "hint" });
+            const gal = Number(state.project.poolGal || 0);
+            if (gal > 0) {
+              const rec = recommendSaltCell(gal);
+              hint.innerHTML = `<strong>Recommended for ${gal.toLocaleString()} gal:</strong> ${rec.label} — sized ~2× pool volume.`;
+            } else {
+              hint.textContent = "Enter pool volume above for a sizing recommendation. Add another cell for the spa or water feature.";
+            }
+            card.appendChild(hint);
+          }
+          if (cat.id === "saltPower") {
+            const hint = el("div", { class: "hint" });
+            hint.innerHTML = "Auto-paired with your salt cells. Each non-IC15 cell gets one <strong>520556</strong> power center inheriting its location.";
+            card.appendChild(hint);
+          }
+
+          if (entries.length === 0) {
+            card.appendChild(el("div", { class: "item-info", style: "padding: 4px 0;" }, "No entries yet."));
+          }
+          for (const entry of entries) {
+            card.appendChild(renderEntryRow(cat, entry));
+          }
+
+          const addBtn = el("button", { type: "button", class: "add-another no-print" }, "+ Add another");
+          addBtn.addEventListener("click", () => {
+            addEntry(cat.id);
+            if (cat.id === "saltCell") recomputeSaltPower();
+            saveAndRender();
+          });
+          card.appendChild(addBtn);
+
+          host.appendChild(card);
         }
       }
 
@@ -588,41 +693,47 @@
           host.appendChild(el("div", { class: "item-info", style: "padding: 4px 0 8px;" }, "No extra items yet. Click + Add item to include anything outside the core list."));
         }
         for (const row of state.misc) {
+          const locInput = el("input", { type: "text", placeholder: "Location", value: row.location || "" });
+          locInput.addEventListener("input", () => { row.location = locInput.value; saveAndRender(true); updateSummary(); });
+
           const nameInput = el("input", { type: "text", placeholder: "Item (e.g. Automatic Cover T4)", value: row.name });
-          nameInput.addEventListener("input", () => { row.name = nameInput.value; saveAndRender(/*skipRender*/ true); updateSummary(); });
+          nameInput.addEventListener("input", () => { row.name = nameInput.value; saveAndRender(true); updateSummary(); });
 
           const qtyInput = el("input", { type: "number", min: "0", step: "1", value: row.qty });
           qtyInput.addEventListener("input", () => { row.qty = Number(qtyInput.value) || 0; saveAndRender(true); updateSummary(); });
 
-          const removeBtn = el("button", { type: "button", class: "remove-misc", title: "Remove", ariaLabel: "Remove" }, "\u00d7");
+          const removeBtn = el("button", { type: "button", class: "remove-misc no-print", title: "Remove", ariaLabel: "Remove" }, "\u00d7");
           removeBtn.addEventListener("click", () => {
             state.misc = state.misc.filter(r => r.id !== row.id);
             saveAndRender();
           });
 
-          host.appendChild(el("div", { class: "misc-row" }, [nameInput, qtyInput, removeBtn]));
+          host.appendChild(el("div", { class: "misc-row" }, [locInput, nameInput, qtyInput, removeBtn]));
         }
       }
 
       function buildList() {
         const list = [];
         for (const cat of CATALOG) {
-          const sel = state.core[cat.id];
-          if (!sel || sel.optionId === "none" || !sel.qty) continue;
-          const opt = cat.options.find(o => o.id === sel.optionId);
-          if (!opt || opt.id === "none") continue;
-          list.push({
-            qty: sel.qty,
-            item: cat.label,
-            model: opt.model || "",
-            manufacturer: opt.manufacturer || "",
-            info: opt.info || "",
-            label: opt.label
-          });
+          for (const entry of entriesOf(cat.id)) {
+            if (!entry.optionId || entry.optionId === "none" || !entry.qty) continue;
+            const opt = cat.options.find(o => o.id === entry.optionId);
+            if (!opt || opt.id === "none") continue;
+            list.push({
+              location: entry.location || "",
+              qty: entry.qty,
+              item: cat.label,
+              model: opt.model || "",
+              manufacturer: opt.manufacturer || "",
+              info: opt.info || "",
+              label: opt.label
+            });
+          }
         }
         for (const row of state.misc) {
           if (!row.name || !row.qty) continue;
           list.push({
+            location: row.location || "",
             qty: row.qty,
             item: row.name,
             model: "",
@@ -640,12 +751,13 @@
         const list = buildList();
         if (list.length === 0) {
           const tr = el("tr");
-          tr.appendChild(el("td", { class: "empty", colspan: "4" }, "Nothing selected yet."));
+          tr.appendChild(el("td", { class: "empty", colspan: "5" }, "Nothing selected yet."));
           body.appendChild(tr);
         } else {
           for (const r of list) {
             const notes = [r.manufacturer, r.info].filter(Boolean).join(" · ");
             body.appendChild(el("tr", {}, [
+              el("td", {}, r.location),
               el("td", { class: "qty-col" }, String(r.qty)),
               el("td", {}, r.item),
               el("td", {}, r.model),
@@ -656,16 +768,18 @@
 
         // project meta (for print)
         const meta = document.getElementById("projMeta");
+        const p = state.project;
         const parts = [];
-        if (state.project.projName) parts.push(`Project: ${state.project.projName}`);
-        if (state.project.projCustomer) parts.push(`Customer: ${state.project.projCustomer}`);
-        if (state.project.projSales) parts.push(`Salesperson: ${state.project.projSales}`);
-        if (state.project.projDate) parts.push(`Date: ${state.project.projDate}`);
+        if (p.jobName) parts.push(`Job: ${p.jobName}`);
+        if (p.customer) parts.push(`Customer: ${p.customer}`);
+        if (p.sales) parts.push(`Salesperson: ${p.sales}`);
+        if (p.date) parts.push(`Date: ${p.date}`);
+        if (p.poolGal) parts.push(`Pool size: ${p.poolGal} gal`);
         meta.textContent = parts.join(" · ");
       }
 
       function saveAndRender(skipRender) {
-        localStorage.setItem("pps.equipment.v1", JSON.stringify(state));
+        localStorage.setItem("pps.equipment.v2", JSON.stringify(state));
         if (!skipRender) {
           renderCore();
           renderMisc();
@@ -675,26 +789,69 @@
 
       function loadState() {
         try {
-          const raw = localStorage.getItem("pps.equipment.v1");
-          if (!raw) return;
+          const raw = localStorage.getItem("pps.equipment.v2") || localStorage.getItem("pps.equipment.v1");
+          if (!raw) return false;
           const s = JSON.parse(raw);
-          if (s && typeof s === "object") {
-            Object.assign(state, s);
-            state.core = state.core || {};
-            state.misc = state.misc || [];
-            state.project = state.project || {};
+          if (!s || typeof s !== "object") return false;
+          const proj = s.project || {};
+          state.project = {
+            jobName: proj.jobName ?? proj.projName ?? "",
+            customer: proj.customer ?? proj.projCustomer ?? "",
+            sales: proj.sales ?? proj.projSales ?? "",
+            date: proj.date ?? proj.projDate ?? "",
+            poolGal: proj.poolGal ?? ""
+          };
+          const migratedCore = {};
+          for (const cat of CATALOG) {
+            const v = s.core && s.core[cat.id];
+            if (!v) { migratedCore[cat.id] = []; continue; }
+            if (Array.isArray(v)) {
+              migratedCore[cat.id] = v.map(e => ({
+                id: e.id || genId(),
+                optionId: e.optionId || "none",
+                qty: e.qty != null ? e.qty : 1,
+                location: e.location || ""
+              }));
+            } else if (typeof v === "object" && v.optionId) {
+              if (v.optionId !== "none" || v.qty) {
+                migratedCore[cat.id] = [{ id: genId(), optionId: v.optionId, qty: v.qty || 1, location: "" }];
+              } else {
+                migratedCore[cat.id] = [];
+              }
+            } else {
+              migratedCore[cat.id] = [];
+            }
           }
-        } catch {}
+          state.core = migratedCore;
+          state.misc = (s.misc || []).map(m => ({
+            id: m.id || genId(),
+            name: m.name || "",
+            qty: m.qty != null ? m.qty : 1,
+            location: m.location || ""
+          }));
+          return true;
+        } catch {
+          return false;
+        }
+      }
+
+      function seedInitialEntries() {
+        for (const cat of CATALOG) {
+          if (cat.id === "saltPower") continue; // auto-populated
+          if (!entriesOf(cat.id).length) addEntry(cat.id);
+        }
       }
 
       // ============ PROJECT HEADER ============
       function wireProject() {
-        for (const k of ["projName", "projCustomer", "projSales", "projDate", "poolGal"]) {
-          const el = document.getElementById(k);
-          if (state.project[k]) el.value = state.project[k];
-          el.addEventListener("input", () => {
-            state.project[k] = el.value;
-            if (k === "poolGal") renderCore(); // refresh recommendation hint
+        const fields = ["jobName", "customer", "sales", "date", "poolGal"];
+        for (const k of fields) {
+          const input = document.getElementById(k);
+          if (!input) continue;
+          if (state.project[k]) input.value = state.project[k];
+          input.addEventListener("input", () => {
+            state.project[k] = input.value;
+            if (k === "poolGal") renderCore();
             saveAndRender(true);
             updateSummary();
           });
@@ -707,10 +864,10 @@
         const lines = [];
         const p = state.project;
         lines.push("PASADENA POOLS — Equipment List");
-        if (p.projName) lines.push(`Project:     ${p.projName}`);
-        if (p.projCustomer) lines.push(`Customer:    ${p.projCustomer}`);
-        if (p.projSales) lines.push(`Salesperson: ${p.projSales}`);
-        if (p.projDate) lines.push(`Date:        ${p.projDate}`);
+        if (p.jobName) lines.push(`Job:         ${p.jobName}`);
+        if (p.customer) lines.push(`Customer:    ${p.customer}`);
+        if (p.sales) lines.push(`Salesperson: ${p.sales}`);
+        if (p.date) lines.push(`Date:        ${p.date}`);
         if (p.poolGal) lines.push(`Pool size:   ${p.poolGal} gal`);
         lines.push("");
         if (list.length === 0) {
@@ -718,9 +875,10 @@
         } else {
           for (const r of list) {
             const notes = [r.manufacturer, r.info].filter(Boolean).join(" · ");
+            const locPart = r.location ? `[${r.location}] ` : "";
             const modelPart = r.model ? ` — ${r.model}` : "";
             const notePart = notes ? ` (${notes})` : "";
-            lines.push(`${String(r.qty).padStart(3, " ")}  ${r.item}${modelPart}${notePart}`);
+            lines.push(`${String(r.qty).padStart(3, " ")}  ${locPart}${r.item}${modelPart}${notePart}`);
           }
         }
         return lines.join("\n");
@@ -728,10 +886,10 @@
 
       function toCsv() {
         const list = buildList();
-        const rows = [["Qty", "Item", "Model", "Manufacturer", "Notes"]];
-        for (const r of list) rows.push([r.qty, r.item, r.model, r.manufacturer, r.info]);
+        const rows = [["Location", "Qty", "Item", "Model", "Manufacturer", "Notes"]];
+        for (const r of list) rows.push([r.location, r.qty, r.item, r.model, r.manufacturer, r.info]);
         return rows.map(cols => cols.map(v => {
-          const s = String(v ?? "");
+          const s = String(v == null ? "" : v);
           return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
         }).join(",")).join("\n");
       }
@@ -767,11 +925,11 @@
           }
         });
         document.getElementById("btnCsv").addEventListener("click", () => {
-          const name = (state.project.projName || "equipment-list").replace(/[^a-z0-9_-]+/gi, "_") + ".csv";
+          const name = (state.project.jobName || "equipment-list").replace(/[^a-z0-9_-]+/gi, "_") + ".csv";
           downloadFile(name, toCsv(), "text/csv");
         });
         document.getElementById("addMisc").addEventListener("click", () => {
-          state.misc.push({ id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()), name: "", qty: 1 });
+          state.misc.push({ id: genId(), name: "", qty: 1, location: "" });
           saveAndRender();
         });
       }
@@ -785,16 +943,20 @@
       }
 
       // ============ INIT ============
-      loadState();
-      // seed default date
-      if (!state.project.projDate) {
-        state.project.projDate = new Date().toISOString().slice(0, 10);
+      const hadSaved = loadState();
+      if (!state.project.date) {
+        state.project.date = new Date().toISOString().slice(0, 10);
       }
+      if (!hadSaved) {
+        seedInitialEntries();
+      }
+      recomputeSaltPower();
       wireProject();
       renderCore();
       renderMisc();
       wireActions();
       updateSummary();
+      saveAndRender(true);
     </script>
   </body>
 </html>
