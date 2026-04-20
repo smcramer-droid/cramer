@@ -300,14 +300,18 @@
 </header>
 
 <div id="warn_spec" class="warn-spec" style="display:none">
-  No design spec loaded — showing demo pool. Open the <a href="/">designer</a> and click <b>→ Open estimator</b> to load real quantities.
+  No designer spec loaded. Fill in design quantities below manually, or open the <a href="/">designer</a> and click <b>→ Open estimator</b> to prefill.
 </div>
 
 <main>
 
   <section>
-    <h2>design inputs (read-only, from designer)</h2>
-    <div class="pills" id="pills_design"></div>
+    <h2>design quantities <span style="color:var(--mut);font-weight:400;text-transform:none;letter-spacing:0">— editable, prefilled from designer spec when present</span></h2>
+    <div class="inputs" id="design_inputs"></div>
+    <div class="hint-row">
+      Edit any value to drive the formulas below. Use
+      <b style="color:var(--fg);font-weight:500">↻ reload spec</b> in the top bar to pull fresh numbers from the designer.
+    </div>
   </section>
 
   <section>

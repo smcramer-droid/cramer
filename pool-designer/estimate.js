@@ -92,11 +92,40 @@
   function saveState(s) {
     try { localStorage.setItem(STATE_KEY, JSON.stringify(s)); } catch {}
   }
+  // Demo pool used as starting point when there is no designer spec.
+  const DEFAULT_DESIGN = {
+    widthFt: 16, lengthFt: 32,
+    avgDepthFt: 4.2, maxDepthFt: 8,
+    poolSf: 512, perimeterFt: 96,
+    waterVolumeGal: 16000,
+    excCuft: 2745, tileLf: 96, copingLf: 96, plasterSf: 915,
+  };
+
   function defaultState() {
     return {
       items: DEFAULT_ITEMS.map(it => ({ ...it })),
       inputs: { ...DEFAULT_INPUTS },
+      design: { ...DEFAULT_DESIGN },
       markup: { ...DEFAULT_MARKUP },
+    };
+  }
+
+  // Pull design quantities from a loaded spec into the flat shape used by state.design.
+  function designFromSpec(spec) {
+    const d = spec.derived || {};
+    const dims = spec.dims || {};
+    return {
+      widthFt: +dims.widthFt || 0,
+      lengthFt: +dims.lengthFt || 0,
+      avgDepthFt: +d.avgDepthFt || 0,
+      maxDepthFt: +d.maxDepthFt || 0,
+      poolSf: +d.surfaceAreaFt2 || 0,
+      perimeterFt: +d.perimeterFt || 0,
+      waterVolumeGal: +d.waterVolumeGal || 0,
+      excCuft: +d.excavationCuft || 0,
+      tileLf: +d.tileLf || 0,
+      copingLf: +d.copingLf || 0,
+      plasterSf: +d.plasterSf || 0,
     };
   }
 
@@ -151,24 +180,25 @@
   }
 
   // ---------- Derived context for formulas ----------
-  function buildCtx(spec, inputs) {
-    const d = spec.derived || {};
-    const dims = spec.dims || {};
+  // Reads everything from state (design quantities + user inputs).
+  function buildCtx(state) {
+    const d = state.design || {};
+    const inputs = state.inputs || {};
     const rebarSpMult = ({ 6: 2.0, 8: 1.5, 12: 1.0 }[inputs.rebarSp]) || 1.0;
     const rebarSzMult = ({ 3: 0.85, 4: 1.0, 5: 1.25 }[inputs.rebarSz]) || 1.0;
     const plasterTierMult = inputs.plasterTier === 2 ? 1.20 : inputs.plasterTier === 3 ? 1.44 : 1.00;
     return {
-      poolSf: d.surfaceAreaFt2 || 0,
-      perimeterFt: d.perimeterFt || 0,
-      waterVolumeGal: d.waterVolumeGal || 0,
-      excCuft: d.excavationCuft || 0,
-      avgDepthFt: d.avgDepthFt || 0,
-      maxDepthFt: d.maxDepthFt || 0,
-      widthFt: dims.widthFt || 0,
-      lengthFt: dims.lengthFt || 0,
-      tileLf: d.tileLf || 0,
-      copingLf: d.copingLf || 0,
-      plasterSf: d.plasterSf || 0,
+      poolSf: +d.poolSf || 0,
+      perimeterFt: +d.perimeterFt || 0,
+      waterVolumeGal: +d.waterVolumeGal || 0,
+      excCuft: +d.excCuft || 0,
+      avgDepthFt: +d.avgDepthFt || 0,
+      maxDepthFt: +d.maxDepthFt || 0,
+      widthFt: +d.widthFt || 0,
+      lengthFt: +d.lengthFt || 0,
+      tileLf: +d.tileLf || 0,
+      copingLf: +d.copingLf || 0,
+      plasterSf: +d.plasterSf || 0,
       plumbLines: +inputs.plumbLines || 0,
       plumbDist: +inputs.plumbDist || 0,
       rebarSp: +inputs.rebarSp || 0,
@@ -182,9 +212,10 @@
   }
 
   // Expose for the next chunk.
-  window.__est = { $, DEFAULT_INPUTS, DEFAULT_MARKUP, DEFAULT_ITEMS, GROUPS_ORDER, COMMON_UNITS, VARS_LIST,
+  window.__est = { $, DEFAULT_INPUTS, DEFAULT_MARKUP, DEFAULT_ITEMS, DEFAULT_DESIGN,
+    GROUPS_ORDER, COMMON_UNITS, VARS_LIST,
     money, money0, fmt0, fmt1, fmt2, fmtFt,
-    loadState, saveState, defaultState, evalExpr, loadSpec, demoSpec, buildCtx };
+    loadState, saveState, defaultState, evalExpr, loadSpec, demoSpec, buildCtx, designFromSpec };
 })();
 
 // ==================== Render chunk ====================
@@ -192,25 +223,38 @@
   const E = window.__est;
   const { $, money, money0, fmt0, fmt1, fmtFt, GROUPS_ORDER, COMMON_UNITS, VARS_LIST, evalExpr, buildCtx } = E;
 
-  // Render the read-only design pills at the top.
-  E.renderPills = function(spec) {
-    const d = spec.derived || {};
-    const dims = spec.dims || {};
-    const entries = [
-      ['dims', `${fmtFt(dims.widthFt)} × ${fmtFt(dims.lengthFt)}`, ''],
-      ['area', fmt0(d.surfaceAreaFt2), 'ft²'],
-      ['peri', fmt1(d.perimeterFt), 'lf'],
-      ['vol',  fmt0(d.waterVolumeGal), 'gal'],
-      ['avg',  fmt1(d.avgDepthFt), 'ft'],
-      ['max',  fmt1(d.maxDepthFt), 'ft'],
-      ['exc',  fmt0(d.excavationCuft), 'ft³'],
-      ['tile', fmt1(d.tileLf), 'lf'],
-      ['cop',  fmt1(d.copingLf), 'lf'],
-      ['plst', fmt0(d.plasterSf), 'ft²'],
+  // Render the editable design-quantities grid (width, area, perimeter, etc.).
+  // Prefilled from state.design (which may have been loaded from designer spec or
+  // entered manually). Changes persist to state.design via readDesign + recalc.
+  E.renderDesignInputs = function(state, onChange) {
+    const host = $('design_inputs');
+    host.innerHTML = '';
+    const fields = [
+      ['widthFt',        'width ft',       0.5],
+      ['lengthFt',       'length ft',      0.5],
+      ['avgDepthFt',     'avg depth ft',   0.1],
+      ['maxDepthFt',     'max depth ft',   0.1],
+      ['poolSf',         'area ft²',       1],
+      ['perimeterFt',    'perimeter lf',   1],
+      ['waterVolumeGal', 'volume gal',     100],
+      ['excCuft',        'excavation ft³', 10],
+      ['tileLf',         'tile lf',        1],
+      ['copingLf',       'coping lf',      1],
+      ['plasterSf',      'plaster ft²',    1],
     ];
-    $('pills_design').innerHTML = entries.map(([k,v,u]) =>
-      `<span class="p"><span class="k">${k}</span><span class="v">${v}</span>${u ? `<span class="u">${u}</span>` : ''}</span>`
-    ).join('');
+    fields.forEach(([key, lbl, step]) => {
+      const w = document.createElement('label');
+      w.innerHTML = `<span class="lbl">${lbl}</span><input type="number" data-dkey="${key}" min="0" step="${step}" value="${+(state.design[key] || 0)}"/>`;
+      host.appendChild(w);
+    });
+    host.oninput = onChange;
+    host.onchange = onChange;
+  };
+
+  // Read current design input values back from the DOM into state.design.
+  E.readDesign = function(state) {
+    const inputs = $('design_inputs').querySelectorAll('input[data-dkey]');
+    inputs.forEach(i => { state.design[i.dataset.dkey] = +i.value || 0; });
   };
 
   // Render the project-input controls (plumb, rebar, plaster tier, deck, lights, autocover).
@@ -452,22 +496,40 @@
   }
 
   // ---------- Boot ----------
-  let state = loadState() || defaultState();
+  // Load persisted state if any. If none and a designer spec is present, seed
+  // state.design from the spec. Otherwise fall back to demo defaults.
+  let state = loadState();
   let spec = loadSpec();
-  const hasSpec = !!spec;
-  if (!spec) spec = demoSpec();
-  if (!hasSpec) $('warn_spec').style.display = '';
+  if (!state) {
+    state = defaultState();
+    if (spec) state.design = E.designFromSpec(spec);
+  }
+  // Migrate older persisted states that predate state.design.
+  if (!state.design) {
+    state.design = spec ? E.designFromSpec(spec) : { ...E.DEFAULT_DESIGN };
+  }
+  if (!spec) $('warn_spec').style.display = '';
 
-  $('proj_name').textContent = spec.projectName || 'Pool Estimate';
-  $('proj_dims').textContent = spec.dims ? `${fmt1(spec.dims.widthFt)}′ × ${fmt1(spec.dims.lengthFt)}′` : '';
+  function setProjectLabel() {
+    const name = spec && spec.projectName ? spec.projectName : 'Pool Estimate';
+    $('proj_name').textContent = name;
+    const d = state.design || {};
+    $('proj_dims').textContent =
+      (d.widthFt > 0 && d.lengthFt > 0)
+        ? `${fmt1(d.widthFt)}′ × ${fmt1(d.lengthFt)}′`
+        : '';
+  }
+  setProjectLabel();
 
   function recalc() {
+    E.readDesign(state);
     E.readInputs(state);
     E.readItems(state);
     readMarkup();
     syncMarginMarkup(state);
     saveState(state);
-    const ctx = buildCtx(spec, state.inputs);
+    setProjectLabel();
+    const ctx = buildCtx(state);
     // Re-render items so qty/ext cells update live; preserves input focus via DOM reuse? No, full rebuild.
     // To keep focus during typing, only recompute qty/ext cells instead of full rebuild.
     softUpdateItems(ctx);
@@ -513,8 +575,9 @@
   }
 
   function fullRender() {
-    E.renderPills(spec);
-    const ctx0 = buildCtx(spec, state.inputs);
+    setProjectLabel();
+    const ctx0 = buildCtx(state);
+    E.renderDesignInputs(state, recalc);
     E.renderInputs(state, recalc);
     E.renderItems(state, ctx0, recalc);
     E.renderMarkup(state);
@@ -536,14 +599,14 @@
   document.querySelectorAll('input[name=mode]').forEach(r => r.addEventListener('change', recalc));
 
   $('btn_add_row').addEventListener('click', () => {
-    E.readInputs(state); E.readItems(state);
+    E.readDesign(state); E.readInputs(state); E.readItems(state);
     state.items.push({ group:'misc', desc:'New item', qtyExpr:'1', unit:'ea', mat:0, lab:0 });
     saveState(state);
     fullRender();
   });
 
   $('btn_sort_group').addEventListener('click', () => {
-    E.readInputs(state); E.readItems(state);
+    E.readDesign(state); E.readInputs(state); E.readItems(state);
     state.items.sort((a,b) => {
       const ia = E.GROUPS_ORDER.indexOf(a.group), ib = E.GROUPS_ORDER.indexOf(b.group);
       return (ia<0?99:ia) - (ib<0?99:ib);
@@ -554,10 +617,11 @@
 
   $('btn_reload').addEventListener('click', () => {
     const s = loadSpec();
-    if (!s) { alert('No design spec found. Open the designer and click → Open estimator.'); return; }
-    spec = s; $('warn_spec').style.display = 'none';
-    $('proj_name').textContent = spec.projectName || 'Pool Estimate';
-    $('proj_dims').textContent = spec.dims ? `${fmt1(spec.dims.widthFt)}′ × ${fmt1(spec.dims.lengthFt)}′` : '';
+    if (!s) { alert('No designer spec found. Open the designer and click → Open estimator.'); return; }
+    spec = s;
+    state.design = E.designFromSpec(s);
+    saveState(state);
+    $('warn_spec').style.display = 'none';
     fullRender();
   });
 
@@ -573,7 +637,8 @@
   // Export / import JSON
   const dlg = $('json_dialog');
   $('btn_export').addEventListener('click', () => {
-    E.readInputs(state); E.readItems(state); readMarkup();
+    E.readDesign(state); E.readInputs(state); E.readItems(state); readMarkup();
+    saveState(state);
     $('json_title').textContent = 'Export JSON';
     $('json_text').value = JSON.stringify(state, null, 2);
     $('json_apply').style.display = 'none';
@@ -598,6 +663,7 @@
       state = {
         items: next.items,
         inputs: { ...E.DEFAULT_INPUTS, ...(next.inputs || {}) },
+        design: { ...E.DEFAULT_DESIGN, ...(next.design || {}) },
         markup: { ...E.DEFAULT_MARKUP, ...(next.markup || {}) },
       };
       saveState(state);
