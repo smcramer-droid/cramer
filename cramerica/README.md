@@ -122,68 +122,54 @@ wrangler d1 execute cramerica --remote \
 
 ## Feedback loop (dev ↔ prod)
 
-Claude Code can't read your Telegram directly. But we can inspect the
-live Worker's state remotely — I wrote an admin endpoint for exactly
-this. Everything is protected by the `TELEGRAM_WEBHOOK_SECRET` you set
-at deploy.
+Claude Code can't read your Telegram. To let us debug together, run:
 
-Get your webhook secret once (you'll reuse it):
-
-```bash
-# If you lost track of the secret, rotate it:
-openssl rand -hex 32 | tee /tmp/cramerica-admin-secret \
-  | wrangler secret put TELEGRAM_WEBHOOK_SECRET
-# Then re-register the webhook with set-webhook.mjs using /tmp/cramerica-admin-secret.
+```
+npm run status
 ```
 
-**Inspect live state** (run these and paste output into Claude Code):
+First run: prompts once for your bot token, rotates the admin secret,
+re-registers the Telegram webhook, and saves `{url, secret}` to
+`~/.cramerica.json`. Every run after that is instant.
 
-```bash
-SECRET="$(cat /tmp/cramerica-admin-secret)"
-URL="https://cramerica.<your-sub>.workers.dev"
+Output is human-readable (date, profile, today's trackables, strength
+week, recent errors, recent messages). Paste that output to Claude Code
+when something looks off.
 
-# Overview: profile, today's log, week sessions, last 10 errors, last 15 messages.
-curl -sH "x-admin-secret: $SECRET" "$URL/admin/state"
+**Variants (pass args after `--`):**
 
-# Just errors (full details).
-curl -sH "x-admin-secret: $SECRET" "$URL/admin/state?section=errors&limit=20"
-
-# Full conversation (last N messages).
-curl -sH "x-admin-secret: $SECRET" "$URL/admin/state?section=messages&limit=50"
-
-# Assessment Q/A pairs.
-curl -sH "x-admin-secret: $SECRET" "$URL/admin/state?section=assessment"
-
-# Program + strength sessions.
-curl -sH "x-admin-secret: $SECRET" "$URL/admin/state?section=program"
-
-# All daily_log rows.
-curl -sH "x-admin-secret: $SECRET" "$URL/admin/state?section=logs&limit=30"
-
-# Cron firings.
-curl -sH "x-admin-secret: $SECRET" "$URL/admin/state?section=checkins&limit=30"
+```
+npm run status -- --section=messages --limit=50     # full conversation
+npm run status -- --section=errors --limit=20       # full error details
+npm run status -- --section=assessment              # intake Q/A
+npm run status -- --section=program                 # strength plan rows
+npm run status -- --section=checkins                # cron firings
+npm run status -- --section=logs --limit=30         # daily_log rows
+npm run status -- --raw                             # full JSON (feed to Claude)
+npm run status -- --reconfigure                     # re-bootstrap (new secret + webhook)
 ```
 
-**Manually fire a check-in** (useful for testing without waiting for the window):
+**Deploy a code change** after Claude Code pushes a fix:
 
-```bash
-curl -X POST -H "x-admin-secret: $SECRET" \
-  "$URL/admin/fire?slot=morning"   # or midday / evening / sunday_retro
 ```
-
-**Live logs** (separate terminal, runs until you ctrl-C):
-
-```bash
-npx wrangler tail
-```
-
-**Re-deploy a code change** (after I push a fix):
-
-```bash
 git pull && npx wrangler deploy
 ```
 
-Typical loop: you send me output of `/admin/state`, I read + change code + push, you `git pull && npx wrangler deploy`, retry, repeat.
+**Manually fire a check-in:**
+
+```
+SECRET=$(node -e "console.log(require('os').homedir())")/.cramerica.json
+curl -X POST -H "x-admin-secret: $(node -e "console.log(JSON.parse(require('fs').readFileSync(process.env.HOME+'/.cramerica.json','utf8')).secret)")" \
+  "$(node -e "console.log(JSON.parse(require('fs').readFileSync(process.env.HOME+'/.cramerica.json','utf8')).url)")/admin/fire?slot=morning"
+```
+
+(Or just wait for the next window.)
+
+**Live logs** in a second terminal:
+
+```
+npx wrangler tail
+```
 
 ## Commands
 

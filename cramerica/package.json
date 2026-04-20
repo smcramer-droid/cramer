@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "setup": "bash scripts/setup.sh",
+    "status": "bash scripts/status.sh",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "tail": "wrangler tail",

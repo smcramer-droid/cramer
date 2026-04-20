@@ -120,12 +120,19 @@ WEBHOOK_URL="$WORKER_URL/webhook" \
 WEBHOOK_SECRET="$WEBHOOK_SECRET" \
 node scripts/set-webhook.mjs
 
+# Save config so `npm run status` works without another prompt.
+CONFIG="$HOME/.cramerica.json"
+node -e "require('fs').writeFileSync('$CONFIG', JSON.stringify({url:'$WORKER_URL',secret:'$WEBHOOK_SECRET'}))"
+chmod 600 "$CONFIG"
+info "Saved admin config to $CONFIG (for npm run status)"
+
 unset BOT_TOKEN ANTHROPIC_KEY WEBHOOK_SECRET
 
 # ---------- done ----------
 
 printf '\n\033[1;32m✔ Cramerica is live.\033[0m\n'
 printf '   Worker: %s\n' "$WORKER_URL"
-printf '   Next:   open Telegram → your bot → send \033[1m/start\033[0m\n\n'
+printf '   Next:   open Telegram → your bot → send \033[1m/start\033[0m\n'
+printf '   Check:  \033[1mnpm run status\033[0m (human-readable live state)\n\n'
 printf 'Tail logs in another terminal with:\n'
 printf '   npx wrangler tail\n\n'
