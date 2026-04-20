@@ -346,15 +346,15 @@
     box-shadow: 0 2px 8px rgba(0,0,0,0.08), 0 20px 60px -20px rgba(14, 58, 82, 0.25);
   }
   .page::before {
-    content: ''; position: absolute; top: -120px; right: -120px;
-    width: 320px; height: 320px; border-radius: 50%;
-    background: radial-gradient(circle at 30% 70%, rgba(232, 124, 61, 0.12), rgba(232, 124, 61, 0) 70%);
+    content: ''; position: absolute; top: 0; left: 0; right: 0;
+    height: 14px;
+    background: linear-gradient(90deg, #e87c3d 0%, #f5a574 100%);
     pointer-events: none;
   }
   .page::after {
-    content: ''; position: absolute; bottom: -160px; left: -80px;
-    width: 360px; height: 360px; border-radius: 50%;
-    background: radial-gradient(circle at 70% 30%, rgba(26, 95, 122, 0.10), rgba(26, 95, 122, 0) 70%);
+    content: ''; position: absolute; bottom: 0; left: 0; right: 0;
+    height: 14px;
+    background: linear-gradient(90deg, #1a5f7a 0%, #3a89a5 100%);
     pointer-events: none;
   }
 
