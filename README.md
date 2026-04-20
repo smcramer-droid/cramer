@@ -1,65 +1,27 @@
-# claude-plugin-imessage
+# Pasadena Pools Internal Tools
 
-iMessage channel plugin for Claude — send and receive messages via iMessage on macOS.
+A mobile-friendly landing page linking to our internal Pasadena Pools apps.
 
-## How it works
+## Tools
 
-1. **Reads** incoming messages by polling the local `~/Library/Messages/chat.db` SQLite database
-2. **Processes** each message through a configurable handler (e.g. Claude)
-3. **Sends** replies back via AppleScript through the Messages app
+- [Pool Tools Hub](https://tools.pasadena-pools.pages.dev/)
+- [Equipment Layout](https://pool-equipment-layout.pages.dev/)
+- [Pool Design](https://pool-design.pages.dev/)
 
-## Requirements
+## Deploy (Cloudflare Pages)
 
-- macOS with Messages app configured for iMessage
-- Full Disk Access granted to your terminal (System Settings > Privacy & Security > Full Disk Access)
-- Node.js >= 20
+- Framework preset: **None**
+- Build command: _(leave empty)_
+- Output directory: `/`
 
-## Setup
+## Logo
 
-```bash
-npm install
-npm run build
-```
+Drop a `logo.png` in the repo root to replace the fallback tile in the header.
+It's rendered at 84x84 with `object-fit: cover` and rounded corners.
 
-## Usage
+## Local preview
 
 ```bash
-# Run with defaults (polls every 2s, processes all senders)
-npm start
-
-# Configure via environment variables
-POLL_INTERVAL_MS=5000 ALLOWED_SENDERS="+15551234567,friend@icloud.com" npm start
-```
-
-### As a library
-
-```typescript
-import { IMessageChannel } from "claude-plugin-imessage";
-
-const channel = new IMessageChannel({
-  pollIntervalMs: 2000,
-  allowedSenders: ["+15551234567"],
-});
-
-channel.onMessage(async (msg) => {
-  // Process with Claude or any other handler
-  return `You said: ${msg.text}`;
-});
-
-channel.start();
-```
-
-## Configuration
-
-| Option | Env Var | Default | Description |
-|--------|---------|---------|-------------|
-| `dbPath` | — | `~/Library/Messages/chat.db` | Path to iMessage database |
-| `pollIntervalMs` | `POLL_INTERVAL_MS` | `2000` | Poll interval in ms (min 500) |
-| `allowedSenders` | `ALLOWED_SENDERS` | `[]` (all) | Comma-separated phone/email filter |
-| `lookbackSeconds` | `LOOKBACK_SECONDS` | `60` | Process messages this old at startup |
-
-## Testing
-
-```bash
-npm test
+python3 -m http.server 8000
+# open http://localhost:8000
 ```
