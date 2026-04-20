@@ -1,0 +1,641 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Pool Estimate</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Special+Elite&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#fffbf0;
+    --paper-2:#fbf4de;
+    --ink:#2a231c;
+    --ink-soft:#6b5c4d;
+    --ink-faint:#a8967d;
+    --accent:#b4532a;
+    --green:#3a7a3a;
+    --red:#b4532a;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--paper);color:var(--ink);font-family:"Caveat","Special Elite",cursive;overflow-x:hidden;max-width:100vw;}
+  body{
+    min-height:100vh;
+    background-image:
+      radial-gradient(circle at 20% 10%, rgba(255,255,255,.35), transparent 50%),
+      radial-gradient(circle at 80% 90%, rgba(180,140,80,.15), transparent 55%),
+      repeating-linear-gradient(0deg, rgba(120,90,60,.035) 0 1px, transparent 1px 28px),
+      repeating-linear-gradient(90deg, rgba(120,90,60,.03) 0 1px, transparent 1px 28px);
+    background-color:var(--paper);
+  }
+  .page{max-width:960px; margin:0 auto; padding:28px 24px 60px;}
+
+  header.top{
+    display:flex; justify-content:space-between; align-items:flex-end; gap:18px; flex-wrap:wrap;
+    border-bottom:1.5px dashed var(--ink-soft); padding-bottom:14px; margin-bottom:22px;
+  }
+  header.top h1{
+    margin:0; font-family:"Caveat",cursive; font-weight:700; font-size:40px; line-height:1;
+  }
+  header.top .sub{
+    font-family:"Special Elite",monospace; font-size:11px; letter-spacing:1.5px;
+    color:var(--ink-soft); text-transform:uppercase; margin-top:6px;
+  }
+  header.top .meta{
+    display:flex; gap:18px; flex-wrap:wrap;
+    font-family:"Special Elite",monospace; font-size:10px; letter-spacing:1.2px;
+    color:var(--ink-soft); text-transform:uppercase;
+  }
+  header.top .meta b{ color:var(--ink); font-weight:500; margin-left:6px; font-family:"JetBrains Mono",monospace; font-size:12px; }
+  .backlink{
+    font-family:"Special Elite",monospace; font-size:10.5px; letter-spacing:1.5px;
+    color:var(--ink-soft); text-decoration:none; text-transform:uppercase;
+    border:1.5px solid var(--ink-soft); padding:6px 10px; align-self:flex-start;
+  }
+  .backlink:hover{ background:var(--ink); color:var(--paper); border-color:var(--ink); }
+
+  .no-spec{
+    border:1.5px dashed var(--ink-soft); padding:20px 22px; text-align:center;
+    font-family:"Caveat",cursive; font-size:20px; color:var(--ink-soft); line-height:1.35;
+    margin:40px 0;
+  }
+  .no-spec a{ color:var(--accent); text-decoration:underline; }
+
+  section{
+    border:1.5px solid var(--ink); background:rgba(255,255,255,.3);
+    padding:18px 22px 22px; margin-bottom:22px; position:relative;
+    box-shadow:3px 3px 0 rgba(60,40,20,.08);
+  }
+  section h2{
+    margin:0 0 14px; font-family:"Caveat",cursive; font-weight:700; font-size:26px;
+  }
+  section .legend{
+    position:absolute; top:-9px; left:18px; background:var(--paper); padding:0 8px;
+    font-family:"Special Elite",monospace; font-size:10px; letter-spacing:2px;
+    color:var(--ink-soft); text-transform:uppercase;
+  }
+
+  /* Tables */
+  table.rows{ width:100%; border-collapse:collapse; }
+  table.rows td{
+    padding:8px 0; border-bottom:1px dotted var(--ink-faint);
+    vertical-align:middle;
+  }
+  table.rows tr:last-child td{ border-bottom:none; }
+  table.rows td.k{
+    font-family:"Special Elite",monospace; font-size:10.5px; letter-spacing:1.2px;
+    color:var(--ink-soft); text-transform:uppercase;
+  }
+  table.rows td.v{
+    font-family:"JetBrains Mono",monospace; font-size:15px; color:var(--ink); text-align:right;
+  }
+  table.rows td.v small{ color:var(--ink-soft); font-size:10px; margin-left:3px; }
+
+  /* Inputs that look like the designer */
+  .numbox{
+    display:inline-flex; align-items:center; gap:6px;
+    border-bottom:1.5px solid var(--ink); padding:2px 0;
+    font-family:"JetBrains Mono",monospace;
+  }
+  .numbox input{
+    background:transparent; border:none; outline:none;
+    font-family:"JetBrains Mono",monospace; font-size:16px; color:var(--ink);
+    width:80px; text-align:right; padding:2px 0;
+  }
+  .numbox .u{ font-family:"JetBrains Mono",monospace; font-size:11px; color:var(--ink-soft); min-width:28px; }
+  .numbox input::-webkit-outer-spin-button,
+  .numbox input::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
+
+  /* Input grid for project inputs */
+  .grid-inputs{
+    display:grid; grid-template-columns:1fr 1fr; gap:12px 20px; margin-top:4px;
+  }
+  .grid-inputs label{
+    display:flex; flex-direction:column; gap:4px;
+    font-family:"Special Elite",monospace; font-size:10px; letter-spacing:1.2px;
+    color:var(--ink-soft); text-transform:uppercase;
+  }
+  .grid-inputs select{
+    background:transparent; border:none; border-bottom:1.5px solid var(--ink); padding:3px 0;
+    font-family:"JetBrains Mono",monospace; font-size:15px; color:var(--ink); outline:none;
+  }
+  .checkrow{
+    display:flex; align-items:center; gap:8px; padding:8px 0;
+    font-family:"Special Elite",monospace; font-size:11px; letter-spacing:1.2px;
+    color:var(--ink); text-transform:uppercase;
+  }
+  .checkrow input[type=checkbox]{ transform:scale(1.3); margin:0; }
+
+  /* Sub-sections within a section */
+  .sub-h{
+    font-family:"Special Elite",monospace; font-size:10.5px; letter-spacing:1.8px;
+    color:var(--ink-soft); text-transform:uppercase; margin:14px 0 8px;
+    padding-top:10px; border-top:1px dashed var(--ink-faint);
+  }
+  .sub-h:first-of-type{ padding-top:0; border-top:none; margin-top:0; }
+
+  /* Equipment list */
+  .eq-list{ display:flex; flex-direction:column; gap:8px; margin-top:6px; }
+  .eq-row{ display:flex; gap:8px; align-items:center; }
+  .eq-row input[type=text]{
+    flex:1; background:transparent; border:none; border-bottom:1.5px solid var(--ink);
+    font-family:"Caveat",cursive; font-size:18px; color:var(--ink); padding:2px 0; outline:none;
+  }
+  .eq-row input[type=number]{
+    width:110px; background:transparent; border:none; border-bottom:1.5px solid var(--ink);
+    font-family:"JetBrains Mono",monospace; font-size:15px; color:var(--ink); text-align:right;
+    padding:2px 0; outline:none;
+  }
+  .eq-row button.del{
+    background:transparent; border:1.5px solid var(--accent); color:var(--accent); cursor:pointer;
+    width:26px; height:26px; font-family:"Special Elite",monospace; font-size:11px; padding:0; line-height:1;
+  }
+  .eq-add{
+    background:transparent; border:1.5px dashed var(--ink-soft); color:var(--ink-soft); cursor:pointer;
+    padding:7px 12px; font-family:"Special Elite",monospace; font-size:10.5px; letter-spacing:1.2px;
+    text-transform:uppercase; margin-top:10px;
+  }
+  .eq-add:hover{ background:var(--ink); color:var(--paper); border-style:solid; border-color:var(--ink); }
+
+  /* Breakdown */
+  table.breakdown{ width:100%; border-collapse:collapse; }
+  table.breakdown td{
+    padding:8px 0; vertical-align:top;
+  }
+  table.breakdown tr{ border-bottom:1px dotted var(--ink-faint); }
+  table.breakdown tr:last-child{ border-bottom:none; }
+  table.breakdown td.desc{
+    font-family:"Caveat",cursive; font-size:18px; color:var(--ink);
+  }
+  table.breakdown td.detail{
+    font-family:"JetBrains Mono",monospace; font-size:11px; color:var(--ink-soft); padding-top:2px;
+  }
+  table.breakdown td.amt{
+    font-family:"JetBrains Mono",monospace; font-size:15px; color:var(--ink);
+    text-align:right; white-space:nowrap; padding-left:14px;
+  }
+  table.breakdown tr.group-hd td{
+    font-family:"Special Elite",monospace; font-size:11px; letter-spacing:1.5px;
+    color:var(--ink-soft); text-transform:uppercase; border-top:1.5px solid var(--ink-soft);
+    padding-top:14px;
+  }
+  table.breakdown tr.group-hd:first-child td{ border-top:none; padding-top:6px; }
+  table.breakdown tr.total td{
+    border-top:2px solid var(--ink); padding-top:14px; font-weight:700;
+  }
+  table.breakdown tr.total td.desc{ font-size:22px; }
+  table.breakdown tr.total td.amt{ font-size:22px; }
+
+  .note{
+    font-family:"Caveat",cursive; font-size:15px; color:var(--ink-soft); line-height:1.3;
+    margin-top:6px;
+  }
+
+  .actions{
+    display:flex; gap:8px; flex-wrap:wrap; margin-top:18px;
+  }
+  .actions button{
+    flex:1 1 140px; background:transparent; border:1.5px solid var(--ink); cursor:pointer;
+    font-family:"Special Elite",monospace; font-size:10.5px; letter-spacing:1.5px;
+    padding:10px 12px; color:var(--ink); text-transform:uppercase;
+  }
+  .actions button.primary{ background:var(--ink); color:var(--paper); }
+  .actions button:hover{ background:var(--ink); color:var(--paper); }
+
+  @media (max-width: 640px){
+    .page{ padding:18px 14px 60px; }
+    header.top h1{ font-size:30px; }
+    section{ padding:14px 14px 18px; }
+    section h2{ font-size:22px; }
+    .grid-inputs{ grid-template-columns:1fr; }
+    .numbox input{ width:70px; font-size:16px; }
+    table.rows td.v{ font-size:14px; }
+    .eq-row input[type=number]{ width:90px; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="top">
+    <div>
+      <h1 id="project_name">Pool Estimate</h1>
+      <div class="sub" id="project_sub">— no design loaded —</div>
+    </div>
+    <div class="meta">
+      <span>Date <b id="meta_date">—</b></span>
+      <span>Dims <b id="meta_dims">—</b></span>
+      <span>Sections <b id="meta_sections">—</b></span>
+    </div>
+    <a class="backlink" href="/">← Back to designer</a>
+  </header>
+
+  <div id="no_spec" class="no-spec" style="display:none">
+    No pool design loaded. Open the <a href="/">designer</a>, click <b>→ Open estimator</b>,
+    and this page will be prefilled with the derived quantities.
+  </div>
+
+  <section id="sec_derived">
+    <span class="legend">From Design</span>
+    <h2>Derived quantities</h2>
+    <table class="rows">
+      <tr><td class="k">Pool dimensions</td><td class="v" id="d_dims">—</td></tr>
+      <tr><td class="k">Surface area</td><td class="v" id="d_area">—<small>ft²</small></td></tr>
+      <tr><td class="k">Perimeter</td><td class="v" id="d_peri">—<small>ft</small></td></tr>
+      <tr><td class="k">Water volume</td><td class="v" id="d_vol">—<small>gal</small></td></tr>
+      <tr><td class="k">Avg depth</td><td class="v" id="d_avg">—<small>ft</small></td></tr>
+      <tr><td class="k">Max depth</td><td class="v" id="d_max">—<small>ft</small></td></tr>
+      <tr><td class="k">Excavation (w/ 1′ overcut)</td><td class="v" id="d_exc">—<small>ft³</small></td></tr>
+      <tr><td class="k">Tile linear feet</td><td class="v" id="d_tile">—<small>lf</small></td></tr>
+      <tr><td class="k">Coping linear feet</td><td class="v" id="d_cop">—<small>lf</small></td></tr>
+      <tr><td class="k">Plaster surface</td><td class="v" id="d_plast">—<small>ft²</small></td></tr>
+    </table>
+    <div class="note">
+      Excavation assumes a 1′ overcut on all sides + 1′ below finished floor. Bench is formed
+      in concrete against the excavation wall, so its volume is <em>not</em> subtracted.
+    </div>
+  </section>
+
+  <section id="sec_inputs">
+    <span class="legend">Project inputs</span>
+    <h2>Project inputs</h2>
+
+    <div class="sub-h">Plumbing</div>
+    <div class="grid-inputs">
+      <label>Number of lines
+        <span class="numbox"><input type="number" id="in_plumb_lines" min="0" step="1" value="6"/><span class="u">ea</span></span>
+      </label>
+      <label>Distance to equipment
+        <span class="numbox"><input type="number" id="in_plumb_dist" min="0" step="1" value="30"/><span class="u">ft</span></span>
+      </label>
+    </div>
+
+    <div class="sub-h">Rebar</div>
+    <div class="grid-inputs">
+      <label>Spacing
+        <select id="in_rebar_spacing">
+          <option value="6">6″ o.c.</option>
+          <option value="8">8″ o.c.</option>
+          <option value="12" selected>12″ o.c.</option>
+        </select>
+      </label>
+      <label>Size
+        <select id="in_rebar_size">
+          <option value="3">#3</option>
+          <option value="4" selected>#4</option>
+          <option value="5">#5</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="sub-h">Plaster</div>
+    <div class="grid-inputs">
+      <label>Tier
+        <select id="in_plaster_tier">
+          <option value="1">Tier 1 — base</option>
+          <option value="2">Tier 2 — +20%</option>
+          <option value="3">Tier 3 — +44%</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="sub-h">Coping</div>
+    <div class="grid-inputs">
+      <label>Allowance override (leave 0 for computed perimeter)
+        <span class="numbox"><input type="number" id="in_coping_lf" min="0" step="1" value="0"/><span class="u">lf</span></span>
+      </label>
+    </div>
+
+    <div class="sub-h">Auto-cover</div>
+    <label class="checkrow"><input type="checkbox" id="in_autocover"/> Include automatic pool cover</label>
+
+    <div class="sub-h">Equipment &amp; features</div>
+    <div class="eq-list" id="eq_list"></div>
+    <button class="eq-add" id="eq_add">+ Add equipment / feature</button>
+  </section>
+
+  <section id="sec_rates">
+    <span class="legend">Unit rates</span>
+    <h2>Unit rates</h2>
+    <div class="note" style="margin-bottom:10px">
+      Rates are saved in this browser and auto-applied on future visits.
+    </div>
+    <table class="rows">
+      <tr><td class="k">Excavation / ft³</td>
+        <td class="v"><span class="numbox"><span>$</span><input type="number" id="r_exc" min="0" step="0.01"/></span></td></tr>
+      <tr><td class="k">Plumbing / line</td>
+        <td class="v"><span class="numbox"><span>$</span><input type="number" id="r_plumb_line" min="0" step="0.01"/></span></td></tr>
+      <tr><td class="k">Plumbing / ft to equipment</td>
+        <td class="v"><span class="numbox"><span>$</span><input type="number" id="r_plumb_ft" min="0" step="0.01"/></span></td></tr>
+      <tr><td class="k">Rebar base / ft² footprint</td>
+        <td class="v"><span class="numbox"><span>$</span><input type="number" id="r_rebar" min="0" step="0.01"/></span></td></tr>
+      <tr><td class="k">Tile / lf</td>
+        <td class="v"><span class="numbox"><span>$</span><input type="number" id="r_tile" min="0" step="0.01"/></span></td></tr>
+      <tr><td class="k">Plaster (Tier 1) / ft²</td>
+        <td class="v"><span class="numbox"><span>$</span><input type="number" id="r_plaster" min="0" step="0.01"/></span></td></tr>
+      <tr><td class="k">Coping / lf</td>
+        <td class="v"><span class="numbox"><span>$</span><input type="number" id="r_coping" min="0" step="0.01"/></span></td></tr>
+      <tr><td class="k">Auto-cover base</td>
+        <td class="v"><span class="numbox"><span>$</span><input type="number" id="r_autocover_base" min="0" step="0.01"/></span></td></tr>
+      <tr><td class="k">Auto-cover / ft² pool</td>
+        <td class="v"><span class="numbox"><span>$</span><input type="number" id="r_autocover_sf" min="0" step="0.01"/></span></td></tr>
+    </table>
+    <div class="actions">
+      <button id="reset_rates">↺ Reset rates to defaults</button>
+    </div>
+  </section>
+
+  <section id="sec_breakdown">
+    <span class="legend">Estimate</span>
+    <h2>Breakdown</h2>
+    <table class="breakdown" id="bd_table"></table>
+    <div class="actions">
+      <button id="print_btn" class="primary">↓ Print / save PDF</button>
+      <button id="json_btn">↓ Copy JSON</button>
+    </div>
+  </section>
+
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+
+  // ---------- Default rates (editable; persisted in localStorage) ----------
+  const DEFAULT_RATES = {
+    exc: 8.50,           // per ft³ excavated
+    plumb_line: 625,     // per line of pool plumbing run
+    plumb_ft: 18,        // per foot of trench from pool to equipment
+    rebar: 3.25,         // per ft² of pool footprint (rebar + steel tie)
+    tile: 42,            // per lf
+    plaster: 6.50,       // per ft² of plaster surface (tier 1)
+    coping: 48,          // per lf
+    autocover_base: 10500,
+    autocover_sf: 14,
+  };
+  const RATE_KEY = 'poolEstimatorRates';
+  const INPUT_KEY = 'poolEstimatorInputs';
+
+  function loadRates() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(RATE_KEY) || '{}');
+      return { ...DEFAULT_RATES, ...saved };
+    } catch { return { ...DEFAULT_RATES }; }
+  }
+  function saveRates(r) { localStorage.setItem(RATE_KEY, JSON.stringify(r)); }
+  function loadInputs() {
+    try { return JSON.parse(localStorage.getItem(INPUT_KEY) || '{}'); }
+    catch { return {}; }
+  }
+  function saveInputs(i) { localStorage.setItem(INPUT_KEY, JSON.stringify(i)); }
+
+  // ---------- Read design spec ----------
+  let spec = null;
+  try {
+    const raw = localStorage.getItem('poolDesignerSpec');
+    if (raw) spec = JSON.parse(raw);
+  } catch {}
+  if (!spec) {
+    $('no_spec').style.display = '';
+    // Still show the page with a demo spec so rates + inputs can be tried.
+    spec = {
+      projectName: 'Demo pool',
+      timestamp: Date.now(),
+      dims: { widthFt: 16, lengthFt: 32, desiredLengthFt: 32 },
+      derived: {
+        surfaceAreaFt2: 512, perimeterFt: 96, waterVolumeGal: 16000, avgDepthFt: 4.2,
+        maxDepthFt: 8, excavationCuft: 2745, tileLf: 96, copingLf: 96, plasterSf: 915,
+      },
+      sections: [],
+    };
+  }
+
+  const d = spec.derived;
+  const dims = spec.dims;
+
+  // ---------- Populate header + derived ----------
+  const fmt0 = (n) => Math.round(+n || 0).toLocaleString();
+  const fmt1 = (n) => (+n || 0).toFixed(1);
+  const fmtFt = (ft) => {
+    const f = Math.abs(+ft || 0);
+    const whole = Math.floor(f);
+    const inches = Math.round((f - whole) * 12);
+    if (inches === 12) return `${whole + 1}′ 0″`;
+    return `${whole}′ ${inches}″`;
+  };
+  const money = (n) => '$' + (Math.round((+n || 0) * 100) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  $('project_name').textContent = spec.projectName || 'Pool Estimate';
+  $('project_sub').textContent = 'Pool estimate · derived from design';
+  $('meta_date').textContent = new Date(spec.timestamp || Date.now())
+    .toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit' }).toUpperCase();
+  $('meta_dims').textContent = `${fmtFt(dims.widthFt)} × ${fmtFt(dims.lengthFt)}`;
+  $('meta_sections').textContent = (spec.sections || []).length || '—';
+
+  $('d_dims').innerHTML = `${fmtFt(dims.widthFt)} × ${fmtFt(dims.lengthFt)}`;
+  $('d_area').innerHTML = `${fmt0(d.surfaceAreaFt2)}<small>ft²</small>`;
+  $('d_peri').innerHTML = `${fmt1(d.perimeterFt)}<small>ft</small>`;
+  $('d_vol').innerHTML = `${fmt0(d.waterVolumeGal)}<small>gal</small>`;
+  $('d_avg').innerHTML = `${fmt1(d.avgDepthFt)}<small>ft</small>`;
+  $('d_max').innerHTML = `${fmt1(d.maxDepthFt)}<small>ft</small>`;
+  $('d_exc').innerHTML = `${fmt0(d.excavationCuft)}<small>ft³</small>`;
+  $('d_tile').innerHTML = `${fmt1(d.tileLf)}<small>lf</small>`;
+  $('d_cop').innerHTML = `${fmt1(d.copingLf)}<small>lf</small>`;
+  $('d_plast').innerHTML = `${fmt0(d.plasterSf)}<small>ft²</small>`;
+
+  // ---------- Populate inputs + rates ----------
+  const rates = loadRates();
+  const inputs = loadInputs();
+
+  const rateIds = ['r_exc','r_plumb_line','r_plumb_ft','r_rebar','r_tile','r_plaster','r_coping','r_autocover_base','r_autocover_sf'];
+  const rateMap = {
+    r_exc:'exc', r_plumb_line:'plumb_line', r_plumb_ft:'plumb_ft', r_rebar:'rebar',
+    r_tile:'tile', r_plaster:'plaster', r_coping:'coping',
+    r_autocover_base:'autocover_base', r_autocover_sf:'autocover_sf',
+  };
+  rateIds.forEach(id => { if ($(id)) $(id).value = rates[rateMap[id]]; });
+
+  // Project input persisted values
+  const inputIds = ['in_plumb_lines','in_plumb_dist','in_rebar_spacing','in_rebar_size','in_plaster_tier','in_coping_lf','in_autocover'];
+  inputIds.forEach(id => {
+    if (inputs[id] == null) return;
+    const el = $(id); if (!el) return;
+    if (el.type === 'checkbox') el.checked = !!inputs[id]; else el.value = inputs[id];
+  });
+
+  // Equipment list
+  const eqList = $('eq_list');
+  function addEqRow(desc = '', amt = '') {
+    const row = document.createElement('div');
+    row.className = 'eq-row';
+    row.innerHTML = `
+      <input type="text" class="eq-desc" placeholder="Heater, salt cell, etc." value="${String(desc).replace(/"/g,'&quot;')}"/>
+      <span class="numbox"><span>$</span><input type="number" class="eq-amt" min="0" step="0.01" value="${amt || ''}"/></span>
+      <button class="del" title="Remove">✕</button>
+    `;
+    row.querySelector('.eq-desc').addEventListener('input', saveAllAndRecalc);
+    row.querySelector('.eq-amt').addEventListener('input', saveAllAndRecalc);
+    row.querySelector('.del').addEventListener('click', () => { row.remove(); saveAllAndRecalc(); });
+    eqList.appendChild(row);
+  }
+  (inputs.equipment || [
+    { desc: 'Variable-speed pump', amt: 1500 },
+    { desc: 'Gas heater (natural gas)', amt: 3800 },
+    { desc: 'Salt chlorinator', amt: 1400 },
+    { desc: 'LED lighting (color)', amt: 1200 },
+  ]).forEach(e => addEqRow(e.desc, e.amt));
+
+  $('eq_add').addEventListener('click', () => { addEqRow(); saveAllAndRecalc(); });
+
+  // ---------- Compute breakdown ----------
+  function computeBreakdown() {
+    // Pull current values
+    const currentRates = {};
+    rateIds.forEach(id => { currentRates[rateMap[id]] = +$(id).value || 0; });
+    saveRates(currentRates);
+
+    const plumbLines = +$('in_plumb_lines').value || 0;
+    const plumbDist  = +$('in_plumb_dist').value  || 0;
+    const rebarSpacing = +$('in_rebar_spacing').value || 12;
+    const rebarSize = +$('in_rebar_size').value || 4;
+    const plasterTier = +$('in_plaster_tier').value || 1;
+    const copingLfOverride = +$('in_coping_lf').value || 0;
+    const autoCover = $('in_autocover').checked;
+
+    // Equipment list -> array
+    const eqRows = [...eqList.querySelectorAll('.eq-row')];
+    const equipment = eqRows.map(r => ({
+      desc: r.querySelector('.eq-desc').value.trim(),
+      amt:  +r.querySelector('.eq-amt').value || 0,
+    })).filter(e => e.desc || e.amt);
+
+    saveInputs({
+      in_plumb_lines: plumbLines, in_plumb_dist: plumbDist,
+      in_rebar_spacing: rebarSpacing, in_rebar_size: rebarSize,
+      in_plaster_tier: plasterTier, in_coping_lf: copingLfOverride,
+      in_autocover: autoCover,
+      equipment,
+    });
+
+    const lines = [];
+    const poolArea = d.surfaceAreaFt2 || (dims.widthFt * dims.lengthFt);
+
+    // Excavation
+    const excAmt = d.excavationCuft * currentRates.exc;
+    lines.push({ group: 'Earthwork', desc: 'Excavation',
+      detail: `${fmt0(d.excavationCuft)} ft³ × ${money(currentRates.exc)}/ft³`, amt: excAmt });
+
+    // Plumbing
+    const plumbLineAmt = plumbLines * currentRates.plumb_line;
+    const plumbFtAmt = plumbDist * currentRates.plumb_ft;
+    lines.push({ group: 'Plumbing', desc: 'Plumbing lines',
+      detail: `${plumbLines} lines × ${money(currentRates.plumb_line)}`, amt: plumbLineAmt });
+    lines.push({ group: 'Plumbing', desc: 'Run to equipment',
+      detail: `${plumbDist} ft × ${money(currentRates.plumb_ft)}/ft`, amt: plumbFtAmt });
+
+    // Rebar: base rate × spacing/size multipliers
+    // Spacing multiplier: 6"=2.0, 8"=1.5, 12"=1.0 (rough — 1 / spacing_ratio)
+    const spacingMult = { 6: 2.0, 8: 1.5, 12: 1.0 }[rebarSpacing] || 1.0;
+    // Size multiplier: #3=0.85, #4=1.0, #5=1.25
+    const sizeMult = { 3: 0.85, 4: 1.0, 5: 1.25 }[rebarSize] || 1.0;
+    const rebarAmt = poolArea * currentRates.rebar * spacingMult * sizeMult;
+    lines.push({ group: 'Shell', desc: `Rebar (#${rebarSize} @ ${rebarSpacing}″ o.c.)`,
+      detail: `${fmt0(poolArea)} ft² × ${money(currentRates.rebar)} × ${spacingMult.toFixed(2)} × ${sizeMult.toFixed(2)}`, amt: rebarAmt });
+
+    // Tile
+    const tileAmt = d.tileLf * currentRates.tile;
+    lines.push({ group: 'Finishes', desc: 'Waterline tile',
+      detail: `${fmt1(d.tileLf)} lf × ${money(currentRates.tile)}/lf`, amt: tileAmt });
+
+    // Plaster — tier premium (compounded 20% per tier)
+    const tierMult = plasterTier === 2 ? 1.20 : plasterTier === 3 ? 1.44 : 1.00;
+    const plasterRate = currentRates.plaster * tierMult;
+    const plasterAmt = d.plasterSf * plasterRate;
+    lines.push({ group: 'Finishes', desc: `Plaster (Tier ${plasterTier})`,
+      detail: `${fmt0(d.plasterSf)} ft² × ${money(plasterRate)}/ft² (tier ×${tierMult.toFixed(2)})`, amt: plasterAmt });
+
+    // Coping
+    const copingLf = copingLfOverride > 0 ? copingLfOverride : d.copingLf;
+    const copingAmt = copingLf * currentRates.coping;
+    lines.push({ group: 'Finishes', desc: 'Coping',
+      detail: `${fmt1(copingLf)} lf × ${money(currentRates.coping)}/lf`, amt: copingAmt });
+
+    // Auto-cover
+    if (autoCover) {
+      const acAmt = currentRates.autocover_base + poolArea * currentRates.autocover_sf;
+      lines.push({ group: 'Cover', desc: 'Automatic pool cover',
+        detail: `base ${money(currentRates.autocover_base)} + ${fmt0(poolArea)} ft² × ${money(currentRates.autocover_sf)}/ft²`, amt: acAmt });
+    }
+
+    // Equipment / features
+    equipment.forEach(e => {
+      lines.push({ group: 'Equipment', desc: e.desc || 'Item', detail: '', amt: e.amt });
+    });
+
+    return lines;
+  }
+
+  function renderBreakdown() {
+    const lines = computeBreakdown();
+    const tbl = $('bd_table');
+    tbl.innerHTML = '';
+    let currentGroup = null;
+    let subtotal = 0, total = 0;
+    lines.forEach(l => {
+      if (l.group !== currentGroup) {
+        const hd = document.createElement('tr');
+        hd.className = 'group-hd';
+        hd.innerHTML = `<td colspan="2">${l.group}</td>`;
+        tbl.appendChild(hd);
+        currentGroup = l.group;
+      }
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>
+          <div class="desc">${(l.desc || '').replace(/</g,'&lt;')}</div>
+          ${l.detail ? `<div class="detail">${l.detail}</div>` : ''}
+        </td>
+        <td class="amt">${money(l.amt)}</td>
+      `;
+      tbl.appendChild(tr);
+      total += l.amt;
+    });
+    const tot = document.createElement('tr');
+    tot.className = 'total';
+    tot.innerHTML = `<td class="desc">Total</td><td class="amt">${money(total)}</td>`;
+    tbl.appendChild(tot);
+  }
+
+  function saveAllAndRecalc() { renderBreakdown(); }
+
+  // Recompute on any change
+  [...rateIds, ...inputIds].forEach(id => {
+    const el = $(id); if (!el) return;
+    el.addEventListener('input', saveAllAndRecalc);
+    el.addEventListener('change', saveAllAndRecalc);
+  });
+
+  $('reset_rates').addEventListener('click', () => {
+    rateIds.forEach(id => { $(id).value = DEFAULT_RATES[rateMap[id]]; });
+    saveAllAndRecalc();
+  });
+
+  $('print_btn').addEventListener('click', () => window.print());
+  $('json_btn').addEventListener('click', () => {
+    const bd = computeBreakdown();
+    const total = bd.reduce((s, l) => s + l.amt, 0);
+    const out = { spec, rates: loadRates(), inputs: loadInputs(), lines: bd, total };
+    const txt = JSON.stringify(out, null, 2);
+    if (navigator.clipboard) navigator.clipboard.writeText(txt).then(
+      () => alert('Estimate JSON copied to clipboard.'),
+      () => prompt('Copy JSON:', txt)
+    );
+    else prompt('Copy JSON:', txt);
+  });
+
+  renderBreakdown();
+})();
+</script>
+</body>
+</html>

@@ -581,6 +581,16 @@
       <div id="ex_status" style="font-family:'Special Elite',monospace;font-size:10px;letter-spacing:1px;color:var(--ink-soft);margin-top:8px;text-transform:uppercase;min-height:12px;"></div>
     </fieldset>
 
+    <fieldset>
+      <legend>Estimate</legend>
+      <div style="font-family:'Caveat',cursive;font-size:15px;color:var(--ink-soft);line-height:1.25;margin:2px 0 6px">
+        Pushes derived quantities into the standalone estimator.
+      </div>
+      <div class="presets" style="margin-top:0">
+        <button id="ex_estimate" style="flex:1; padding:9px 10px; background:var(--ink); color:var(--paper); border:none; font-weight:600;">→ Open estimator</button>
+      </div>
+    </fieldset>
+
     <div class="stats" id="stats">
       <div class="stat"><span class="k">Surface area</span><span class="v" id="s_area">—<small>ft²</small></span></div>
       <div class="stat"><span class="k">Perimeter</span><span class="v" id="s_peri">—<small>ft</small></span></div>
@@ -3463,6 +3473,67 @@
   if ($('dialog_save_pdf')) $('dialog_save_pdf').addEventListener('click', () => {
     const log = $('dialog_log'); if (log) log.textContent = 'Building sheet…';
     exportPDF();
+  });
+
+  // ============== ESTIMATOR HAND-OFF ==============
+  // Compute all derived quantities for the estimator. 1ft over-excavation applies
+  // everywhere (perimeter + below), and the bench is ignored (it's formed in
+  // concrete against the excavated wall, so excavation volume doesn't carve it out).
+  function computePoolSpec() {
+    const st = computeStats();
+    const L = totalLength();
+    const W = state.width;
+    const avgDepthFt = st.avg || 0;
+    const maxDepthFt = (maxDepthIn() || 0) / 12;
+    // Excavation: pool footprint grown by 1ft on each side, with 1ft of overcut below.
+    // Model as a box with outer dims (L+2)×(W+2) and depth = avg depth + 1ft overcut
+    // along the floor. This ignores the triangular ramp below slopes; close enough
+    // for pricing and errs slightly conservative.
+    const excavationCuft = (L + 2) * (W + 2) * (avgDepthFt + 1);
+    // Linear feet of tile (one row at the waterline) = perimeter
+    const tileLf = st.peri || 0;
+    // Coping LF ~ perimeter
+    const copingLf = st.peri || 0;
+    // Plaster surface: floor + wall surfaces (approximation, floor area + avg-depth walls)
+    const wallArea = (st.peri || 0) * avgDepthFt;
+    const plasterSf = (st.area || 0) + wallArea;
+    return {
+      version: 1,
+      projectName: (state.tweaks && state.tweaks.projectName) || 'Pool',
+      timestamp: Date.now(),
+      dims: {
+        widthFt: W,
+        lengthFt: L,
+        desiredLengthFt: state.desiredLength,
+      },
+      derived: {
+        surfaceAreaFt2: st.area || 0,
+        perimeterFt: st.peri || 0,
+        waterVolumeGal: st.gallons || 0,
+        waterVolumeCuft: st.cubicFt || 0,
+        avgDepthFt,
+        maxDepthFt,
+        excavationCuft,   // over-excavated with 1ft overcut
+        tileLf,
+        copingLf,
+        plasterSf,
+      },
+      sections: state.sections.map(s => ({
+        name: s.name, type: s.type, depthIn: s.depthIn,
+        length: s.length,
+      })),
+    };
+  }
+  if ($('ex_estimate')) $('ex_estimate').addEventListener('click', () => {
+    try {
+      const spec = computePoolSpec();
+      localStorage.setItem('poolDesignerSpec', JSON.stringify(spec));
+      // Open the estimator in a new tab so the designer stays open for edits.
+      window.open('/estimate.html', '_blank');
+    } catch (e) {
+      console.error(e);
+      alert('Failed to open estimator: ' + (e.message || 'unknown'));
+    }
   });
 })();
 
