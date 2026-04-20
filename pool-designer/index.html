@@ -582,6 +582,36 @@
     </fieldset>
 
     <fieldset>
+      <legend>Save / Load</legend>
+      <div style="display:flex; gap:6px; align-items:center">
+        <input type="text" id="save_name" placeholder="Project name"
+          style="flex:1; background:rgba(255,255,255,0.4); border:1.5px solid var(--ink);
+                 padding:6px 8px; font-family:'Caveat',cursive; font-size:17px; color:var(--ink); outline:none;"/>
+        <button id="save_btn"
+          style="background:var(--ink); color:var(--paper); border:none; cursor:pointer;
+                 font-family:'Special Elite',monospace; font-size:10.5px; letter-spacing:1.2px;
+                 padding:8px 12px; text-transform:uppercase;">Save</button>
+      </div>
+      <div style="display:flex; gap:6px; align-items:center; margin-top:6px">
+        <select id="load_select" style="flex:1; background:transparent; border:1.5px solid var(--ink);
+          padding:6px 8px; font-family:'Special Elite',monospace; font-size:11px; color:var(--ink);">
+          <option value="">— pick a saved configuration —</option>
+        </select>
+        <button id="load_btn"
+          style="background:transparent; border:1.5px solid var(--ink); color:var(--ink); cursor:pointer;
+                 font-family:'Special Elite',monospace; font-size:10.5px; letter-spacing:1.2px;
+                 padding:8px 10px; text-transform:uppercase;">Load</button>
+        <button id="load_delete_btn" title="Delete selected"
+          style="background:transparent; border:1.5px solid var(--accent); color:var(--accent); cursor:pointer;
+                 font-family:'Special Elite',monospace; font-size:10.5px; letter-spacing:1px;
+                 padding:8px 8px;">✕</button>
+      </div>
+      <div id="save_status" style="font-family:'Special Elite',monospace; font-size:10px;
+        letter-spacing:1px; color:var(--ink-soft); margin-top:6px; text-transform:uppercase;
+        min-height:12px;"></div>
+    </fieldset>
+
+    <fieldset>
       <legend>Export</legend>
       <div class="presets" style="margin-top:0">
         <button id="ex_png_plan">↓ Plan</button>
@@ -3154,6 +3184,132 @@
   if ($('dialog_input')) $('dialog_input').addEventListener('keydown', e => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); applyDialog(); }
   });
+
+  // ============== SAVE / LOAD (cloud, via /api/configs) ==============
+  function saveStatus(msg, kind) {
+    const el = $('save_status'); if (!el) return;
+    el.textContent = msg || '';
+    el.style.color = kind === 'err' ? '#b4532a' : kind === 'ok' ? '#3a7a3a' : 'var(--ink-soft)';
+  }
+  function stateSnapshot() {
+    // Deep-clone everything we want to restore. Excludes derived/runtime helpers.
+    return JSON.parse(JSON.stringify({
+      width: state.width,
+      showWater: state.showWater,
+      mirror: !!state.mirror,
+      copingRiseIn: state.copingRiseIn,
+      desiredLength: state.desiredLength,
+      sections: state.sections,
+      bench: state.bench,
+      tweaks: state.tweaks,
+    }));
+  }
+  function applySnapshot(snap) {
+    if (!snap || typeof snap !== 'object') return;
+    if (typeof snap.width === 'number') state.width = snap.width;
+    if (typeof snap.showWater === 'boolean') state.showWater = snap.showWater;
+    if (typeof snap.mirror === 'boolean') state.mirror = snap.mirror;
+    if (typeof snap.copingRiseIn === 'number') state.copingRiseIn = snap.copingRiseIn;
+    if (typeof snap.desiredLength === 'number') state.desiredLength = snap.desiredLength;
+    if (Array.isArray(snap.sections)) state.sections = JSON.parse(JSON.stringify(snap.sections));
+    if (snap.bench && typeof snap.bench === 'object') state.bench = { ...state.bench, ...snap.bench };
+    if (snap.tweaks && typeof snap.tweaks === 'object') state.tweaks = { ...state.tweaks, ...snap.tweaks };
+    // Sync input fields from new state
+    const setVal = (id, v) => { const e = $(id); if (e && v != null) e.value = v; };
+    setVal('width', state.width); setVal('width_r', state.width);
+    setVal('desired_len', state.desiredLength); setVal('desired_len_r', state.desiredLength);
+    setVal('coping_rise', state.copingRiseIn); setVal('coping_rise_r', state.copingRiseIn);
+    setVal('project_name', state.tweaks && state.tweaks.projectName);
+    if ($('mirror_toggle')) $('mirror_toggle').classList.toggle('on', !!state.mirror);
+    if ($('water_toggle')) $('water_toggle').classList.toggle('on', !!state.showWater);
+    if (typeof applyMirror === 'function') applyMirror();
+    if (typeof renderSectionEditor === 'function') renderSectionEditor();
+    if (typeof applyTweaksToUI === 'function') applyTweaksToUI();
+    if (typeof syncBenchControls === 'function') syncBenchControls();
+    scheduleRender();
+  }
+
+  async function refreshLoadList(selectSlug) {
+    const sel = $('load_select'); if (!sel) return;
+    try {
+      const r = await fetch('/api/configs', { cache: 'no-store' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const list = await r.json();
+      // Preserve the placeholder
+      sel.innerHTML = '<option value="">— pick a saved configuration —</option>';
+      list.forEach(item => {
+        const opt = document.createElement('option');
+        opt.value = item.slug;
+        const date = item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '';
+        opt.textContent = date ? `${item.versionedName}  ·  ${date}` : item.versionedName;
+        sel.appendChild(opt);
+      });
+      if (selectSlug) sel.value = selectSlug;
+    } catch (e) {
+      // Non-fatal — likely KV not yet bound. Keep placeholder.
+      console.warn('refreshLoadList failed:', e);
+    }
+  }
+  async function onSave() {
+    const name = ($('save_name')?.value || state.tweaks.projectName || '').trim();
+    if (!name) { saveStatus('Enter a project name first', 'err'); return; }
+    saveStatus('Saving…');
+    try {
+      const r = await fetch('/api/configs', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name, state: stateSnapshot() }),
+      });
+      const data = await r.json();
+      if (!r.ok || data.error) throw new Error(data.error || ('HTTP ' + r.status));
+      saveStatus(`Saved as “${data.versionedName}”`, 'ok');
+      if ($('save_name')) $('save_name').value = data.versionedName;
+      state.tweaks.projectName = data.versionedName;
+      if ($('project_name')) $('project_name').value = data.versionedName;
+      scheduleRender();
+      refreshLoadList(data.slug);
+    } catch (e) {
+      saveStatus('Save failed: ' + (e.message || 'unknown'), 'err');
+    }
+  }
+  async function onLoad() {
+    const slug = $('load_select')?.value;
+    if (!slug) { saveStatus('Pick a configuration to load', 'err'); return; }
+    saveStatus('Loading…');
+    try {
+      const r = await fetch('/api/configs/' + encodeURIComponent(slug), { cache: 'no-store' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const rec = await r.json();
+      applySnapshot(rec.state || {});
+      saveStatus(`Loaded “${rec.versionedName || rec.name || slug}”`, 'ok');
+      if ($('save_name')) $('save_name').value = rec.versionedName || rec.name || '';
+    } catch (e) {
+      saveStatus('Load failed: ' + (e.message || 'unknown'), 'err');
+    }
+  }
+  async function onDelete() {
+    const sel = $('load_select'); const slug = sel?.value;
+    if (!slug) { saveStatus('Pick a configuration to delete', 'err'); return; }
+    const label = sel.options[sel.selectedIndex]?.textContent || slug;
+    if (!confirm('Delete ' + label + ' ?')) return;
+    saveStatus('Deleting…');
+    try {
+      const r = await fetch('/api/configs/' + encodeURIComponent(slug), { method: 'DELETE' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      saveStatus('Deleted.', 'ok');
+      refreshLoadList();
+    } catch (e) {
+      saveStatus('Delete failed: ' + (e.message || 'unknown'), 'err');
+    }
+  }
+  if ($('save_btn')) $('save_btn').addEventListener('click', onSave);
+  if ($('load_btn')) $('load_btn').addEventListener('click', onLoad);
+  if ($('load_delete_btn')) $('load_delete_btn').addEventListener('click', onDelete);
+  // Populate the list on load + seed the Save name field with current project name.
+  refreshLoadList();
+  if ($('save_name') && state.tweaks && state.tweaks.projectName) {
+    $('save_name').value = state.tweaks.projectName;
+  }
 
   // ============== EXPORT ==============
   function setStatus(msg) { const el = $('ex_status'); if (el) el.textContent = msg || ''; }

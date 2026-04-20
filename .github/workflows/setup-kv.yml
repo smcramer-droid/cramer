@@ -1,0 +1,112 @@
+# Creates the POOL_CONFIGS KV namespace (idempotent) and binds it to the
+# pool-design Pages project for both production and preview environments.
+# Runs on workflow_dispatch and on any push that touches this file.
+name: Setup KV
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/setup-kv.yml
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Find or create POOL_CONFIGS namespace
+        id: kv
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -e
+          # Query existing namespaces directly via API (stable JSON, no wrangler prose)
+          LIST_JSON=$(curl -fsSL \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/storage/kv/namespaces?per_page=100")
+          ID=$(node -e "
+            let d=''; process.stdin.on('data',c=>d+=c).on('end',()=>{
+              try {
+                const r = JSON.parse(d);
+                const ns = (r.result || []).find(n => n.title === 'POOL_CONFIGS');
+                if (ns) console.log(ns.id);
+              } catch(e) {}
+            });
+          " <<<"$LIST_JSON")
+          if [ -z "$ID" ]; then
+            echo "Creating POOL_CONFIGS namespace…"
+            CREATE_JSON=$(curl -fsSL -X POST \
+              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+              -H "Content-Type: application/json" \
+              --data '{"title":"POOL_CONFIGS"}' \
+              "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/storage/kv/namespaces")
+            ID=$(node -e "
+              let d=''; process.stdin.on('data',c=>d+=c).on('end',()=>{
+                try { const r=JSON.parse(d); console.log(r.result.id); } catch(e) {}
+              });
+            " <<<"$CREATE_JSON")
+          else
+            echo "POOL_CONFIGS already exists"
+          fi
+          if [ -z "$ID" ]; then
+            echo "Failed to obtain KV namespace ID" >&2
+            exit 1
+          fi
+          echo "namespace id: $ID"
+          echo "id=$ID" >> $GITHUB_OUTPUT
+
+      - name: Bind POOL_CONFIGS to pool-design Pages project
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          KV_ID: ${{ steps.kv.outputs.id }}
+        run: |
+          set -e
+          BODY=$(cat <<EOF
+          {
+            "deployment_configs": {
+              "production": {
+                "kv_namespaces": {
+                  "POOL_CONFIGS": { "namespace_id": "$KV_ID" }
+                }
+              },
+              "preview": {
+                "kv_namespaces": {
+                  "POOL_CONFIGS": { "namespace_id": "$KV_ID" }
+                }
+              }
+            }
+          }
+          EOF
+          )
+          echo "Patching project…"
+          curl -fsSL -X PATCH \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data "$BODY" \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/pool-design" \
+            | node -e "
+              let d=''; process.stdin.on('data',c=>d+=c).on('end',()=>{
+                const r = JSON.parse(d);
+                if (!r.success) { console.error(JSON.stringify(r.errors)); process.exit(1); }
+                console.log('Binding set.');
+              });
+            "
+
+      - name: Trigger redeploy of pool-designer
+        if: success()
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          # A fresh deploy is required to pick up the new binding.
+          npx --yes wrangler@latest pages deploy pool-designer \
+            --project-name=pool-design \
+            --branch=main \
+            --commit-dirty=true
