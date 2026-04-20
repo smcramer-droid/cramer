@@ -1,7 +1,7 @@
 # Deploys the repo root (index.html) to Cloudflare Pages as a production deploy.
-# URL: https://pool-launcher.pages.dev
+# URL: https://pasadena.pages.dev
 # Requires repo secrets: CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID.
-name: Deploy Pool Launcher
+name: Deploy Pasadena Launcher
 
 on:
   push:
@@ -38,7 +38,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          npx --yes wrangler@latest pages project create pool-launcher \
+          npx --yes wrangler@latest pages project create pasadena \
             --production-branch=main || true
 
       - name: Deploy to Cloudflare Pages (production)
@@ -47,6 +47,6 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           npx --yes wrangler@latest pages deploy _site \
-            --project-name=pool-launcher \
+            --project-name=pasadena \
             --branch=main \
             --commit-dirty=true
