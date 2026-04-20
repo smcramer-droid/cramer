@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Proposal — Pasadena Pools</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1b1e24;
+    --ink-2:#3b4048;
+    --mut:#7a818c;
+    --line:#e3e5e9;
+    --line-2:#c9cdd4;
+    --paper:#ffffff;
+    --tint:#f5f7f9;
+    --orange:#EF8A3B;
+    --blue:#2ea3d8;
+    --blue-ink:#0f5a7a;
+    --grad: linear-gradient(135deg,#F5A442 0%,#EF8A3B 18%,#E77440 32%,#6FB5D8 55%,#3a94c4 80%,#1d6f9e 100%);
+    --serif:"Cormorant Garamond", Georgia, serif;
+    --sans:"Inter", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--tint);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased;}
+
+  /* ---------- Toolbar (hidden in print) ---------- */
+  .toolbar{
+    position:sticky;top:0;z-index:20;background:rgba(255,255,255,.88);
+    backdrop-filter:saturate(1.2) blur(8px);
+    border-bottom:1px solid var(--line);
+    padding:10px 22px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;
+  }
+  .toolbar .t-title{font-family:var(--serif);font-size:19px;color:var(--ink);flex:0 0 auto;margin-right:auto;}
+  .toolbar .t-title span{color:var(--mut);font-family:var(--sans);font-size:12px;font-weight:400;margin-left:6px;letter-spacing:0.04em;text-transform:uppercase;}
+  .toolbar a,.toolbar button{
+    font-family:var(--sans);font-size:12px;font-weight:500;letter-spacing:0.02em;
+    padding:7px 12px;border:1px solid var(--line-2);background:var(--paper);color:var(--ink);
+    border-radius:3px;cursor:pointer;text-decoration:none;
+  }
+  .toolbar a:hover,.toolbar button:hover{background:var(--tint)}
+  .toolbar button.primary{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+
+  /* ---------- Paper ---------- */
+  .proposal{
+    max-width:820px;margin:24px auto 80px;background:var(--paper);
+    box-shadow:0 2px 12px rgba(20,30,50,.06), 0 24px 48px rgba(20,30,50,.08);
+    padding:0;
+  }
+  .page{padding:56px 64px;}
+  .page + .page{border-top:1px dashed var(--line)}
+
+  /* ---------- Cover ---------- */
+  .cover{
+    padding:48px 64px 40px;position:relative;
+  }
+  .cover .brand{
+    display:flex;align-items:center;gap:16px;margin-bottom:36px;
+  }
+  .cover .brand img{height:64px;width:auto;display:block}
+  .cover .brand-fallback{display:none}
+  .cover img.logo:not([src]),
+  .cover img.logo[src=""]{display:none}
+  .cover img.logo{display:block}
+  .cover img.logo + .brand-fallback{display:none}
+  .cover .meta{
+    display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;
+    border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+    margin:8px 0 36px;
+  }
+  .cover .meta .m{padding:12px 18px;border-left:1px solid var(--line)}
+  .cover .meta .m:first-child{border-left:none;padding-left:0}
+  .cover .meta .k{font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:var(--mut);font-weight:500}
+  .cover .meta .v,.cover .meta input{
+    font-family:var(--sans);font-size:15px;color:var(--ink);font-weight:500;
+    border:none;outline:none;background:transparent;padding:2px 0;width:100%;
+  }
+  .cover .meta input::placeholder{color:var(--line-2)}
+
+  .cover h1{
+    font-family:var(--serif);font-weight:600;font-size:56px;line-height:1.05;
+    color:var(--ink);margin:0 0 12px;letter-spacing:-0.015em;
+  }
+  .cover .tagline{
+    font-family:var(--serif);font-style:italic;font-size:22px;color:var(--ink-2);
+    margin:0 0 36px;font-weight:500;
+  }
+
+  .cover .customer-block{
+    display:grid;grid-template-columns:max-content 1fr;gap:6px 24px;
+    border-top:1px solid var(--line);padding-top:24px;margin-top:24px;
+  }
+  .cover .customer-block .k{
+    font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:var(--mut);
+    font-weight:500;padding-top:6px;
+  }
+  .cover .customer-block input{
+    font-family:var(--sans);font-size:15px;color:var(--ink);font-weight:400;
+    border:none;outline:none;background:transparent;padding:4px 0;width:100%;
+    border-bottom:1px solid transparent;
+  }
+  .cover .customer-block input:focus{border-bottom-color:var(--line-2)}
+  .cover .customer-block input::placeholder{color:var(--line-2)}
+
+  /* ---------- Hero image slot ---------- */
+  .hero-wrap{
+    margin:32px 0 0;position:relative;border-radius:3px;overflow:hidden;
+    background:var(--tint);min-height:240px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .hero-wrap img{width:100%;height:auto;display:block}
+  .hero-wrap .hero-empty{
+    padding:40px;text-align:center;color:var(--mut);font-size:13px;font-style:italic;
+  }
+  .hero-wrap .hero-empty label{
+    display:inline-block;margin-top:12px;padding:8px 14px;
+    border:1px solid var(--line-2);border-radius:3px;cursor:pointer;background:var(--paper);
+    font-style:normal;color:var(--ink);font-size:12px;font-weight:500;
+  }
+  .hero-wrap input[type=file]{display:none}
+  .hero-wrap .hero-clear{
+    position:absolute;top:8px;right:8px;background:rgba(0,0,0,.55);color:white;
+    border:none;padding:4px 10px;font-size:11px;cursor:pointer;border-radius:2px;
+  }
+
+  /* ---------- Feature sections ---------- */
+  .feature{padding:28px 0;border-top:1px solid var(--line)}
+  .feature:first-child{border-top:none}
+  .feature h2{
+    font-family:var(--serif);font-weight:600;font-size:32px;
+    color:var(--ink);margin:0 0 4px;letter-spacing:-0.01em;
+  }
+  .feature .sub{color:var(--mut);font-size:13px;letter-spacing:0.04em;text-transform:uppercase;margin-bottom:16px;font-weight:500}
+
+  table.specs{width:100%;border-collapse:collapse;margin-top:8px}
+  table.specs td{
+    padding:9px 0;border-bottom:1px dotted var(--line-2);vertical-align:top;
+    font-size:15px;
+  }
+  table.specs td.k{color:var(--ink-2);width:60%}
+  table.specs td.v{color:var(--ink);font-weight:500;text-align:right;font-variant-numeric:tabular-nums}
+  table.specs tr:last-child td{border-bottom:none}
+
+  ul.bullets{list-style:none;padding:0;margin:12px 0 0;}
+  ul.bullets li{
+    padding:8px 0 8px 22px;position:relative;border-bottom:1px dotted var(--line-2);font-size:15px;
+  }
+  ul.bullets li:last-child{border-bottom:none}
+  ul.bullets li::before{
+    content:"";position:absolute;left:4px;top:15px;width:6px;height:6px;
+    background:var(--blue);border-radius:50%;
+  }
+
+  /* ---------- Price ---------- */
+  .total-band{
+    margin-top:36px;padding:32px;border-radius:4px;
+    background: linear-gradient(135deg,#f7f9fb 0%,#eef3f6 100%);
+    border:1px solid var(--line);
+    display:flex;align-items:baseline;gap:24px;flex-wrap:wrap;
+  }
+  .total-band .label{
+    font-family:var(--serif);font-size:26px;color:var(--ink-2);font-weight:500;letter-spacing:-0.01em;
+  }
+  .total-band .amt{
+    font-family:var(--serif);font-size:52px;font-weight:700;color:var(--ink);
+    letter-spacing:-0.02em;line-height:1;margin-left:auto;
+  }
+  .total-band .fine{
+    flex-basis:100%;font-size:12px;color:var(--mut);margin-top:6px;font-style:italic;
+  }
+
+  /* ---------- Inclusions / Exclusions ---------- */
+  .incl,.excl{padding:32px 0;border-top:1px solid var(--line)}
+  .incl h2,.excl h2{
+    font-family:var(--serif);font-weight:600;font-size:24px;color:var(--ink);
+    margin:0 0 10px;letter-spacing:-0.01em;
+  }
+  .incl .intro,.excl .intro{color:var(--ink-2);font-size:14px;margin-bottom:14px}
+
+  .bullet-list{
+    list-style:none;padding:0;margin:0;
+  }
+  .bullet-list li{
+    padding:8px 0 8px 22px;position:relative;font-size:14px;color:var(--ink-2);
+    border-bottom:1px dotted var(--line);display:flex;align-items:flex-start;gap:6px;
+  }
+  .bullet-list li:last-child{border-bottom:none}
+  .bullet-list li::before{
+    content:"";position:absolute;left:4px;top:16px;width:6px;height:6px;
+    border-radius:50%;background:var(--blue);flex:0 0 auto;
+  }
+  .excl .bullet-list li::before{background:var(--orange)}
+  .bullet-list li .txt{
+    flex:1;border:none;background:transparent;outline:none;resize:none;overflow:hidden;
+    font:inherit;color:inherit;padding:0;min-height:1.5em;
+  }
+  .bullet-list li .txt:focus{background:#fffbe6}
+  .bullet-list li .rm{
+    opacity:0;background:transparent;border:none;color:var(--mut);cursor:pointer;
+    font-size:14px;padding:0 6px;transition:opacity .15s;
+  }
+  .bullet-list li:hover .rm,.bullet-list li:focus-within .rm{opacity:1}
+  .bullet-list li .rm:hover{color:#c0392b}
+
+  .add-row{
+    background:transparent;border:1px dashed var(--line-2);color:var(--mut);
+    padding:8px 14px;border-radius:3px;font-size:12px;cursor:pointer;margin-top:10px;
+    font-weight:500;letter-spacing:0.02em;
+  }
+  .add-row:hover{border-color:var(--ink);color:var(--ink)}
+
+  /* ---------- Signature ---------- */
+  .signature{
+    padding:32px 0 0;border-top:1px solid var(--line);margin-top:24px;
+  }
+  .signature h2{
+    font-family:var(--serif);font-weight:600;font-size:20px;color:var(--ink);margin:0 0 16px;
+  }
+  .signature .line{
+    display:grid;grid-template-columns:auto 1fr;gap:8px 14px;margin-bottom:18px;
+    align-items:end;
+  }
+  .signature .line label{font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--mut);font-weight:500}
+  .signature .line .slot{border-bottom:1px solid var(--ink);height:24px}
+
+  /* ---------- Footer ---------- */
+  footer.brand-foot{
+    margin-top:40px;padding:18px 64px 40px;
+    display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;
+    color:var(--mut);font-size:12px;border-top:1px solid var(--line);
+  }
+  footer.brand-foot .left{font-family:var(--serif);font-size:18px;color:var(--ink);font-weight:600}
+  footer.brand-foot .info{text-align:right;line-height:1.5}
+
+  /* ---------- Accent bar (top of paper) ---------- */
+  .accent{height:6px;background:var(--grad)}
+
+  /* ---------- Responsive ---------- */
+  @media (max-width:780px){
+    .proposal{margin:0;box-shadow:none}
+    .page,.cover{padding:28px 22px}
+    .cover h1{font-size:36px}
+    .cover .tagline{font-size:18px}
+    .cover .brand img{height:48px}
+    .cover .meta{grid-template-columns:1fr;border-top:none;margin:0 0 24px}
+    .cover .meta .m{border-left:none;border-bottom:1px solid var(--line);padding:10px 0}
+    .cover .meta .m:last-child{border-bottom:none}
+    .cover .customer-block{grid-template-columns:1fr}
+    .cover .customer-block .k{padding-top:10px}
+    .total-band{padding:20px}
+    .total-band .amt{font-size:36px}
+    .feature h2{font-size:26px}
+    footer.brand-foot{padding:14px 22px;flex-direction:column;align-items:flex-start;text-align:left}
+    footer.brand-foot .info{text-align:left}
+    /* prevent iOS input auto-zoom */
+    input,textarea{font-size:16px !important}
+  }
+
+  /* ---------- Print ---------- */
+  @media print{
+    body{background:white}
+    .toolbar{display:none !important}
+    .proposal{box-shadow:none;margin:0;max-width:100%}
+    .page,.cover{padding:24pt 32pt}
+    .feature,.incl,.excl,.signature{break-inside:avoid}
+    .bullet-list li .rm,.add-row,.hero-wrap .hero-clear,.hero-wrap .hero-empty label{display:none !important}
+    input,textarea{border:none !important}
+  }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="t-title">Proposal <span>customer-facing preview</span></div>
+  <a href="/estimate.html">← estimate</a>
+  <button id="btn_reset">reset</button>
+  <button id="btn_print" class="primary">print / save pdf</button>
+</div>
+
+<div class="proposal" id="proposal">
+  <div class="accent"></div>
+
+  <!-- COVER -->
+  <header class="cover">
+    <div class="brand">
+      <img class="logo" src="pasadena-logo.svg" alt="Pasadena Pools" onerror="this.style.display='none';this.nextElementSibling.style.display='block';"/>
+      <div class="brand-fallback" style="font-family:var(--serif);font-weight:700;font-size:30px;color:var(--ink)">Pasadena Pools</div>
+    </div>
+
+    <div class="meta">
+      <div class="m">
+        <div class="k">Estimate #</div>
+        <input id="est_num" placeholder="2036"/>
+      </div>
+      <div class="m">
+        <div class="k">Date</div>
+        <input id="est_date"/>
+      </div>
+      <div class="m">
+        <div class="k">Expires</div>
+        <input id="est_expires"/>
+      </div>
+    </div>
+
+    <h1 id="project_title">Your new pool.</h1>
+    <div class="tagline" id="project_tag">Custom pool + spa construction by Pasadena Pools.</div>
+
+    <div class="customer-block">
+      <div class="k">Prepared for</div>
+      <input id="cust_name" placeholder="Customer name"/>
+      <div class="k">Address</div>
+      <input id="cust_addr" placeholder="Street, City, State"/>
+      <div class="k">Email / phone</div>
+      <input id="cust_contact" placeholder="email@example.com · (000) 000-0000"/>
+    </div>
+
+    <div class="hero-wrap" id="hero_wrap">
+      <img id="hero_img" style="display:none" alt=""/>
+      <div class="hero-empty" id="hero_empty">
+        Add a project photo so the customer sees what they're getting.
+        <br/><label for="hero_input">+ upload image</label>
+      </div>
+      <input type="file" id="hero_input" accept="image/*"/>
+      <button class="hero-clear" id="hero_clear" style="display:none">remove</button>
+    </div>
+  </header>
+
+  <!-- FEATURES (rendered by JS) -->
+  <div class="page" id="features_page">
+    <div id="features_host"></div>
+
+    <div class="total-band">
+      <div class="label">Total investment</div>
+      <div class="amt" id="total_amt">—</div>
+      <div class="fine">Includes design, permits, engineering, construction, equipment, startup and first fill.</div>
+    </div>
+  </div>
+
+  <!-- INCLUSIONS / EXCLUSIONS / SIGNATURE -->
+  <div class="page">
+    <section class="incl">
+      <h2>What's included</h2>
+      <div class="intro">Contractor agrees to provide the following services and materials as part of the pool construction project.</div>
+      <ul class="bullet-list" id="incl_list"></ul>
+      <button class="add-row" id="incl_add">+ add inclusion</button>
+    </section>
+
+    <section class="excl">
+      <h2>Not included</h2>
+      <div class="intro">The following items are excluded and, if required, will be billed separately or provided by owner.</div>
+      <ul class="bullet-list" id="excl_list"></ul>
+      <button class="add-row" id="excl_add">+ add exclusion</button>
+    </section>
+
+    <section class="signature">
+      <h2>Approval</h2>
+      <div class="line">
+        <label>Accepted on</label><div class="slot"></div>
+      </div>
+      <div class="line">
+        <label>By (printed)</label><div class="slot"></div>
+      </div>
+      <div class="line">
+        <label>Signature</label><div class="slot"></div>
+      </div>
+    </section>
+  </div>
+
+  <footer class="brand-foot">
+    <div class="left">Pasadena Pools</div>
+    <div class="info">
+      (801) 835-6682 · 1881 W. Traverse Pkwy, Suite E336, Lehi, UT 84043
+    </div>
+  </footer>
+</div>
+
+<script src="proposal.js" defer></script>
+</body>
+</html>
