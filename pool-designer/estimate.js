@@ -28,13 +28,13 @@
   // SoCal 2025-ish defaults. Mat = materials landed, Lab = labor (inc crew burden).
   // qtyExpr may reference any var in VARS_LIST.
   const DEFAULT_ITEMS = [
-    { group:'earth',  desc:'Excavation + spoil haul',             qtyExpr:'excCuft',                                  unit:'ft³', mat:2.00,  lab:6.50 },
+    { group:'earth',  desc:'Excavation + spoil haul',             qtyExpr:'excCuft',                                  unit:'ft³', mat:0.75,  lab:0.75 },
     { group:'plumb',  desc:'Pool plumbing lines',                 qtyExpr:'plumbLines',                               unit:'ea',  mat:150,   lab:475  },
     { group:'plumb',  desc:'Trench + pipe to equipment',          qtyExpr:'plumbDist',                                unit:'ft',  mat:7,     lab:11   },
-    { group:'steel',  desc:'Rebar tied (size × spacing adj.)',    qtyExpr:'poolSf * rebarSpMult * rebarSzMult',       unit:'ft²', mat:1.50,  lab:2.00 },
-    { group:'shell',  desc:'Gunite / shotcrete',                  qtyExpr:'plasterSf * 1.15',                         unit:'ft²', mat:12,    lab:10   },
-    { group:'finish', desc:'Waterline tile',                      qtyExpr:'tileLf',                                   unit:'lf',  mat:18,    lab:24   },
-    { group:'finish', desc:'Plaster (tier-adjusted)',             qtyExpr:'plasterSf * plasterTierMult',              unit:'ft²', mat:3.50,  lab:3.00 },
+    { group:'steel',  desc:'Rebar tied (size × spacing adj.)',    qtyExpr:'poolSf * rebarSpMult * rebarSzMult',       unit:'ft²', mat:3,     lab:4    },
+    { group:'shell',  desc:'Gunite / shotcrete',                  qtyExpr:'plasterSf * 1.15',                         unit:'ft²', mat:15,    lab:12   },
+    { group:'finish', desc:'Waterline tile',                      qtyExpr:'tileLf',                                   unit:'lf',  mat:18,    lab:30   },
+    { group:'finish', desc:'Plaster (tier-adjusted)',             qtyExpr:'plasterSf * plasterTierMult',              unit:'ft²', mat:5,     lab:5    },
     { group:'finish', desc:'Coping',                              qtyExpr:'copingLf',                                 unit:'lf',  mat:24,    lab:24   },
     { group:'deck',   desc:'Concrete deck (broomed)',             qtyExpr:'deckSf',                                   unit:'ft²', mat:6,     lab:9    },
     { group:'elec',   desc:'Electrical base (bond/panel/timer)',  qtyExpr:'1',                                        unit:'ls',  mat:0,     lab:4500 },
