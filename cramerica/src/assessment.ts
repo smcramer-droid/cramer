@@ -228,11 +228,31 @@ Now produce the JSON.`;
       "UPDATE profile SET assessment_complete=1, updated_at=datetime('now') WHERE id=1"
     ).run();
     if (profile.chat_id) {
-      const msg = "Program generation hit a snag. I'll use the week-1 default and we'll regenerate next Sunday. Onward.";
+      const lastErr = await env.DB
+        .prepare("SELECT message FROM error_log WHERE source='assessment.finalize' ORDER BY id DESC LIMIT 1")
+        .first<{ message: string }>();
+      const msg = buildSnagMessage(lastErr?.message);
       await sendMessage(env, profile.chat_id, msg);
       await appendMessage(env, "assistant", msg);
     }
   }
+}
+
+function buildSnagMessage(errMsg?: string): string {
+  const body = (errMsg ?? "").toLowerCase();
+  if (body.includes("credit balance") || body.includes("insufficient_quota") || body.includes("billing")) {
+    return "Program generation failed: **Anthropic API credit balance is empty.** Add credits at console.anthropic.com → Plans & Billing, then send /regen.";
+  }
+  if (body.includes("401") || body.includes("invalid api key") || body.includes("authentication")) {
+    return "Program generation failed: **Anthropic API key is invalid.** Run `wrangler secret put ANTHROPIC_API_KEY` locally with a valid key, then send /regen.";
+  }
+  if (body.includes("429") || body.includes("rate") || body.includes("overloaded")) {
+    return "Program generation hit a rate limit. Wait a minute and send /regen.";
+  }
+  if (body.includes("timeout") || body.includes("etimedout")) {
+    return "Program generation timed out. Send /regen to retry.";
+  }
+  return "Program generation hit a snag. Send /regen to retry, or run `npm run status -- --section=errors` locally for details.";
 }
 
 function formatProgramSummary(p: WeeklyProgramOutput): string {
