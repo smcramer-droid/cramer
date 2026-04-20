@@ -582,6 +582,98 @@
     </fieldset>
 
     <fieldset>
+      <legend>Spa / Hot tub</legend>
+      <div class="toggle-row">
+        <span>Include spa</span>
+        <div class="switch" id="spa_toggle"></div>
+      </div>
+      <div id="spa_controls" style="display:none">
+        <div class="row" style="margin-top:6px">
+          <div class="field">
+            <label>Water width</label>
+            <div class="input"><input type="number" id="spa_w" min="2" max="20" step="0.5" value="7"/><span class="u">ft</span></div>
+          </div>
+          <div class="field">
+            <label>Water length</label>
+            <div class="input"><input type="number" id="spa_l" min="2" max="20" step="0.5" value="7"/><span class="u">ft</span></div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label>Deck above water</label>
+            <div class="input"><input type="number" id="spa_deck_rise" min="4" max="18" step="0.5" value="7"/><span class="u">in</span></div>
+          </div>
+          <div class="field">
+            <label>Above pool deck</label>
+            <div class="input"><input type="number" id="spa_elev" min="0" max="48" step="0.5" value="18"/><span class="u">in</span></div>
+          </div>
+        </div>
+        <div style="margin-top:6px; font-family:'Special Elite',monospace; font-size:10px; letter-spacing:1.2px; color:var(--ink-soft); text-transform:uppercase;">Wall thickness</div>
+        <div class="row">
+          <div class="field">
+            <label>Near / Far</label>
+            <div style="display:flex; gap:6px">
+              <div class="input" style="flex:1"><input type="number" id="spa_wall_n" min="12" max="36" step="1" value="12"/><span class="u">in</span></div>
+              <div class="input" style="flex:1"><input type="number" id="spa_wall_f" min="12" max="36" step="1" value="12"/><span class="u">in</span></div>
+            </div>
+          </div>
+          <div class="field">
+            <label>Left / Right</label>
+            <div style="display:flex; gap:6px">
+              <div class="input" style="flex:1"><input type="number" id="spa_wall_l" min="12" max="36" step="1" value="12"/><span class="u">in</span></div>
+              <div class="input" style="flex:1"><input type="number" id="spa_wall_r" min="12" max="36" step="1" value="12"/><span class="u">in</span></div>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:6px; font-family:'Special Elite',monospace; font-size:10px; letter-spacing:1.2px; color:var(--ink-soft); text-transform:uppercase;">Placement (from pool near-left)</div>
+        <div class="row">
+          <div class="field">
+            <label>Offset X</label>
+            <div class="input"><input type="number" id="spa_px" step="0.5" value="8"/><span class="u">ft</span></div>
+          </div>
+          <div class="field">
+            <label>Offset Y</label>
+            <div class="input"><input type="number" id="spa_py" step="0.5" value="-9"/><span class="u">ft</span></div>
+          </div>
+        </div>
+        <div class="field" style="margin-top:4px">
+          <label>Rotation</label>
+          <div class="seg" id="spa_rot_seg">
+            <button data-v="0" class="on">0°</button>
+            <button data-v="90">90°</button>
+            <button data-v="180">180°</button>
+            <button data-v="270">270°</button>
+          </div>
+        </div>
+
+        <!-- Depth grid editor -->
+        <div style="margin-top:10px; font-family:'Special Elite',monospace; font-size:10px; letter-spacing:1.2px; color:var(--ink-soft); text-transform:uppercase;">Cell depths · click or drag to select</div>
+        <svg id="spa_grid" style="width:100%; height:auto; display:block; background:var(--paper-2); border:1.5px solid var(--ink); margin-top:6px; touch-action:none; user-select:none;"></svg>
+        <div class="presets" style="margin-top:6px">
+          <button class="spa-preset" data-d="4">4″</button>
+          <button class="spa-preset" data-d="10">10″</button>
+          <button class="spa-preset" data-d="18">18″</button>
+          <button class="spa-preset" data-d="36">36″</button>
+          <button id="spa_bump_up" title="Raise (shallower)">+6″</button>
+          <button id="spa_bump_down" title="Lower (deeper)">−6″</button>
+        </div>
+        <div style="display:flex; gap:6px; margin-top:6px; align-items:center">
+          <input type="number" id="spa_custom_d" min="0" max="72" step="1" placeholder="custom in"
+            style="flex:1; background:rgba(255,255,255,0.4); border:1.5px solid var(--ink); padding:5px 8px;
+                   font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--ink); outline:none;"/>
+          <button id="spa_apply_custom" style="background:var(--ink); color:var(--paper); border:none; cursor:pointer;
+            font-family:'Special Elite',monospace; font-size:10px; letter-spacing:1px; padding:6px 10px; text-transform:uppercase;">Apply</button>
+        </div>
+        <div class="sec-actions" style="margin-top:6px">
+          <button id="spa_sel_clear">Clear selection</button>
+          <button id="spa_sel_all">Select all</button>
+          <button id="spa_reset">Reset all</button>
+        </div>
+        <div id="spa_status" style="font-family:'Special Elite',monospace; font-size:10px; letter-spacing:1px; color:var(--ink-soft); margin-top:6px; text-transform:uppercase; min-height:12px;"></div>
+      </div>
+    </fieldset>
+
+    <fieldset>
       <legend>Save / Load</legend>
       <div style="display:flex; gap:6px; align-items:center">
         <input type="text" id="save_name" placeholder="Project name"
@@ -637,6 +729,7 @@
       <div class="stat"><span class="k">Perimeter</span><span class="v" id="s_peri">—<small>ft</small></span></div>
       <div class="stat"><span class="k">Volume</span><span class="v" id="s_vol">—<small>gal</small></span></div>
       <div class="stat"><span class="k">Avg. depth</span><span class="v" id="s_avg">—<small>ft</small></span></div>
+      <div class="stat" id="s_spa_row" style="display:none"><span class="k">Spa volume</span><span class="v" id="s_spa">—<small>gal</small></span></div>
     </div>
   </aside>
 
@@ -758,6 +851,21 @@
       startFt: 2,
       endFt: 14,
       side: 'near', // near | far | both
+    },
+    // Spa / hot tub — separate body of water, grid-based depth, placed relative to pool.
+    spa: {
+      on: false,
+      widthFt: 7,                // water-only interior width
+      lengthFt: 7,               // water-only interior length
+      cellSizeIn: 6,             // grid resolution (fixed)
+      // cells[row][col] in inches. row = along length (0..lengthFt*2-1), col = across width
+      cells: [],                 // initialized on enable / on dimension change
+      deckAboveWaterIn: 7,       // spa's own coping rise
+      deckAbovePoolDeckIn: 18,   // raised offset: spa deck this far above pool deck
+      // Wall concrete thickness (inches), per edge
+      wallIn: { near: 12, far: 12, left: 12, right: 12 },
+      // Placement of water rect's near-left corner in pool coords (0,0 at pool near-left).
+      placement: { xFt: 8, yFt: -9, rotationDeg: 0 },
     },
     tweaks: { ...window.TWEAK_DEFAULTS },
   };
@@ -888,6 +996,40 @@
     if (!state.bench.on) return false;
     if (x < state.bench.startFt || x > state.bench.endFt) return false;
     return benchYRanges().some(([a,b]) => y >= a && y <= b);
+  }
+
+  // ============== SPA HELPERS ==============
+  // Ensure the cells array matches the current spa dimensions.
+  function ensureSpaCells(defaultDepth = 36) {
+    const sp = state.spa; if (!sp) return;
+    const cs = sp.cellSizeIn / 12;
+    const rows = Math.max(1, Math.round(sp.lengthFt / cs));
+    const cols = Math.max(1, Math.round(sp.widthFt / cs));
+    if (!Array.isArray(sp.cells)) sp.cells = [];
+    // Resize rows
+    while (sp.cells.length < rows) sp.cells.push(Array(cols).fill(defaultDepth));
+    while (sp.cells.length > rows) sp.cells.pop();
+    // Resize each row's cols, preserving existing depths
+    for (let r = 0; r < rows; r++) {
+      if (!Array.isArray(sp.cells[r])) sp.cells[r] = [];
+      while (sp.cells[r].length < cols) sp.cells[r].push(defaultDepth);
+      while (sp.cells[r].length > cols) sp.cells[r].pop();
+    }
+  }
+  function spaCellCount() {
+    const sp = state.spa; if (!sp || !sp.on) return { rows: 0, cols: 0 };
+    ensureSpaCells();
+    return { rows: sp.cells.length, cols: sp.cells[0] ? sp.cells[0].length : 0 };
+  }
+  // Compute spa water volume in cubic feet from cells.
+  function spaVolumeCuft() {
+    const sp = state.spa; if (!sp || !sp.on) return 0;
+    ensureSpaCells();
+    const cs = sp.cellSizeIn / 12; // ft
+    const cellArea = cs * cs;
+    let vol = 0;
+    for (const row of sp.cells) for (const d of row) vol += (d / 12) * cellArea;
+    return vol;
   }
 
   // volume (gallons) via 2D integration
@@ -1457,6 +1599,65 @@
       });
     }
     // (per-section length dims removed — section dividers + totals cover this)
+
+    // === SPA PASS (plan view) ===
+    // Draws the spa as a rotated group at its placement: outer concrete shell, inner
+    // water rectangle, and the depth grid colored per cell. Walls extend outward from
+    // the water footprint by the user-configured thicknesses.
+    if (state.spa && state.spa.on) {
+      ensureSpaCells();
+      const sp = state.spa;
+      const rot = (sp.placement.rotationDeg | 0) % 360;
+      const cs = sp.cellSizeIn / 12; // ft per cell
+      const originPx = [x0 + sp.placement.xFt * scale, y0 + sp.placement.yFt * widthScale];
+      const waterWpx = sp.lengthFt * scale;       // along pool x
+      const waterHpx = sp.widthFt * widthScale;   // along pool y
+      const wLpx = (sp.wallIn.left || 0) / 12 * scale;
+      const wRpx = (sp.wallIn.right || 0) / 12 * scale;
+      const wNpx = (sp.wallIn.near || 0) / 12 * widthScale;
+      const wFpx = (sp.wallIn.far  || 0) / 12 * widthScale;
+      // Group with rotation around the water center (in pre-rotation local coords)
+      const cxPx = waterWpx / 2, cyPx = waterHpx / 2;
+      const g = el('g', {
+        transform: `translate(${originPx[0].toFixed(2)},${originPx[1].toFixed(2)}) rotate(${rot} ${cxPx.toFixed(2)} ${cyPx.toFixed(2)})`,
+        'data-spa': '1'
+      }, svg);
+      // Outer concrete shell (walls)
+      el('rect', {
+        x: -wLpx, y: -wNpx,
+        width: waterWpx + wLpx + wRpx,
+        height: waterHpx + wNpx + wFpx,
+        fill: 'rgba(148,130,108,0.45)',
+        stroke: 'var(--ink)', 'stroke-width': 1.6,
+      }, g);
+      // Water perimeter outline (between walls and cells)
+      el('rect', {
+        x: 0, y: 0, width: waterWpx, height: waterHpx,
+        fill: 'rgba(255,255,255,0.15)',
+        stroke: 'var(--ink)', 'stroke-width': 1.2,
+      }, g);
+      // Cells (depth-colored grid)
+      const rows = sp.cells.length, cols = sp.cells[0] ? sp.cells[0].length : 0;
+      const cellLenPx = waterWpx / Math.max(1, rows); // rows = along length
+      const cellWidPx = waterHpx / Math.max(1, cols); // cols = across width
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const d = sp.cells[r][c] || 0;
+          el('rect', {
+            x: r * cellLenPx, y: c * cellWidPx,
+            width: cellLenPx, height: cellWidPx,
+            fill: depthColor(d), 'fill-opacity': 0.75,
+            stroke: 'rgba(42,35,28,0.25)', 'stroke-width': 0.3,
+          }, g);
+        }
+      }
+      // SPA label
+      const t = el('text', {
+        x: cxPx, y: cyPx + 5, class:'label', 'text-anchor':'middle',
+        style: 'font-size:12px; letter-spacing:2.5px; font-weight:600;'
+      }, g);
+      t.textContent = 'SPA';
+    }
   }
 
   // ============== CROSS-SECTION (A–A) ==============
@@ -2265,6 +2466,127 @@
         el('path', { d: wobbleClosed(rightCap, 0.3, 921+i*10), fill:'#5a8ea3', 'fill-opacity':0.6, class:'ink', 'stroke-width':1 }, svg);
       });
     }
+
+    // === SPA ON ISO ===
+    // Elevation: spa water surface sits at z = -spaElevFt (negative = above pool water).
+    // Spa deck sits at z = -(spaElevFt + spaDeckAboveWaterIn/12) ~= above everything.
+    // Floor of each cell sits at z = -spaElevFt + cellDepthFt.
+    if (state.spa && state.spa.on) {
+      ensureSpaCells();
+      const sp = state.spa;
+      const rot = ((sp.placement.rotationDeg | 0) % 360) * Math.PI / 180;
+      const cs = sp.cellSizeIn / 12;
+      // Spa deck elevation above the pool water surface (pool deck is at z=0 by convention
+      // in the iso renderer; pool coping-rise was drawn as its own sidewall elsewhere).
+      const spaDeckAbovePoolWaterIn = (+state.copingRiseIn || 0) + (+sp.deckAbovePoolDeckIn || 0);
+      const spaDeckZ = -(spaDeckAbovePoolWaterIn / 12);
+      const spaWaterZ = spaDeckZ + (sp.deckAboveWaterIn / 12); // water sits below spa deck
+      const rows = sp.cells.length, cols = sp.cells[0] ? sp.cells[0].length : 0;
+      if (rows > 0 && cols > 0) {
+        // Rotate spa-local (xs, ys) around the water center then translate by placement.
+        const cxSpa = sp.lengthFt / 2, cySpa = sp.widthFt / 2;
+        const cosR = Math.cos(rot), sinR = Math.sin(rot);
+        const toPool = (xs, ys) => {
+          const dx = xs - cxSpa, dy = ys - cySpa;
+          const rx = dx * cosR - dy * sinR;
+          const ry = dx * sinR + dy * cosR;
+          return [sp.placement.xFt + cxSpa + rx, sp.placement.yFt + cySpa + ry];
+        };
+        const PP = (xs, ys, z) => {
+          const [xp, yp] = toPool(xs, ys);
+          return P(xp, yp, z);
+        };
+        // Outer concrete shell quad at spa deck level (top face)
+        const wL = sp.wallIn.left / 12, wR = sp.wallIn.right / 12;
+        const wN = sp.wallIn.near / 12, wF = sp.wallIn.far  / 12;
+        const outer = [
+          PP(-wL, -wN, spaDeckZ),
+          PP(sp.lengthFt + wR, -wN, spaDeckZ),
+          PP(sp.lengthFt + wR, sp.widthFt + wF, spaDeckZ),
+          PP(-wL, sp.widthFt + wF, spaDeckZ),
+        ];
+        // Outer shell sides (concrete block between spa deck and pool water level)
+        const outerBase = [
+          PP(-wL, -wN, 0),
+          PP(sp.lengthFt + wR, -wN, 0),
+          PP(sp.lengthFt + wR, sp.widthFt + wF, 0),
+          PP(-wL, sp.widthFt + wF, 0),
+        ];
+        // Side walls of the raised concrete block (filled tan; visible faces solid,
+        // back faces dashed per wireframe convention)
+        const drawSide = (a, b, c, d, visible) => {
+          el('path', {
+            d: wobbleClosed([a, b, c, d], 0.3, 1100),
+            fill: '#c9b68a', 'fill-opacity': 0.65,
+            stroke: 'var(--ink)', 'stroke-width': visible ? 1.2 : 1.0,
+            'stroke-dasharray': visible ? null : '4 3',
+          }, svg);
+        };
+        drawSide(outer[0], outer[1], outerBase[1], outerBase[0], false); // back (far in iso? actually y=0 is near — front)
+        drawSide(outer[1], outer[2], outerBase[2], outerBase[1], true);  // right side visible
+        drawSide(outer[2], outer[3], outerBase[3], outerBase[2], true);  // front (near side visible)
+        drawSide(outer[3], outer[0], outerBase[0], outerBase[3], false); // left (back-ish)
+        // Top face (coping / deck)
+        el('path', {
+          d: wobbleClosed(outer, 0.3, 1110),
+          fill: '#c9b68a', 'fill-opacity': 0.85,
+          stroke: 'var(--ink)', 'stroke-width': 1.5,
+        }, svg);
+        // Water surface at spaWaterZ inside the water footprint
+        const waterPoly = [
+          PP(0, 0, spaWaterZ),
+          PP(sp.lengthFt, 0, spaWaterZ),
+          PP(sp.lengthFt, sp.widthFt, spaWaterZ),
+          PP(0, sp.widthFt, spaWaterZ),
+        ];
+        if (state.showWater) {
+          el('path', {
+            d: wobbleClosed(waterPoly, 0.3, 1120),
+            fill: state.tweaks.waterColor, 'fill-opacity': 0.35,
+            stroke: 'var(--ink)', 'stroke-width': 1.2,
+          }, svg);
+        } else {
+          el('path', {
+            d: wobbleClosed(waterPoly, 0.3, 1120),
+            fill: 'none', stroke: 'var(--ink)', 'stroke-width': 1.2,
+          }, svg);
+        }
+        // Cells as depth-colored quads sitting BELOW the water surface at each cell's floor.
+        const quads = [];
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            const d = sp.cells[r][c] || 0;
+            const floorZ = spaWaterZ + d / 12;
+            const xs0 = r * cs, xs1 = (r + 1) * cs;
+            const ys0 = c * cs, ys1 = (c + 1) * cs;
+            const pts = [
+              PP(xs0, ys0, floorZ),
+              PP(xs1, ys0, floorZ),
+              PP(xs1, ys1, floorZ),
+              PP(xs0, ys1, floorZ),
+            ];
+            quads.push({ pts, d, floorZ });
+          }
+        }
+        // Painter's sort by centroid screen-y
+        quads.sort((a, b) => {
+          const ay = (a.pts[0][1] + a.pts[2][1]) / 2;
+          const by = (b.pts[0][1] + b.pts[2][1]) / 2;
+          return ay - by;
+        });
+        quads.forEach(q => {
+          const pathD = `M${q.pts.map(p => p[0].toFixed(2) + ',' + p[1].toFixed(2)).join('L')}Z`;
+          const color = depthColor(q.d);
+          el('path', { d: pathD, fill: color, 'fill-opacity': 0.6, stroke: color, 'stroke-width': 0.3 }, svg);
+        });
+        // SPA label hovering over the top face
+        const [lx, ly] = toPool(cxSpa, cySpa);
+        const [lpx, lpy] = P(lx, ly, spaDeckZ - 0.2);
+        const t = el('text', { x: lpx, y: lpy, 'text-anchor': 'middle', class: 'label',
+          style: 'font-size:12px; letter-spacing:2.5px; font-weight:600;' }, svg);
+        t.textContent = 'SPA';
+      }
+    }
   }
 
   // ============== STATS + TITLE BLOCK ==============
@@ -2274,6 +2596,15 @@
     $('s_peri').innerHTML = `${fmt1(s.peri)}<small>ft</small>`;
     $('s_vol').innerHTML = `${fmtInt(s.gallons)}<small>gal</small>`;
     $('s_avg').innerHTML = `${fmt1(s.avg)}<small>ft</small>`;
+    // Spa stats row
+    const spaRow = $('s_spa_row'), spaVal = $('s_spa');
+    if (state.spa && state.spa.on) {
+      const gal = spaVolumeCuft() * 7.48052;
+      if (spaRow) spaRow.style.display = '';
+      if (spaVal) spaVal.innerHTML = `${fmtInt(gal)}<small>gal</small>`;
+    } else if (spaRow) {
+      spaRow.style.display = 'none';
+    }
     const pname = state.tweaks.projectName || 'Pool A';
     $('tb_title').textContent = `${pname} · ${state.sections.length} sections · ${fmtFt(totalLength())} × ${fmtFt(state.width)}`;
     $('tb_date').textContent = new Date().toLocaleDateString('en-US',{year:'numeric',month:'short',day:'2-digit'}).toUpperCase();
@@ -2918,6 +3249,228 @@
     scheduleRender();
   });
 
+  // ============== SPA WIRING ==============
+  // Selected cells as a Set of "r,c" strings.
+  const spaSel = new Set();
+  function spaStatus(msg) {
+    const e = $('spa_status'); if (e) e.textContent = msg || '';
+  }
+  function syncSpaControls() {
+    const sp = state.spa;
+    if ($('spa_toggle')) $('spa_toggle').classList.toggle('on', !!sp.on);
+    if ($('spa_controls')) $('spa_controls').style.display = sp.on ? '' : 'none';
+    if ($('spa_w')) $('spa_w').value = sp.widthFt;
+    if ($('spa_l')) $('spa_l').value = sp.lengthFt;
+    if ($('spa_deck_rise')) $('spa_deck_rise').value = sp.deckAboveWaterIn;
+    if ($('spa_elev')) $('spa_elev').value = sp.deckAbovePoolDeckIn;
+    if ($('spa_wall_n')) $('spa_wall_n').value = sp.wallIn.near;
+    if ($('spa_wall_f')) $('spa_wall_f').value = sp.wallIn.far;
+    if ($('spa_wall_l')) $('spa_wall_l').value = sp.wallIn.left;
+    if ($('spa_wall_r')) $('spa_wall_r').value = sp.wallIn.right;
+    if ($('spa_px')) $('spa_px').value = sp.placement.xFt;
+    if ($('spa_py')) $('spa_py').value = sp.placement.yFt;
+    document.querySelectorAll('#spa_rot_seg button').forEach(b => {
+      b.classList.toggle('on', +b.dataset.v === (sp.placement.rotationDeg | 0));
+    });
+  }
+  // Render the spa grid editor SVG.
+  function renderSpaGrid() {
+    const svg = $('spa_grid'); if (!svg) return;
+    const sp = state.spa; if (!sp.on) { svg.innerHTML = ''; return; }
+    ensureSpaCells();
+    const rows = sp.cells.length, cols = sp.cells[0].length;
+    // Fit into ~260px wide. Each cell is square at 'cellPx'.
+    const cellPx = Math.max(8, Math.min(20, Math.floor(260 / Math.max(rows, cols))));
+    const w = cols * cellPx, h = rows * cellPx;
+    svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+    svg.setAttribute('width', w);
+    svg.setAttribute('height', h);
+    svg.innerHTML = '';
+    // Draw cells: colored by depth
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const d = sp.cells[r][c] || 0;
+        const rect = document.createElementNS(SVGNS,'rect');
+        rect.setAttribute('x', c * cellPx);
+        rect.setAttribute('y', r * cellPx);
+        rect.setAttribute('width', cellPx);
+        rect.setAttribute('height', cellPx);
+        rect.setAttribute('fill', depthColor(d));
+        rect.setAttribute('fill-opacity', '0.85');
+        rect.setAttribute('stroke', 'rgba(42,35,28,0.45)');
+        rect.setAttribute('stroke-width', '0.5');
+        rect.dataset.r = r; rect.dataset.c = c;
+        if (spaSel.has(r + ',' + c)) {
+          rect.setAttribute('stroke', 'var(--accent)');
+          rect.setAttribute('stroke-width', '2');
+        }
+        // depth label for bigger cells only (avoid clutter)
+        svg.appendChild(rect);
+        if (cellPx >= 16) {
+          const t = document.createElementNS(SVGNS,'text');
+          t.setAttribute('x', c * cellPx + cellPx / 2);
+          t.setAttribute('y', r * cellPx + cellPx / 2 + 3);
+          t.setAttribute('text-anchor', 'middle');
+          t.setAttribute('font-family', 'JetBrains Mono, monospace');
+          t.setAttribute('font-size', '9');
+          t.setAttribute('fill', 'var(--ink)');
+          t.setAttribute('pointer-events', 'none');
+          t.textContent = Math.round(d);
+          svg.appendChild(t);
+        }
+      }
+    }
+  }
+  // Pointer selection: click or drag to select cells.
+  let spaDrag = null;
+  function cellFromEvent(e, svg) {
+    const rect = svg.getBoundingClientRect();
+    const pt = e.touches ? e.touches[0] : e;
+    const vb = (svg.getAttribute('viewBox') || '0 0 0 0').split(/\s+/).map(Number);
+    const vbW = vb[2] || rect.width, vbH = vb[3] || rect.height;
+    const x = ((pt.clientX - rect.left) / rect.width) * vbW;
+    const y = ((pt.clientY - rect.top)  / rect.height) * vbH;
+    const sp = state.spa; const rows = sp.cells.length, cols = sp.cells[0]?.length || 0;
+    if (!rows || !cols) return null;
+    const cellPx = vbW / cols;
+    const c = Math.floor(x / cellPx), r = Math.floor(y / cellPx);
+    if (r < 0 || c < 0 || r >= rows || c >= cols) return null;
+    return { r, c };
+  }
+  function applySelectionRect(a, b) {
+    const r0 = Math.min(a.r, b.r), r1 = Math.max(a.r, b.r);
+    const c0 = Math.min(a.c, b.c), c1 = Math.max(a.c, b.c);
+    spaSel.clear();
+    for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) spaSel.add(r + ',' + c);
+  }
+  function wireSpaGrid() {
+    const svg = $('spa_grid'); if (!svg) return;
+    const start = (e) => {
+      const cell = cellFromEvent(e, svg); if (!cell) return;
+      const additive = e.shiftKey || e.metaKey || e.ctrlKey;
+      spaDrag = { start: cell, additive, prev: new Set(spaSel) };
+      if (!additive) spaSel.clear();
+      spaSel.add(cell.r + ',' + cell.c);
+      renderSpaGrid();
+      e.preventDefault();
+    };
+    const move = (e) => {
+      if (!spaDrag) return;
+      const cell = cellFromEvent(e, svg); if (!cell) return;
+      if (spaDrag.additive) {
+        spaSel.clear();
+        for (const k of spaDrag.prev) spaSel.add(k);
+        // add the rect from start to current
+        const r0 = Math.min(spaDrag.start.r, cell.r), r1 = Math.max(spaDrag.start.r, cell.r);
+        const c0 = Math.min(spaDrag.start.c, cell.c), c1 = Math.max(spaDrag.start.c, cell.c);
+        for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) spaSel.add(r + ',' + c);
+      } else {
+        applySelectionRect(spaDrag.start, cell);
+      }
+      renderSpaGrid();
+      e.preventDefault();
+    };
+    const end = () => { spaDrag = null; };
+    svg.addEventListener('mousedown', start);
+    svg.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', end);
+    svg.addEventListener('touchstart', start, { passive: false });
+    svg.addEventListener('touchmove', move, { passive: false });
+    svg.addEventListener('touchend', end);
+  }
+  function applyDepthToSelection(depthIn) {
+    const sp = state.spa; if (!sp.on) return;
+    ensureSpaCells();
+    if (spaSel.size === 0) { spaStatus('No cells selected'); return; }
+    for (const k of spaSel) {
+      const [r, c] = k.split(',').map(Number);
+      if (sp.cells[r]) sp.cells[r][c] = Math.max(0, Math.min(144, +depthIn || 0));
+    }
+    spaStatus(`Set ${spaSel.size} cell(s) to ${depthIn}″`);
+    renderSpaGrid();
+    scheduleRender();
+  }
+  function bumpSelection(delta) {
+    const sp = state.spa; if (!sp.on) return;
+    ensureSpaCells();
+    if (spaSel.size === 0) { spaStatus('No cells selected'); return; }
+    for (const k of spaSel) {
+      const [r, c] = k.split(',').map(Number);
+      if (sp.cells[r]) sp.cells[r][c] = Math.max(0, Math.min(144, (sp.cells[r][c] || 0) + delta));
+    }
+    spaStatus(`${delta > 0 ? '+' : ''}${delta}″ applied to ${spaSel.size} cell(s)`);
+    renderSpaGrid();
+    scheduleRender();
+  }
+
+  // Spa input events
+  if ($('spa_toggle')) $('spa_toggle').addEventListener('click', () => {
+    state.spa.on = !state.spa.on;
+    if (state.spa.on) ensureSpaCells();
+    spaSel.clear();
+    syncSpaControls();
+    renderSpaGrid();
+    scheduleRender();
+  });
+  const linkSpa = (id, path, parse = v => +v) => {
+    const el = $(id); if (!el) return;
+    el.addEventListener('input', e => {
+      const v = parse(e.target.value);
+      const keys = path.split('.'); let o = state.spa;
+      while (keys.length > 1) o = o[keys.shift()];
+      o[keys[0]] = v;
+      if (path === 'widthFt' || path === 'lengthFt') { ensureSpaCells(); renderSpaGrid(); }
+      scheduleRender();
+    });
+  };
+  linkSpa('spa_w', 'widthFt');
+  linkSpa('spa_l', 'lengthFt');
+  linkSpa('spa_deck_rise', 'deckAboveWaterIn');
+  linkSpa('spa_elev', 'deckAbovePoolDeckIn');
+  linkSpa('spa_wall_n', 'wallIn.near');
+  linkSpa('spa_wall_f', 'wallIn.far');
+  linkSpa('spa_wall_l', 'wallIn.left');
+  linkSpa('spa_wall_r', 'wallIn.right');
+  linkSpa('spa_px', 'placement.xFt');
+  linkSpa('spa_py', 'placement.yFt');
+  document.querySelectorAll('#spa_rot_seg button').forEach(b => {
+    b.addEventListener('click', () => {
+      state.spa.placement.rotationDeg = +b.dataset.v;
+      document.querySelectorAll('#spa_rot_seg button').forEach(x => x.classList.remove('on'));
+      b.classList.add('on');
+      scheduleRender();
+    });
+  });
+  document.querySelectorAll('.spa-preset').forEach(b => {
+    b.addEventListener('click', () => applyDepthToSelection(+b.dataset.d));
+  });
+  if ($('spa_apply_custom')) $('spa_apply_custom').addEventListener('click', () => {
+    const v = +$('spa_custom_d').value; if (!isFinite(v)) return;
+    applyDepthToSelection(v);
+  });
+  if ($('spa_bump_up')) $('spa_bump_up').addEventListener('click', () => bumpSelection(-6));    // shallower
+  if ($('spa_bump_down')) $('spa_bump_down').addEventListener('click', () => bumpSelection(+6)); // deeper
+  if ($('spa_sel_clear')) $('spa_sel_clear').addEventListener('click', () => { spaSel.clear(); renderSpaGrid(); spaStatus(''); });
+  if ($('spa_sel_all')) $('spa_sel_all').addEventListener('click', () => {
+    const sp = state.spa; ensureSpaCells();
+    spaSel.clear();
+    for (let r = 0; r < sp.cells.length; r++) for (let c = 0; c < sp.cells[r].length; c++) spaSel.add(r + ',' + c);
+    renderSpaGrid(); spaStatus(`${spaSel.size} cell(s) selected`);
+  });
+  if ($('spa_reset')) $('spa_reset').addEventListener('click', () => {
+    const sp = state.spa;
+    sp.cells = [];
+    ensureSpaCells(36);
+    spaSel.clear();
+    renderSpaGrid();
+    spaStatus('Reset all cells to 36″');
+    scheduleRender();
+  });
+  // Initial UI sync + grid setup
+  syncSpaControls();
+  wireSpaGrid();
+  renderSpaGrid();
+
   // Section preset buttons
   document.querySelectorAll('#section_presets button').forEach(b => {
     b.addEventListener('click', () => addSectionFromPreset(b.dataset.name));
@@ -3201,6 +3754,7 @@
       desiredLength: state.desiredLength,
       sections: state.sections,
       bench: state.bench,
+      spa: state.spa,
       tweaks: state.tweaks,
     }));
   }
@@ -3213,6 +3767,15 @@
     if (typeof snap.desiredLength === 'number') state.desiredLength = snap.desiredLength;
     if (Array.isArray(snap.sections)) state.sections = JSON.parse(JSON.stringify(snap.sections));
     if (snap.bench && typeof snap.bench === 'object') state.bench = { ...state.bench, ...snap.bench };
+    if (snap.spa && typeof snap.spa === 'object') {
+      // Merge carefully: nested objects (wallIn, placement) should be object-merged too.
+      state.spa = {
+        ...state.spa, ...snap.spa,
+        wallIn: { ...state.spa.wallIn, ...(snap.spa.wallIn || {}) },
+        placement: { ...state.spa.placement, ...(snap.spa.placement || {}) },
+        cells: Array.isArray(snap.spa.cells) ? JSON.parse(JSON.stringify(snap.spa.cells)) : state.spa.cells,
+      };
+    }
     if (snap.tweaks && typeof snap.tweaks === 'object') state.tweaks = { ...state.tweaks, ...snap.tweaks };
     // Sync input fields from new state
     const setVal = (id, v) => { const e = $(id); if (e && v != null) e.value = v; };
@@ -3226,6 +3789,8 @@
     if (typeof renderSectionEditor === 'function') renderSectionEditor();
     if (typeof applyTweaksToUI === 'function') applyTweaksToUI();
     if (typeof syncBenchControls === 'function') syncBenchControls();
+    if (typeof syncSpaControls === 'function') syncSpaControls();
+    if (typeof renderSpaGrid === 'function') renderSpaGrid();
     scheduleRender();
   }
 
@@ -3726,6 +4291,16 @@
         name: s.name, type: s.type, depthIn: s.depthIn,
         length: s.length,
       })),
+      spa: state.spa && state.spa.on ? {
+        widthFt: state.spa.widthFt,
+        lengthFt: state.spa.lengthFt,
+        volumeGal: spaVolumeCuft() * 7.48052,
+        volumeCuft: spaVolumeCuft(),
+        deckAboveWaterIn: state.spa.deckAboveWaterIn,
+        deckAbovePoolDeckIn: state.spa.deckAbovePoolDeckIn,
+        wallIn: { ...state.spa.wallIn },
+        placement: { ...state.spa.placement },
+      } : null,
     };
   }
   if ($('ex_estimate')) $('ex_estimate').addEventListener('click', () => {
