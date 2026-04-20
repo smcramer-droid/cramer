@@ -337,6 +337,18 @@
     padding:4px 9px; color:var(--ink); text-transform:uppercase; line-height:1;
   }
   .view-save:hover{ background:var(--ink); color:var(--paper); }
+  .iso-badge{
+    font-family:"Special Elite",monospace; font-size:10px; letter-spacing:1.2px;
+    color:var(--ink-soft); text-transform:uppercase;
+    padding:2px 6px; border:1.5px dashed var(--ink-soft);
+  }
+  .iso-badge .iso-az, .iso-badge .iso-el{ color:var(--ink); font-family:"JetBrains Mono",monospace; letter-spacing:0; }
+  .iso-reset{
+    background:transparent; border:1.5px solid var(--ink); cursor:pointer;
+    font-family:"Special Elite",monospace; font-size:12px; padding:2px 9px;
+    color:var(--ink); line-height:1;
+  }
+  .iso-reset:hover{ background:var(--ink); color:var(--paper); }
   .view svg{ width:100%; height:auto; display:block; }
   /* Mirror toggle — flip the drawing horizontally but keep text readable. */
   .view svg.mirrored{ transform: scaleX(-1); }
@@ -806,7 +818,8 @@
         <header>
           <h2>Iso</h2>
           <div class="view-actions">
-            <span class="tag">iso 30°</span>
+            <span class="tag iso-badge">drag to orbit · <span class="iso-az">45°</span> / <span class="iso-el">35°</span></span>
+            <button class="iso-reset" title="Reset view">↺</button>
             <button class="view-save" data-svg="svg_iso" data-label="iso" title="Save PNG">↓ PNG</button>
           </div>
         </header>
@@ -858,7 +871,8 @@
         <header>
           <h2>Spa · iso</h2>
           <div class="view-actions">
-            <span class="tag">iso 30°</span>
+            <span class="tag iso-badge">drag to orbit · <span class="iso-az">45°</span> / <span class="iso-el">35°</span></span>
+            <button class="iso-reset" title="Reset view">↺</button>
             <button class="view-save" data-svg="svg_spa_iso" data-label="spa-iso" title="Save PNG">↓ PNG</button>
           </div>
         </header>
@@ -910,7 +924,8 @@
         <header>
           <h2>Site iso</h2>
           <div class="view-actions">
-            <span class="tag">iso 30°</span>
+            <span class="tag iso-badge">drag to orbit · <span class="iso-az">45°</span> / <span class="iso-el">35°</span></span>
+            <button class="iso-reset" title="Reset view">↺</button>
             <button class="view-save" data-svg="svg_site_iso" data-label="site-iso" title="Save PNG">↓ PNG</button>
           </div>
         </header>
@@ -4076,14 +4091,18 @@
     svg.addEventListener('touchend', end);
   })();
 
-  // Drag-to-orbit on any iso SVG. Horizontal drag changes azimuth, vertical drag
-  // changes elevation. Both are clamped to a range that keeps hidden-line
-  // conventions (near wall in front, back wall dashed) stable.
+  // Drag-to-orbit on any iso SVG, plus live badge + reset buttons.
+  function updateIsoBadges() {
+    const az = Math.round(state.isoView.azimuth);
+    const el = Math.round(state.isoView.elevation);
+    document.querySelectorAll('.iso-az').forEach(n => { n.textContent = `${az}°`; });
+    document.querySelectorAll('.iso-el').forEach(n => { n.textContent = `${el}°`; });
+  }
   (function wireIsoOrbit() {
     const ids = ['svg_iso', 'svg_spa_iso', 'svg_site_iso'];
-    let drag = null; // { startX, startY, az0, el0 }
+    let drag = null;
     const AZ_MIN = 15, AZ_MAX = 75, EL_MIN = 15, EL_MAX = 65;
-    const SENSITIVITY = 0.35;  // degrees per pixel
+    const SENSITIVITY = 0.35;
     const start = (e) => {
       const pt = e.touches ? e.touches[0] : e;
       drag = {
@@ -4097,11 +4116,9 @@
       const pt = e.touches ? e.touches[0] : e;
       const dx = pt.clientX - drag.startX;
       const dy = pt.clientY - drag.startY;
-      const az = Math.max(AZ_MIN, Math.min(AZ_MAX, drag.az0 + dx * SENSITIVITY));
-      // Dragging UP should TILT UP (more top-down), so invert dy
-      const el = Math.max(EL_MIN, Math.min(EL_MAX, drag.el0 - dy * SENSITIVITY));
-      state.isoView.azimuth = az;
-      state.isoView.elevation = el;
+      state.isoView.azimuth   = Math.max(AZ_MIN, Math.min(AZ_MAX, drag.az0 + dx * SENSITIVITY));
+      state.isoView.elevation = Math.max(EL_MIN, Math.min(EL_MAX, drag.el0 - dy * SENSITIVITY));
+      updateIsoBadges();
       scheduleRender();
       e.preventDefault();
     };
@@ -4119,6 +4136,16 @@
       end();
     });
     window.addEventListener('touchend', end);
+    // Reset button — any .iso-reset restores the default angle.
+    document.querySelectorAll('.iso-reset').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.isoView.azimuth = 45;
+        state.isoView.elevation = 35;
+        updateIsoBadges();
+        scheduleRender();
+      });
+    });
+    updateIsoBadges();
   })();
 
   // ============== RENDER LOOP ==============
@@ -4908,6 +4935,7 @@
     setVal('project_name', state.tweaks && state.tweaks.projectName);
     if ($('mirror_toggle')) $('mirror_toggle').classList.toggle('on', !!state.mirror);
     if ($('water_toggle')) $('water_toggle').classList.toggle('on', !!state.showWater);
+    if (typeof updateIsoBadges === 'function') updateIsoBadges();
     if (typeof applyMirror === 'function') applyMirror();
     if (typeof renderSectionEditor === 'function') renderSectionEditor();
     if (typeof applyTweaksToUI === 'function') applyTweaksToUI();
