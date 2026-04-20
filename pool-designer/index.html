@@ -304,6 +304,23 @@
   .view h2{ margin:0; font-family:"Caveat",cursive; font-weight:700; font-size:26px; }
   .view .tag{ font-family:"Special Elite",monospace; font-size:10px; letter-spacing:2px; color:var(--ink-soft); text-transform:uppercase; }
   .view-actions{ display:flex; align-items:center; gap:8px; }
+  /* View groups — Pool / Spa / Both (site plan) each get a labeled block */
+  .view-group{
+    display:flex; flex-direction:column; gap:20px;
+    padding-top:12px;
+  }
+  .view-group + .view-group{
+    border-top:2px dashed var(--ink-soft); margin-top:8px; padding-top:20px;
+  }
+  .group-header{
+    font-family:"Special Elite",monospace; font-size:11px; letter-spacing:3px;
+    color:var(--accent); text-transform:uppercase;
+    padding:4px 10px; border:1.5px solid var(--accent);
+    align-self:flex-start; background:rgba(255,255,255,0.35);
+  }
+  /* Site cut line styling */
+  #svg_site_top .cut-line{ stroke:var(--accent); stroke-width:2; stroke-dasharray:6 4; cursor:ns-resize; }
+  #svg_site_top .cut-handle{ fill:var(--accent); stroke:var(--ink); stroke-width:1; cursor:ns-resize; }
   .view-save{
     background:transparent; border:1.5px solid var(--ink); cursor:pointer;
     font-family:"Special Elite",monospace; font-size:10px; letter-spacing:1.2px;
@@ -734,61 +751,158 @@
   </aside>
 
   <main>
-    <div class="titleblock">
-      <div class="t" id="tb_title">Pool A</div>
-      <div class="meta">
-        <span>Sheet <b>01 / 01</b></span>
-        <span>Scale <b id="tb_scale">1:40</b></span>
-        <span>Date <b id="tb_date">—</b></span>
+    <!-- ===== POOL GROUP ===== -->
+    <section class="view-group" id="pool_group">
+      <div class="group-header">Pool</div>
+      <div class="titleblock">
+        <div class="t" id="tb_title">Pool A</div>
+        <div class="meta">
+          <span>Sheet <b>01 / 01</b></span>
+          <span>Scale <b id="tb_scale">1:40</b></span>
+          <span>Date <b id="tb_date">—</b></span>
+        </div>
       </div>
-    </div>
 
-    <div class="view">
-      <header>
-        <h2>Plan · top view</h2>
-        <div class="view-actions">
-          <span class="tag">↑ N</span>
-          <button class="view-save" data-svg="svg_top" data-label="plan" title="Save PNG">↓ PNG</button>
-        </div>
-      </header>
-      <svg id="svg_top" viewBox="0 0 700 440" preserveAspectRatio="xMidYMid meet"></svg>
-      <div class="corner-note">looking down</div>
-    </div>
+      <div class="view">
+        <header>
+          <h2>Plan · top view</h2>
+          <div class="view-actions">
+            <span class="tag">↑ N</span>
+            <button class="view-save" data-svg="svg_top" data-label="plan" title="Save PNG">↓ PNG</button>
+          </div>
+        </header>
+        <svg id="svg_top" viewBox="0 0 700 440" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="corner-note">looking down</div>
+      </div>
 
-    <div class="view">
-      <header>
-        <h2>Iso</h2>
-        <div class="view-actions">
-          <span class="tag">iso 30°</span>
-          <button class="view-save" data-svg="svg_iso" data-label="iso" title="Save PNG">↓ PNG</button>
-        </div>
-      </header>
-      <svg id="svg_iso" viewBox="0 0 700 440" preserveAspectRatio="xMidYMid meet"></svg>
-      <div class="corner-note">3/4 view</div>
-    </div>
+      <div class="view">
+        <header>
+          <h2>Iso</h2>
+          <div class="view-actions">
+            <span class="tag">iso 30°</span>
+            <button class="view-save" data-svg="svg_iso" data-label="iso" title="Save PNG">↓ PNG</button>
+          </div>
+        </header>
+        <svg id="svg_iso" viewBox="0 0 700 440" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="corner-note">3/4 view</div>
+      </div>
 
-    <div class="view big">
-      <header>
-        <h2 id="sec_title">Cross-section A–A</h2>
-        <div class="view-actions">
-          <span class="tag" id="sec_tag">longitudinal</span>
-          <button class="view-save" data-svg="svg_sec" data-label="section-AA" title="Save PNG">↓ PNG</button>
-        </div>
-      </header>
-      <svg id="svg_sec" viewBox="0 0 1200 420" preserveAspectRatio="xMidYMid meet"></svg>
-      <div class="corner-note">not to scale</div>
-    </div>
-    <div class="view big" id="sec2_view" style="display:none">
-      <header>
-        <h2 id="sec2_title">Cross-section B–B</h2>
-        <div class="view-actions">
-          <span class="tag" id="sec2_tag">through deep side</span>
-          <button class="view-save" data-svg="svg_sec_2" data-label="section-BB" title="Save PNG">↓ PNG</button>
-        </div>
-      </header>
-      <svg id="svg_sec_2" viewBox="0 0 1200 420" preserveAspectRatio="xMidYMid meet"></svg>
-      <div class="corner-note">not to scale</div>
-    </div>
+      <div class="view big">
+        <header>
+          <h2 id="sec_title">Cross-section A–A</h2>
+          <div class="view-actions">
+            <span class="tag" id="sec_tag">longitudinal</span>
+            <button class="view-save" data-svg="svg_sec" data-label="section-AA" title="Save PNG">↓ PNG</button>
+          </div>
+        </header>
+        <svg id="svg_sec" viewBox="0 0 1200 420" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="corner-note">not to scale</div>
+      </div>
+      <div class="view big" id="sec2_view" style="display:none">
+        <header>
+          <h2 id="sec2_title">Cross-section B–B</h2>
+          <div class="view-actions">
+            <span class="tag" id="sec2_tag">through deep side</span>
+            <button class="view-save" data-svg="svg_sec_2" data-label="section-BB" title="Save PNG">↓ PNG</button>
+          </div>
+        </header>
+        <svg id="svg_sec_2" viewBox="0 0 1200 420" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="corner-note">not to scale</div>
+      </div>
+    </section>
+
+    <!-- ===== SPA GROUP (hidden when spa off) ===== -->
+    <section class="view-group" id="spa_group" style="display:none">
+      <div class="group-header">Spa</div>
+
+      <div class="view">
+        <header>
+          <h2>Spa · plan</h2>
+          <div class="view-actions">
+            <span class="tag">top-down</span>
+            <button class="view-save" data-svg="svg_spa_top" data-label="spa-plan" title="Save PNG">↓ PNG</button>
+          </div>
+        </header>
+        <svg id="svg_spa_top" viewBox="0 0 500 400" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="corner-note">looking down</div>
+      </div>
+
+      <div class="view">
+        <header>
+          <h2>Spa · iso</h2>
+          <div class="view-actions">
+            <span class="tag">iso 30°</span>
+            <button class="view-save" data-svg="svg_spa_iso" data-label="spa-iso" title="Save PNG">↓ PNG</button>
+          </div>
+        </header>
+        <svg id="svg_spa_iso" viewBox="0 0 500 400" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="corner-note">3/4 view</div>
+      </div>
+
+      <div class="view big">
+        <header>
+          <h2>Spa · cross A–A</h2>
+          <div class="view-actions">
+            <span class="tag">length-wise</span>
+            <button class="view-save" data-svg="svg_spa_sec_a" data-label="spa-sectionAA" title="Save PNG">↓ PNG</button>
+          </div>
+        </header>
+        <svg id="svg_spa_sec_a" viewBox="0 0 900 360" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="corner-note">not to scale</div>
+      </div>
+      <div class="view big">
+        <header>
+          <h2>Spa · cross B–B</h2>
+          <div class="view-actions">
+            <span class="tag">width-wise</span>
+            <button class="view-save" data-svg="svg_spa_sec_b" data-label="spa-sectionBB" title="Save PNG">↓ PNG</button>
+          </div>
+        </header>
+        <svg id="svg_spa_sec_b" viewBox="0 0 900 360" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="corner-note">not to scale</div>
+      </div>
+    </section>
+
+    <!-- ===== BOTH (SITE) GROUP (hidden when spa off) ===== -->
+    <section class="view-group" id="site_group" style="display:none">
+      <div class="group-header">Pool + Spa · site plan</div>
+
+      <div class="view big">
+        <header>
+          <h2>Site plan</h2>
+          <div class="view-actions">
+            <span class="tag">drag the cut line</span>
+            <button class="view-save" data-svg="svg_site_top" data-label="site-plan" title="Save PNG">↓ PNG</button>
+          </div>
+        </header>
+        <svg id="svg_site_top" viewBox="0 0 1000 560" preserveAspectRatio="xMidYMid meet" style="cursor:crosshair"></svg>
+        <div class="corner-note">pool + spa</div>
+      </div>
+
+      <div class="view big">
+        <header>
+          <h2>Site iso</h2>
+          <div class="view-actions">
+            <span class="tag">iso 30°</span>
+            <button class="view-save" data-svg="svg_site_iso" data-label="site-iso" title="Save PNG">↓ PNG</button>
+          </div>
+        </header>
+        <svg id="svg_site_iso" viewBox="0 0 1000 560" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="corner-note">both bodies in 3D</div>
+      </div>
+
+      <div class="view big">
+        <header>
+          <h2>Site cross-section</h2>
+          <div class="view-actions">
+            <span class="tag" id="site_sec_tag">—</span>
+            <button class="view-save" data-svg="svg_site_sec" data-label="site-section" title="Save PNG">↓ PNG</button>
+          </div>
+        </header>
+        <svg id="svg_site_sec" viewBox="0 0 1200 420" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="corner-note">follows the cut line above</div>
+      </div>
+    </section>
   </main>
 </div>
 
@@ -1600,64 +1714,65 @@
     }
     // (per-section length dims removed — section dividers + totals cover this)
 
-    // === SPA PASS (plan view) ===
-    // Draws the spa as a rotated group at its placement: outer concrete shell, inner
-    // water rectangle, and the depth grid colored per cell. Walls extend outward from
-    // the water footprint by the user-configured thicknesses.
-    if (state.spa && state.spa.on) {
-      ensureSpaCells();
-      const sp = state.spa;
-      const rot = (sp.placement.rotationDeg | 0) % 360;
-      const cs = sp.cellSizeIn / 12; // ft per cell
-      const originPx = [x0 + sp.placement.xFt * scale, y0 + sp.placement.yFt * widthScale];
-      const waterWpx = sp.lengthFt * scale;       // along pool x
-      const waterHpx = sp.widthFt * widthScale;   // along pool y
-      const wLpx = (sp.wallIn.left || 0) / 12 * scale;
-      const wRpx = (sp.wallIn.right || 0) / 12 * scale;
-      const wNpx = (sp.wallIn.near || 0) / 12 * widthScale;
-      const wFpx = (sp.wallIn.far  || 0) / 12 * widthScale;
-      // Group with rotation around the water center (in pre-rotation local coords)
-      const cxPx = waterWpx / 2, cyPx = waterHpx / 2;
-      const g = el('g', {
-        transform: `translate(${originPx[0].toFixed(2)},${originPx[1].toFixed(2)}) rotate(${rot} ${cxPx.toFixed(2)} ${cyPx.toFixed(2)})`,
-        'data-spa': '1'
-      }, svg);
-      // Outer concrete shell (walls)
-      el('rect', {
-        x: -wLpx, y: -wNpx,
-        width: waterWpx + wLpx + wRpx,
-        height: waterHpx + wNpx + wFpx,
-        fill: 'rgba(148,130,108,0.45)',
-        stroke: 'var(--ink)', 'stroke-width': 1.6,
-      }, g);
-      // Water perimeter outline (between walls and cells)
-      el('rect', {
-        x: 0, y: 0, width: waterWpx, height: waterHpx,
-        fill: 'rgba(255,255,255,0.15)',
-        stroke: 'var(--ink)', 'stroke-width': 1.2,
-      }, g);
-      // Cells (depth-colored grid)
-      const rows = sp.cells.length, cols = sp.cells[0] ? sp.cells[0].length : 0;
-      const cellLenPx = waterWpx / Math.max(1, rows); // rows = along length
-      const cellWidPx = waterHpx / Math.max(1, cols); // cols = across width
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          const d = sp.cells[r][c] || 0;
-          el('rect', {
-            x: r * cellLenPx, y: c * cellWidPx,
-            width: cellLenPx, height: cellWidPx,
-            fill: depthColor(d), 'fill-opacity': 0.75,
-            stroke: 'rgba(42,35,28,0.25)', 'stroke-width': 0.3,
-          }, g);
-        }
+    // (Spa is drawn in its own group now — not on the Pool plan)
+  }
+
+  // Reusable helper: draw the spa onto any plan-style SVG given an origin and scales.
+  // x0, y0 = pixel position of pool/site coord (0,0). scale = ft→px along x; widthScale = ft→px along y.
+  function drawSpaPlan(svg, x0, y0, scale, widthScale, opts = {}) {
+    if (!state.spa || !state.spa.on) return null;
+    ensureSpaCells();
+    const sp = state.spa;
+    const rot = (sp.placement.rotationDeg | 0) % 360;
+    const originPx = [x0 + sp.placement.xFt * scale, y0 + sp.placement.yFt * widthScale];
+    const waterWpx = sp.lengthFt * scale;       // along-x (pre-rotation)
+    const waterHpx = sp.widthFt * widthScale;   // along-y
+    const wLpx = (sp.wallIn.left || 0) / 12 * scale;
+    const wRpx = (sp.wallIn.right || 0) / 12 * scale;
+    const wNpx = (sp.wallIn.near || 0) / 12 * widthScale;
+    const wFpx = (sp.wallIn.far  || 0) / 12 * widthScale;
+    const cxPx = waterWpx / 2, cyPx = waterHpx / 2;
+    const g = el('g', {
+      transform: `translate(${originPx[0].toFixed(2)},${originPx[1].toFixed(2)}) rotate(${rot} ${cxPx.toFixed(2)} ${cyPx.toFixed(2)})`,
+      'data-spa': '1'
+    }, svg);
+    // Concrete shell
+    el('rect', {
+      x: -wLpx, y: -wNpx,
+      width: waterWpx + wLpx + wRpx,
+      height: waterHpx + wNpx + wFpx,
+      fill: 'rgba(148,130,108,0.45)',
+      stroke: 'var(--ink)', 'stroke-width': 1.6,
+    }, g);
+    // Water perimeter
+    el('rect', {
+      x: 0, y: 0, width: waterWpx, height: waterHpx,
+      fill: 'rgba(255,255,255,0.15)',
+      stroke: 'var(--ink)', 'stroke-width': 1.2,
+    }, g);
+    // Cells
+    const rows = sp.cells.length, cols = sp.cells[0] ? sp.cells[0].length : 0;
+    const cellLenPx = waterWpx / Math.max(1, rows);
+    const cellWidPx = waterHpx / Math.max(1, cols);
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const d = sp.cells[r][c] || 0;
+        el('rect', {
+          x: r * cellLenPx, y: c * cellWidPx,
+          width: cellLenPx, height: cellWidPx,
+          fill: depthColor(d), 'fill-opacity': 0.75,
+          stroke: 'rgba(42,35,28,0.25)', 'stroke-width': 0.3,
+        }, g);
       }
-      // SPA label
+    }
+    if (opts.label !== false) {
       const t = el('text', {
         x: cxPx, y: cyPx + 5, class:'label', 'text-anchor':'middle',
         style: 'font-size:12px; letter-spacing:2.5px; font-weight:600;'
       }, g);
       t.textContent = 'SPA';
     }
+    return { originPx, rot, waterWpx, waterHpx };
   }
 
   // ============== CROSS-SECTION (A–A) ==============
@@ -2467,126 +2582,102 @@
       });
     }
 
-    // === SPA ON ISO ===
-    // Elevation: spa water surface sits at z = -spaElevFt (negative = above pool water).
-    // Spa deck sits at z = -(spaElevFt + spaDeckAboveWaterIn/12) ~= above everything.
-    // Floor of each cell sits at z = -spaElevFt + cellDepthFt.
-    if (state.spa && state.spa.on) {
-      ensureSpaCells();
-      const sp = state.spa;
-      const rot = ((sp.placement.rotationDeg | 0) % 360) * Math.PI / 180;
-      const cs = sp.cellSizeIn / 12;
-      // Spa deck elevation above the pool water surface (pool deck is at z=0 by convention
-      // in the iso renderer; pool coping-rise was drawn as its own sidewall elsewhere).
-      const spaDeckAbovePoolWaterIn = (+state.copingRiseIn || 0) + (+sp.deckAbovePoolDeckIn || 0);
-      const spaDeckZ = -(spaDeckAbovePoolWaterIn / 12);
-      const spaWaterZ = spaDeckZ + (sp.deckAboveWaterIn / 12); // water sits below spa deck
-      const rows = sp.cells.length, cols = sp.cells[0] ? sp.cells[0].length : 0;
-      if (rows > 0 && cols > 0) {
-        // Rotate spa-local (xs, ys) around the water center then translate by placement.
-        const cxSpa = sp.lengthFt / 2, cySpa = sp.widthFt / 2;
-        const cosR = Math.cos(rot), sinR = Math.sin(rot);
-        const toPool = (xs, ys) => {
-          const dx = xs - cxSpa, dy = ys - cySpa;
-          const rx = dx * cosR - dy * sinR;
-          const ry = dx * sinR + dy * cosR;
-          return [sp.placement.xFt + cxSpa + rx, sp.placement.yFt + cySpa + ry];
-        };
-        const PP = (xs, ys, z) => {
-          const [xp, yp] = toPool(xs, ys);
-          return P(xp, yp, z);
-        };
-        // Outer concrete shell quad at spa deck level (top face)
-        const wL = sp.wallIn.left / 12, wR = sp.wallIn.right / 12;
-        const wN = sp.wallIn.near / 12, wF = sp.wallIn.far  / 12;
-        const outer = [
-          PP(-wL, -wN, spaDeckZ),
-          PP(sp.lengthFt + wR, -wN, spaDeckZ),
-          PP(sp.lengthFt + wR, sp.widthFt + wF, spaDeckZ),
-          PP(-wL, sp.widthFt + wF, spaDeckZ),
+    // (Spa is drawn in its own iso now — not on the Pool iso)
+  }
+
+  // Reusable helper: draw the spa in iso 3D onto any SVG using the caller's P() projector.
+  // Uses the SAME x/y coord system as the caller — pool coords for the site view, or
+  // spa-local (shifted to placement = (0,0)) for the spa-only view.
+  function drawSpaIso(svg, P, opts = {}) {
+    if (!state.spa || !state.spa.on) return;
+    ensureSpaCells();
+    const sp = state.spa;
+    const rot = ((sp.placement.rotationDeg | 0) % 360) * Math.PI / 180;
+    const cs = sp.cellSizeIn / 12;
+    // Elevation: spa deck sits `copingRiseIn + deckAbovePoolDeckIn` above pool water.
+    // For the spa-only view, caller passes topRelative=true so we use deckAboveWater only.
+    const topRelative = !!opts.topRelative;
+    const spaDeckZ = topRelative
+      ? -(sp.deckAboveWaterIn / 12)
+      : -(((+state.copingRiseIn || 0) + (+sp.deckAbovePoolDeckIn || 0)) / 12);
+    const spaWaterZ = spaDeckZ + (sp.deckAboveWaterIn / 12);
+    const rows = sp.cells.length, cols = sp.cells[0] ? sp.cells[0].length : 0;
+    if (rows === 0 || cols === 0) return;
+    const cxSpa = sp.lengthFt / 2, cySpa = sp.widthFt / 2;
+    const cosR = Math.cos(rot), sinR = Math.sin(rot);
+    const ox = opts.originXFt != null ? opts.originXFt : sp.placement.xFt;
+    const oy = opts.originYFt != null ? opts.originYFt : sp.placement.yFt;
+    const toWorld = (xs, ys) => {
+      const dx = xs - cxSpa, dy = ys - cySpa;
+      const rx = dx * cosR - dy * sinR;
+      const ry = dx * sinR + dy * cosR;
+      return [ox + cxSpa + rx, oy + cySpa + ry];
+    };
+    const PP = (xs, ys, z) => {
+      const [xp, yp] = toWorld(xs, ys);
+      return P(xp, yp, z);
+    };
+    const wL = sp.wallIn.left / 12, wR = sp.wallIn.right / 12;
+    const wN = sp.wallIn.near / 12, wF = sp.wallIn.far  / 12;
+    // Base z: pool water level (0) for combined view, spa water level (spaWaterZ) for standalone
+    const baseZ = topRelative ? spaWaterZ + 2 : 0; // for standalone, show a short concrete skirt
+    const outer = [
+      PP(-wL, -wN, spaDeckZ),
+      PP(sp.lengthFt + wR, -wN, spaDeckZ),
+      PP(sp.lengthFt + wR, sp.widthFt + wF, spaDeckZ),
+      PP(-wL, sp.widthFt + wF, spaDeckZ),
+    ];
+    const outerBase = [
+      PP(-wL, -wN, baseZ),
+      PP(sp.lengthFt + wR, -wN, baseZ),
+      PP(sp.lengthFt + wR, sp.widthFt + wF, baseZ),
+      PP(-wL, sp.widthFt + wF, baseZ),
+    ];
+    const drawSide = (a, b, c, d, visible) => {
+      el('path', {
+        d: wobbleClosed([a, b, c, d], 0.3, 1100 + (opts.seed || 0)),
+        fill: '#c9b68a', 'fill-opacity': 0.65,
+        stroke: 'var(--ink)', 'stroke-width': visible ? 1.2 : 1.0,
+        'stroke-dasharray': visible ? null : '4 3',
+      }, svg);
+    };
+    drawSide(outer[0], outer[1], outerBase[1], outerBase[0], false);
+    drawSide(outer[1], outer[2], outerBase[2], outerBase[1], true);
+    drawSide(outer[2], outer[3], outerBase[3], outerBase[2], true);
+    drawSide(outer[3], outer[0], outerBase[0], outerBase[3], false);
+    el('path', { d: wobbleClosed(outer, 0.3, 1110 + (opts.seed || 0)),
+      fill: '#c9b68a', 'fill-opacity': 0.85, stroke: 'var(--ink)', 'stroke-width': 1.5 }, svg);
+    const waterPoly = [
+      PP(0, 0, spaWaterZ),
+      PP(sp.lengthFt, 0, spaWaterZ),
+      PP(sp.lengthFt, sp.widthFt, spaWaterZ),
+      PP(0, sp.widthFt, spaWaterZ),
+    ];
+    el('path', { d: wobbleClosed(waterPoly, 0.3, 1120 + (opts.seed || 0)),
+      fill: state.showWater ? state.tweaks.waterColor : 'none',
+      'fill-opacity': state.showWater ? 0.35 : 0,
+      stroke: 'var(--ink)', 'stroke-width': 1.2 }, svg);
+    // Cells
+    const quads = [];
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const d = sp.cells[r][c] || 0;
+        const floorZ = spaWaterZ + d / 12;
+        const xs0 = r * cs, xs1 = (r + 1) * cs;
+        const ys0 = c * cs, ys1 = (c + 1) * cs;
+        const pts = [
+          PP(xs0, ys0, floorZ), PP(xs1, ys0, floorZ),
+          PP(xs1, ys1, floorZ), PP(xs0, ys1, floorZ),
         ];
-        // Outer shell sides (concrete block between spa deck and pool water level)
-        const outerBase = [
-          PP(-wL, -wN, 0),
-          PP(sp.lengthFt + wR, -wN, 0),
-          PP(sp.lengthFt + wR, sp.widthFt + wF, 0),
-          PP(-wL, sp.widthFt + wF, 0),
-        ];
-        // Side walls of the raised concrete block (filled tan; visible faces solid,
-        // back faces dashed per wireframe convention)
-        const drawSide = (a, b, c, d, visible) => {
-          el('path', {
-            d: wobbleClosed([a, b, c, d], 0.3, 1100),
-            fill: '#c9b68a', 'fill-opacity': 0.65,
-            stroke: 'var(--ink)', 'stroke-width': visible ? 1.2 : 1.0,
-            'stroke-dasharray': visible ? null : '4 3',
-          }, svg);
-        };
-        drawSide(outer[0], outer[1], outerBase[1], outerBase[0], false); // back (far in iso? actually y=0 is near — front)
-        drawSide(outer[1], outer[2], outerBase[2], outerBase[1], true);  // right side visible
-        drawSide(outer[2], outer[3], outerBase[3], outerBase[2], true);  // front (near side visible)
-        drawSide(outer[3], outer[0], outerBase[0], outerBase[3], false); // left (back-ish)
-        // Top face (coping / deck)
-        el('path', {
-          d: wobbleClosed(outer, 0.3, 1110),
-          fill: '#c9b68a', 'fill-opacity': 0.85,
-          stroke: 'var(--ink)', 'stroke-width': 1.5,
-        }, svg);
-        // Water surface at spaWaterZ inside the water footprint
-        const waterPoly = [
-          PP(0, 0, spaWaterZ),
-          PP(sp.lengthFt, 0, spaWaterZ),
-          PP(sp.lengthFt, sp.widthFt, spaWaterZ),
-          PP(0, sp.widthFt, spaWaterZ),
-        ];
-        if (state.showWater) {
-          el('path', {
-            d: wobbleClosed(waterPoly, 0.3, 1120),
-            fill: state.tweaks.waterColor, 'fill-opacity': 0.35,
-            stroke: 'var(--ink)', 'stroke-width': 1.2,
-          }, svg);
-        } else {
-          el('path', {
-            d: wobbleClosed(waterPoly, 0.3, 1120),
-            fill: 'none', stroke: 'var(--ink)', 'stroke-width': 1.2,
-          }, svg);
-        }
-        // Cells as depth-colored quads sitting BELOW the water surface at each cell's floor.
-        const quads = [];
-        for (let r = 0; r < rows; r++) {
-          for (let c = 0; c < cols; c++) {
-            const d = sp.cells[r][c] || 0;
-            const floorZ = spaWaterZ + d / 12;
-            const xs0 = r * cs, xs1 = (r + 1) * cs;
-            const ys0 = c * cs, ys1 = (c + 1) * cs;
-            const pts = [
-              PP(xs0, ys0, floorZ),
-              PP(xs1, ys0, floorZ),
-              PP(xs1, ys1, floorZ),
-              PP(xs0, ys1, floorZ),
-            ];
-            quads.push({ pts, d, floorZ });
-          }
-        }
-        // Painter's sort by centroid screen-y
-        quads.sort((a, b) => {
-          const ay = (a.pts[0][1] + a.pts[2][1]) / 2;
-          const by = (b.pts[0][1] + b.pts[2][1]) / 2;
-          return ay - by;
-        });
-        quads.forEach(q => {
-          const pathD = `M${q.pts.map(p => p[0].toFixed(2) + ',' + p[1].toFixed(2)).join('L')}Z`;
-          const color = depthColor(q.d);
-          el('path', { d: pathD, fill: color, 'fill-opacity': 0.6, stroke: color, 'stroke-width': 0.3 }, svg);
-        });
-        // SPA label hovering over the top face
-        const [lx, ly] = toPool(cxSpa, cySpa);
-        const [lpx, lpy] = P(lx, ly, spaDeckZ - 0.2);
-        const t = el('text', { x: lpx, y: lpy, 'text-anchor': 'middle', class: 'label',
-          style: 'font-size:12px; letter-spacing:2.5px; font-weight:600;' }, svg);
-        t.textContent = 'SPA';
+        quads.push({ pts, d });
       }
     }
+    quads.sort((a, b) => ((a.pts[0][1] + a.pts[2][1]) / 2) - ((b.pts[0][1] + b.pts[2][1]) / 2));
+    quads.forEach(q => {
+      const pathD = `M${q.pts.map(p => p[0].toFixed(2) + ',' + p[1].toFixed(2)).join('L')}Z`;
+      const color = depthColor(q.d);
+      el('path', { d: pathD, fill: color, 'fill-opacity': 0.6, stroke: color, 'stroke-width': 0.3 }, svg);
+    });
   }
 
   // ============== STATS + TITLE BLOCK ==============
@@ -3112,6 +3203,444 @@
     scheduleRender();
   }
 
+  // ============== SPA-ONLY + SITE (BOTH) RENDERERS ==============
+  function updateSpaGroupsVisibility() {
+    const on = !!(state.spa && state.spa.on);
+    const spaG = $('spa_group'); if (spaG) spaG.style.display = on ? '' : 'none';
+    const siteG = $('site_group'); if (siteG) siteG.style.display = on ? '' : 'none';
+  }
+
+  // Spa plan (no pool). Uses the spa's own coordinate frame, centered and fit.
+  function renderSpaOwnPlan() {
+    const svg = $('svg_spa_top'); if (!svg) return;
+    clear(svg);
+    if (!state.spa.on) return;
+    const sp = state.spa;
+    ensureSpaCells();
+    const VBW = 500, VBH = 400;
+    const pad = 50;
+    // Footprint including walls
+    const wL = sp.wallIn.left / 12, wR = sp.wallIn.right / 12;
+    const wN = sp.wallIn.near / 12, wF = sp.wallIn.far / 12;
+    const totalLen = sp.lengthFt + wL + wR;
+    const totalWid = sp.widthFt + wN + wF;
+    const scale = Math.min((VBW - pad * 2) / totalLen, (VBH - pad * 2) / totalWid);
+    const drawW = totalLen * scale, drawH = totalWid * scale;
+    const x0 = (VBW - drawW) / 2 + wL * scale;
+    const y0 = (VBH - drawH) / 2 + wN * scale;
+    // Use drawSpaPlan with the spa placed at (0,0) in this frame
+    // We temporarily swap in placement coords via an inline override:
+    const savedPlacement = sp.placement;
+    sp.placement = { xFt: 0, yFt: 0, rotationDeg: 0 };
+    drawSpaPlan(svg, x0, y0, scale, scale, { label: true });
+    sp.placement = savedPlacement;
+    // Dimension lines
+    dimLine(svg, x0, y0 + sp.widthFt * scale, x0 + sp.lengthFt * scale, y0 + sp.widthFt * scale,
+      fmtFt(sp.lengthFt), { offset: 24, side: 1, textOffset: 14 });
+    dimLine(svg, x0 + sp.lengthFt * scale, y0, x0 + sp.lengthFt * scale, y0 + sp.widthFt * scale,
+      fmtFt(sp.widthFt), { offset: 24, side: -1, textOffset: 14, vertical: true });
+    // A–A / B–B cut indicators
+    const midY = y0 + sp.widthFt * scale / 2;
+    const midX = x0 + sp.lengthFt * scale / 2;
+    el('line', { x1: x0 - 10, y1: midY, x2: x0 + sp.lengthFt * scale + 10, y2: midY,
+      class:'ink-soft', 'stroke-dasharray':'6 4', 'stroke-width':0.9 }, svg);
+    const ta1 = el('text', { x: x0 - 14, y: midY + 5, class:'dim-text', 'text-anchor':'end' }, svg); ta1.textContent = 'A';
+    const ta2 = el('text', { x: x0 + sp.lengthFt*scale + 14, y: midY + 5, class:'dim-text', 'text-anchor':'start' }, svg); ta2.textContent = 'A';
+    el('line', { x1: midX, y1: y0 - 10, x2: midX, y2: y0 + sp.widthFt * scale + 10,
+      class:'ink-soft', 'stroke-dasharray':'6 4', 'stroke-width':0.9 }, svg);
+    const tb1 = el('text', { x: midX, y: y0 - 14, class:'dim-text', 'text-anchor':'middle' }, svg); tb1.textContent = 'B';
+    const tb2 = el('text', { x: midX, y: y0 + sp.widthFt*scale + 22, class:'dim-text', 'text-anchor':'middle' }, svg); tb2.textContent = 'B';
+  }
+
+  // Spa iso (spa-only, centered in its own SVG).
+  function renderSpaOwnIso() {
+    const svg = $('svg_spa_iso'); if (!svg) return;
+    clear(svg);
+    if (!state.spa.on) return;
+    const sp = state.spa;
+    ensureSpaCells();
+    const VBW = 500, VBH = 400;
+    const maxD = Math.max(...sp.cells.flat(), 6) / 12;
+    const wL = sp.wallIn.left / 12, wR = sp.wallIn.right / 12;
+    const wN = sp.wallIn.near / 12, wF = sp.wallIn.far / 12;
+    const L = sp.lengthFt + wL + wR;
+    const W = sp.widthFt + wN + wF;
+    // Iso projection 30° axes
+    const angX = 30 * Math.PI / 180, angY = 30 * Math.PI / 180;
+    const project = (x, y, z) => [(x - y) * Math.cos(angX), (x + y) * Math.sin(angX) + z];
+    // Autofit: test corners including the spa deck + a bit of air above
+    const deckH = sp.deckAboveWaterIn / 12 + 0.5;
+    const corners = [];
+    for (const [x,y,z] of [
+      [0,0,-deckH],[L,0,-deckH],[L,W,-deckH],[0,W,-deckH],
+      [0,0,maxD],[L,0,maxD],[L,W,maxD],[0,W,maxD],
+    ]) corners.push(project(x, y, z));
+    const xs = corners.map(c=>c[0]), ys = corners.map(c=>c[1]);
+    const minX = Math.min(...xs), maxX = Math.max(...xs);
+    const minY = Math.min(...ys), maxY = Math.max(...ys);
+    const pad = 50;
+    const scale = Math.min((VBW - pad*2) / (maxX - minX), (VBH - pad*2) / (maxY - minY));
+    const ox = pad - minX * scale;
+    const oy = pad - minY * scale;
+    const P = (x, y, z) => {
+      const [a, b] = project(x, y, z);
+      return [a * scale + ox, b * scale + oy];
+    };
+    drawSpaIso(svg, P, { topRelative: true, originXFt: wL, originYFt: wN, seed: 10 });
+  }
+
+  // Spa cross-section — sampled along a straight cut through its own water footprint.
+  // axis='A' = length-wise (cuts through middle of width), axis='B' = width-wise.
+  function renderSpaOwnSection(axis) {
+    const svgId = axis === 'A' ? 'svg_spa_sec_a' : 'svg_spa_sec_b';
+    const svg = $(svgId); if (!svg) return;
+    clear(svg);
+    if (!state.spa.on) return;
+    const sp = state.spa;
+    ensureSpaCells();
+    const VBW = 900, VBH = 360;
+    const padL = 70, padR = 70, padT = 50, padB = 70;
+    const rows = sp.cells.length, cols = sp.cells[0].length;
+    const cs = sp.cellSizeIn / 12;
+    // For axis A: cut at middle col; walk cells along rows.
+    // For axis B: cut at middle row; walk cells along cols.
+    const isA = axis === 'A';
+    const cutIdx = isA ? Math.floor(cols / 2) : Math.floor(rows / 2);
+    const steps = isA ? rows : cols;
+    const lenFt = isA ? sp.lengthFt : sp.widthFt;
+    const maxD = Math.max(...sp.cells.flat(), 6) / 12;
+    const deckRiseFt = sp.deckAboveWaterIn / 12;
+    const totalH = maxD + deckRiseFt + 0.5;
+    const availW = VBW - padL - padR, availH = VBH - padT - padB;
+    const scale = Math.min(availW / lenFt, availH / totalH);
+    const pxW = lenFt * scale;
+    const x0 = padL + (availW - pxW) / 2;
+    const waterY = padT + deckRiseFt * scale;
+    const deckY = padT;
+    // Deck above water on both sides
+    const wA = (isA ? sp.wallIn.left : sp.wallIn.near) / 12 * scale;
+    const wB = (isA ? sp.wallIn.right : sp.wallIn.far) / 12 * scale;
+    // Ground/deck caps outside the water footprint
+    el('rect', { x: x0 - wA, y: deckY, width: wA, height: waterY - deckY + 10,
+      fill: '#c9b68a', stroke:'var(--ink)', 'stroke-width':1.2 }, svg);
+    el('rect', { x: x0 + pxW, y: deckY, width: wB, height: waterY - deckY + 10,
+      fill: '#c9b68a', stroke:'var(--ink)', 'stroke-width':1.2 }, svg);
+    // Build stepped floor profile from cells along the cut
+    const floorPts = [];
+    for (let i = 0; i < steps; i++) {
+      const d = isA ? sp.cells[i][cutIdx] : sp.cells[cutIdx][i];
+      const dFt = (d || 0) / 12;
+      const xA = x0 + i * cs * scale;
+      const xB = x0 + (i + 1) * cs * scale;
+      floorPts.push([xA, waterY + dFt * scale]);
+      floorPts.push([xB, waterY + dFt * scale]);
+    }
+    // Water fill
+    if (state.showWater && floorPts.length) {
+      const waterPoly = [[x0, waterY], ...floorPts, [x0 + pxW, waterY]];
+      el('path', { d: wobbleClosed(waterPoly, 0.3, 50), fill: state.tweaks.waterColor,
+        'fill-opacity': 0.35, stroke: 'none' }, svg);
+      el('line', { x1: x0, y1: waterY, x2: x0 + pxW, y2: waterY,
+        stroke: state.tweaks.waterColor, 'stroke-width':1.3 }, svg);
+    }
+    // Shell outline
+    const shellPts = [[x0, deckY], [x0, floorPts[0][1]], ...floorPts.slice(1,-1),
+      [x0 + pxW, floorPts[floorPts.length-1][1]], [x0 + pxW, deckY]];
+    el('path', { d: wobble(shellPts, 0.5, 51), class:'ink', 'stroke-width':2, fill:'none' }, svg);
+    // Depth callouts every few cells
+    const callEvery = Math.max(1, Math.floor(steps / 8));
+    for (let i = 0; i < steps; i += callEvery) {
+      const d = isA ? sp.cells[i][cutIdx] : sp.cells[cutIdx][i];
+      const midX = x0 + (i + 0.5) * cs * scale;
+      const fy = waterY + (d/12) * scale;
+      const t = el('text', { x: midX, y: fy + 14, class:'dim-text', 'text-anchor':'middle',
+        style:'font-size:12px' }, svg);
+      t.textContent = `${Math.round(d)}″`;
+    }
+    // Axis title at the bottom
+    const label = axis === 'A' ? 'length-wise cut (middle of width)' : 'width-wise cut (middle of length)';
+    const t = el('text', { x: x0 + pxW/2, y: VBH - 20, class:'label', 'text-anchor':'middle' }, svg);
+    t.textContent = label;
+    // Overall length dim
+    dimLine(svg, x0, waterY + maxD * scale + 30, x0 + pxW, waterY + maxD * scale + 30,
+      fmtFt(lenFt), { offset: 0, side: 1, textOffset: 14 });
+    // Deck-to-water callout
+    dimLine(svg, x0 - 40, deckY, x0 - 40, waterY, `${sp.deckAboveWaterIn}"`,
+      { offset: 0, side: -1, textOffset: -14, vertical: true });
+  }
+
+  // Site plan — pool + spa at their placement, with a draggable cut line.
+  state.siteCut = state.siteCut || { yFt: state.width / 2 };
+  function renderSitePlan() {
+    const svg = $('svg_site_top'); if (!svg) return;
+    clear(svg);
+    if (!state.spa.on) return;
+    const sp = state.spa;
+    ensureSpaCells();
+    const VBW = 1000, VBH = 560;
+    const pad = 70;
+    // Compute site bounds (pool + spa footprint including walls)
+    const L = totalLength();
+    const W = state.width;
+    const wL = sp.wallIn.left / 12, wR = sp.wallIn.right / 12;
+    const wN = sp.wallIn.near / 12, wF = sp.wallIn.far / 12;
+    const spaX0 = sp.placement.xFt - wL, spaX1 = sp.placement.xFt + sp.lengthFt + wR;
+    const spaY0 = sp.placement.yFt - wN, spaY1 = sp.placement.yFt + sp.widthFt + wF;
+    const minX = Math.min(0, spaX0), maxX = Math.max(L, spaX1);
+    const minY = Math.min(0, spaY0), maxY = Math.max(W, spaY1);
+    const spanX = maxX - minX, spanY = maxY - minY;
+    const availW = VBW - pad * 2, availH = VBH - pad * 2 - 30;
+    const scale = Math.min(availW / spanX, availH / spanY);
+    const x0 = pad + (availW - spanX * scale) / 2 - minX * scale;
+    const y0 = pad + (availH - spanY * scale) / 2 - minY * scale;
+    // Draw pool shell
+    const poolX0 = x0 + 0 * scale, poolY0 = y0 + 0 * scale;
+    const poolW_px = L * scale, poolH_px = W * scale;
+    el('rect', { x: poolX0, y: poolY0, width: poolW_px, height: poolH_px,
+      fill: 'rgba(255,255,255,0.18)', stroke:'var(--ink)', 'stroke-width':1.8 }, svg);
+    const poolLabel = el('text', { x: poolX0 + poolW_px / 2, y: poolY0 + poolH_px / 2 + 5,
+      class:'label', 'text-anchor':'middle',
+      style:'font-size:14px; letter-spacing:3px; font-weight:600' }, svg);
+    poolLabel.textContent = 'POOL';
+    // Draw spa using reusable helper
+    drawSpaPlan(svg, x0, y0, scale, scale, { label: true });
+    // Overall site dims
+    dimLine(svg, x0 + minX * scale, y0 + maxY * scale + 14,
+      x0 + maxX * scale, y0 + maxY * scale + 14,
+      `${fmtFt(spanX)} overall`, { offset: 16, side: 1, textOffset: 14 });
+    // Cut line (horizontal, draggable along Y)
+    const cutY = y0 + state.siteCut.yFt * scale;
+    const cutLeft = pad - 10, cutRight = VBW - pad + 10;
+    el('line', { x1: cutLeft, y1: cutY, x2: cutRight, y2: cutY,
+      class:'cut-line' }, svg);
+    el('text', { x: cutLeft - 4, y: cutY + 4, class:'dim-text', 'text-anchor':'end',
+      style:'font-size:12px; fill:var(--accent); font-weight:600' }, svg).textContent = 'C';
+    el('text', { x: cutRight + 4, y: cutY + 4, class:'dim-text', 'text-anchor':'start',
+      style:'font-size:12px; fill:var(--accent); font-weight:600' }, svg).textContent = 'C';
+    // Handle for dragging
+    el('circle', { cx: cutLeft + 12, cy: cutY, r: 6, class:'cut-handle' }, svg);
+    el('circle', { cx: cutRight - 12, cy: cutY, r: 6, class:'cut-handle' }, svg);
+    // Stash the mapping so pointer events can translate px → ft
+    svg._siteMap = { x0, y0, scale, minY, maxY };
+  }
+
+  function renderSiteIso() {
+    const svg = $('svg_site_iso'); if (!svg) return;
+    clear(svg);
+    if (!state.spa.on) return;
+    const sp = state.spa;
+    ensureSpaCells();
+    const VBW = 1000, VBH = 560;
+    const L = totalLength();
+    const W = state.width;
+    const maxD = Math.max(maxDepthIn() / 12, ...sp.cells.flat().map(d => (d||0)/12), 4);
+    // Extended bounds to include spa
+    const wL = sp.wallIn.left / 12, wR = sp.wallIn.right / 12;
+    const wN = sp.wallIn.near / 12, wF = sp.wallIn.far / 12;
+    const spaX0 = sp.placement.xFt - wL, spaX1 = sp.placement.xFt + sp.lengthFt + wR;
+    const spaY0 = sp.placement.yFt - wN, spaY1 = sp.placement.yFt + sp.widthFt + wF;
+    const spaTopZ = -(((+state.copingRiseIn || 0) + (+sp.deckAbovePoolDeckIn || 0)) / 12);
+    const angX = 30 * Math.PI / 180;
+    const project = (x, y, z) => [(x - y) * Math.cos(angX), (x + y) * Math.sin(angX) + z];
+    const corners = [];
+    for (const [x,y,z] of [
+      [0, 0, 0], [L, 0, 0], [L, W, 0], [0, W, 0],
+      [0, 0, maxD], [L, 0, maxD], [L, W, maxD], [0, W, maxD],
+      [spaX0, spaY0, spaTopZ], [spaX1, spaY0, spaTopZ],
+      [spaX1, spaY1, spaTopZ], [spaX0, spaY1, spaTopZ],
+    ]) corners.push(project(x, y, z));
+    const xs = corners.map(c=>c[0]), ys = corners.map(c=>c[1]);
+    const minX = Math.min(...xs), maxX = Math.max(...xs);
+    const minY = Math.min(...ys), maxY = Math.max(...ys);
+    const pad = 50;
+    const scale = Math.min((VBW - pad*2) / (maxX - minX), (VBH - pad*2) / (maxY - minY));
+    const ox = pad - minX * scale;
+    const oy = pad - minY * scale;
+    const P = (x, y, z) => {
+      const [a, b] = project(x, y, z);
+      return [a * scale + ox, b * scale + oy];
+    };
+    // Pool rim
+    const rim = [P(0,0,0), P(L,0,0), P(L,W,0), P(0,W,0)];
+    el('path', { d: wobbleClosed(rim, 0.4, 1201),
+      fill: state.showWater ? state.tweaks.waterColor : 'none',
+      'fill-opacity': state.showWater ? 0.22 : 0, stroke: 'var(--ink)', 'stroke-width': 1.5 }, svg);
+    // Very simple pool box (just an open-top box to give the spa context)
+    // Near wall
+    el('path', { d: wobbleClosed([rim[0], rim[1], P(L, 0, maxD), P(0, 0, maxD)], 0.3, 1202),
+      fill: 'rgba(255,255,255,0.18)', stroke:'var(--ink)', 'stroke-width':1.2 }, svg);
+    // Floor outline (dashed, back)
+    el('path', { d: wobble([rim[2], rim[3]], 0.3, 1203),
+      class:'ink-soft', 'stroke-width':1, 'stroke-dasharray':'4 3' }, svg);
+    // Draw spa on top using helper (uses state.copingRiseIn + deckAbovePoolDeckIn)
+    drawSpaIso(svg, P, { topRelative: false, seed: 50 });
+    // Labels
+    const [plx, ply] = P(L/2, W/2, 0.05);
+    const poolLbl = el('text', { x: plx, y: ply, class:'label', 'text-anchor':'middle',
+      style:'font-size:13px; letter-spacing:3px; font-weight:600' }, svg);
+    poolLbl.textContent = 'POOL';
+  }
+
+  function renderSiteSection() {
+    const svg = $('svg_site_sec'); if (!svg) return;
+    clear(svg);
+    if (!state.spa.on) return;
+    const sp = state.spa;
+    ensureSpaCells();
+    // Cut: horizontal at y = cutY in pool coords
+    const cutY = state.siteCut.yFt;
+    const VBW = 1200, VBH = 420;
+    const padL = 80, padR = 80, padT = 60, padB = 80;
+    const L = totalLength();
+    const W = state.width;
+    // Include spa x range
+    const wL = sp.wallIn.left / 12, wR = sp.wallIn.right / 12;
+    const spaX0 = sp.placement.xFt - wL, spaX1 = sp.placement.xFt + sp.lengthFt + wR;
+    const minX = Math.min(0, spaX0), maxX = Math.max(L, spaX1);
+    const spanX = maxX - minX;
+    const poolCopingFt = (+state.copingRiseIn || 0) / 12;
+    const spaDeckAbovePoolWaterFt = poolCopingFt + (+sp.deckAbovePoolDeckIn || 0) / 12;
+    const maxD = Math.max(maxDepthIn() / 12, ...sp.cells.flat().map(d => (d||0)/12), 2);
+    // Vertical extent from top (spa deck) to bottom (deepest point + margin)
+    const topY = -Math.max(poolCopingFt, spaDeckAbovePoolWaterFt);
+    const totalH = maxD - topY + 1;
+    const availW = VBW - padL - padR, availH = VBH - padT - padB;
+    const scale = Math.min(availW / spanX, availH / totalH);
+    const pxW = spanX * scale;
+    const xStart = padL + (availW - pxW) / 2 - minX * scale;
+    const zToY = (zFt) => padT + (zFt - topY) * scale; // y-pixel for a given vertical ft (0 = pool water surface)
+    const waterY = zToY(0);
+    // Pool coping baseline
+    const deckY = zToY(-poolCopingFt);
+    // Determine what's on the cut
+    const cutInPool = cutY >= 0 && cutY <= W;
+    const cutInSpa = (() => {
+      // Quick check: cut y in spa's water band (ignore rotation for now in cut)
+      return cutY >= sp.placement.yFt - wL && cutY <= sp.placement.yFt + sp.widthFt + wR;
+    })();
+    // Sky/ground above pool deck
+    el('line', { x1: padL, y1: deckY, x2: VBW - padR, y2: deckY,
+      class:'ink', 'stroke-width':1.2 }, svg);
+    // Pool segment rendering at cutY
+    if (cutInPool) {
+      const x0 = xStart + 0;
+      const poolWpx = L * scale;
+      // Sample pool floor at cutY
+      const samples = 80;
+      const floorPts = [];
+      for (let i = 0; i <= samples; i++) {
+        const xFt = (L * i) / samples;
+        const d = depthAtX(xFt, cutY);
+        floorPts.push([x0 + xFt * scale, waterY + d * scale]);
+      }
+      if (state.showWater) {
+        const waterPoly = [[x0, waterY], ...floorPts, [x0 + poolWpx, waterY]];
+        el('path', { d: wobbleClosed(waterPoly, 0.3, 60), fill: state.tweaks.waterColor,
+          'fill-opacity': 0.3, stroke:'none' }, svg);
+        el('line', { x1: x0, y1: waterY, x2: x0 + poolWpx, y2: waterY,
+          stroke: state.tweaks.waterColor, 'stroke-width': 1.2 }, svg);
+      }
+      // Shell
+      const shellPts = [[x0, deckY], [x0, floorPts[0][1]], ...floorPts.slice(1,-1),
+        [x0 + poolWpx, floorPts[floorPts.length-1][1]], [x0 + poolWpx, deckY]];
+      el('path', { d: wobble(shellPts, 0.5, 61), class:'ink', 'stroke-width':2, fill:'none' }, svg);
+      const lb = el('text', { x: x0 + poolWpx/2, y: deckY - 10, class:'label', 'text-anchor':'middle',
+        style:'font-size:12px; letter-spacing:2px; font-weight:600' }, svg);
+      lb.textContent = 'POOL';
+    }
+    // Spa segment — only if cut is in spa's y-band
+    if (cutInSpa) {
+      // Spa deck top
+      const spaDeckY = zToY(-spaDeckAbovePoolWaterFt);
+      const spaWaterY = zToY(-(spaDeckAbovePoolWaterFt - sp.deckAboveWaterIn/12));
+      const spaX0Px = xStart + spaX0 * scale;
+      const spaX1Px = xStart + spaX1 * scale;
+      const spaInnerX0 = xStart + sp.placement.xFt * scale;
+      const spaInnerX1 = xStart + (sp.placement.xFt + sp.lengthFt) * scale;
+      // Sample spa floor along the cut (find which col corresponds to cutY)
+      const cs = sp.cellSizeIn / 12;
+      const colIdx = Math.max(0, Math.min(sp.cells[0].length - 1,
+        Math.floor((cutY - sp.placement.yFt) / cs)));
+      const rows = sp.cells.length;
+      const floorPts = [];
+      for (let i = 0; i < rows; i++) {
+        const d = sp.cells[i][colIdx] || 0;
+        const xA = spaInnerX0 + i * cs * scale;
+        const xB = spaInnerX0 + (i + 1) * cs * scale;
+        floorPts.push([xA, spaWaterY + (d/12) * scale]);
+        floorPts.push([xB, spaWaterY + (d/12) * scale]);
+      }
+      // Outer concrete block side view
+      el('rect', { x: spaX0Px, y: spaDeckY, width: spaX1Px - spaX0Px, height: waterY - spaDeckY,
+        fill: '#c9b68a', 'fill-opacity': 0.85, stroke:'var(--ink)', 'stroke-width':1.5 }, svg);
+      // Spa water
+      if (state.showWater && floorPts.length) {
+        const waterPoly = [[spaInnerX0, spaWaterY], ...floorPts, [spaInnerX1, spaWaterY]];
+        el('path', { d: wobbleClosed(waterPoly, 0.3, 62), fill: state.tweaks.waterColor,
+          'fill-opacity': 0.35, stroke:'none' }, svg);
+        el('line', { x1: spaInnerX0, y1: spaWaterY, x2: spaInnerX1, y2: spaWaterY,
+          stroke: state.tweaks.waterColor, 'stroke-width': 1.2 }, svg);
+      }
+      // Spa floor outline (stepped)
+      const floorPath = [[spaInnerX0, floorPts[0][1]], ...floorPts.slice(1,-1),
+        [spaInnerX1, floorPts[floorPts.length-1][1]]];
+      el('path', { d: wobble(floorPath, 0.4, 63), class:'ink', 'stroke-width':1.5, fill:'none' }, svg);
+      const lb = el('text', { x: (spaX0Px + spaX1Px)/2, y: spaDeckY - 6, class:'label', 'text-anchor':'middle',
+        style:'font-size:12px; letter-spacing:2px; font-weight:600' }, svg);
+      lb.textContent = 'SPA';
+    }
+    // Cut annotation
+    const tag = $('site_sec_tag');
+    if (tag) {
+      tag.textContent = `C–C at y = ${fmt1(cutY)}'  ·  ${cutInPool && cutInSpa ? 'pool + spa' : cutInPool ? 'pool only' : cutInSpa ? 'spa only' : 'no overlap'}`;
+    }
+    if (!cutInPool && !cutInSpa) {
+      const t = el('text', { x: VBW/2, y: VBH/2, class:'label', 'text-anchor':'middle',
+        style:'font-size:14px; fill:var(--ink-soft); letter-spacing:2px' }, svg);
+      t.textContent = 'cut line does not pass through either body';
+    }
+    // C–C endpoint labels
+    el('text', { x: padL - 30, y: deckY + 4, class:'dim-text' }, svg).textContent = 'C';
+    el('text', { x: VBW - padR + 20, y: deckY + 4, class:'dim-text' }, svg).textContent = 'C';
+  }
+
+  // Drag handling for the site plan's cut line
+  (function wireSiteCutDrag() {
+    const svg = $('svg_site_top'); if (!svg) return;
+    let dragging = false;
+    const toFt = (clientY) => {
+      const map = svg._siteMap; if (!map) return null;
+      const rect = svg.getBoundingClientRect();
+      const vb = (svg.getAttribute('viewBox') || '0 0 0 0').split(/\s+/).map(Number);
+      const vbH = vb[3] || rect.height;
+      const y = ((clientY - rect.top) / rect.height) * vbH;
+      return (y - map.y0) / map.scale;
+    };
+    const start = (e) => {
+      const pt = e.touches ? e.touches[0] : e;
+      const ft = toFt(pt.clientY); if (ft == null) return;
+      dragging = true;
+      state.siteCut.yFt = ft;
+      scheduleRender();
+      e.preventDefault();
+    };
+    const move = (e) => {
+      if (!dragging) return;
+      const pt = e.touches ? e.touches[0] : e;
+      const ft = toFt(pt.clientY); if (ft == null) return;
+      state.siteCut.yFt = ft;
+      scheduleRender();
+      e.preventDefault();
+    };
+    const end = () => { dragging = false; };
+    svg.addEventListener('mousedown', start);
+    svg.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', end);
+    svg.addEventListener('touchstart', start, { passive: false });
+    svg.addEventListener('touchmove', move, { passive: false });
+    svg.addEventListener('touchend', end);
+  })();
+
   // ============== RENDER LOOP ==============
   let raf = 0;
   function scheduleRender() {
@@ -3122,6 +3651,17 @@
       try { renderIso(); } catch (e) { console.error('renderIso failed:', e); }
       try { renderSectionAll(); } catch (e) { console.error('renderSection failed:', e); }
       try { renderStats(); } catch (e) { console.error('renderStats failed:', e); }
+      // Spa-only + Site (both) groups — only when the spa is enabled
+      try { updateSpaGroupsVisibility(); } catch (e) { console.error('spa groups vis failed:', e); }
+      if (state.spa && state.spa.on) {
+        try { renderSpaOwnPlan(); } catch (e) { console.error('renderSpaOwnPlan failed:', e); }
+        try { renderSpaOwnIso(); } catch (e) { console.error('renderSpaOwnIso failed:', e); }
+        try { renderSpaOwnSection('A'); } catch (e) { console.error('renderSpaOwnSection A failed:', e); }
+        try { renderSpaOwnSection('B'); } catch (e) { console.error('renderSpaOwnSection B failed:', e); }
+        try { renderSitePlan(); } catch (e) { console.error('renderSitePlan failed:', e); }
+        try { renderSiteIso(); } catch (e) { console.error('renderSiteIso failed:', e); }
+        try { renderSiteSection(); } catch (e) { console.error('renderSiteSection failed:', e); }
+      }
     };
     // use setTimeout — rAF is throttled when iframe not focused
     raf = setTimeout(run, 16);
