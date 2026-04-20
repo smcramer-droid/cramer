@@ -5,6 +5,15 @@
 
 set -euo pipefail
 
+on_error() {
+  local exit_code=$?
+  local line=$1
+  printf '\n\033[1;31m✖ setup.sh exited with code %s at line %s\033[0m\n' "$exit_code" "$line" >&2
+  printf '  Re-run `npm run setup` — the script is idempotent.\n' >&2
+  exit "$exit_code"
+}
+trap 'on_error $LINENO' ERR
+
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 ROOT_DIR="$( cd "$SCRIPT_DIR/.." && pwd )"
 cd "$ROOT_DIR"
@@ -69,7 +78,9 @@ fi
 # ---------- migrations ----------
 
 sep "Applying D1 migrations"
-yes | npx --no-install wrangler d1 migrations apply cramerica --remote
+# Closing stdin makes wrangler detect non-interactive mode and auto-confirm.
+# (yes | ... would work but trips set -o pipefail on SIGPIPE.)
+npx --no-install wrangler d1 migrations apply cramerica --remote < /dev/null
 
 # ---------- deploy ----------
 
