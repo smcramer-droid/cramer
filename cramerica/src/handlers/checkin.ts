@@ -1,5 +1,6 @@
 import { sendFirstQuestion } from "../assessment";
 import { checkinKeyboard } from "../buttons";
+import { sendStatsPack } from "../charts";
 import { chat } from "../claude";
 import {
   appendMessage,
@@ -71,4 +72,9 @@ export async function fireCheckin(env: Env, slot: Slot, date: string, weekStart:
   const reply = await chat(env, { system, messages, maxTokens: slot === "sunday_retro" ? 1400 : 900 });
   await sendMessage(env, profile.chat_id, reply, { reply_markup: checkinKeyboard(slot) });
   await appendMessage(env, "assistant", reply, slot);
+
+  // Sunday retro: follow up with the weekly chart pack.
+  if (slot === "sunday_retro") {
+    await sendStatsPack(env, profile.chat_id, profile).catch((e) => console.error("chart pack error", e));
+  }
 }

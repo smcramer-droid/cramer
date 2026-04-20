@@ -101,6 +101,23 @@ wrangler d1 execute cramerica --remote \
   --command="UPDATE profile SET protein_goal_g=210 WHERE id=1"
 ```
 
+## Commands
+
+- `/stats` (or `/charts`) — sends the current chart pack: daily-targets
+  adherence (7 days), protein + calories (7 days), weight trend (28 days),
+  strength sessions closed (6 weeks).
+
+## Meal photos
+
+Send the bot a photo of a meal (optionally with a caption for context).
+Claude vision estimates calories + protein and logs it to `daily_log`. If
+the photo is unclear (portion size, hidden components), the bot asks ONE
+clarifying question — your next text reply resolves it and logs.
+
+Correction flow: after a photo is logged, just reply with the fix
+("actually that was 8oz chicken not 6") — the normal text parser picks up
+numeric corrections for calories/protein.
+
 ## Feature map (shipped)
 
 - **Week-1 intake** — first morning check-in runs a 10-question conversational
@@ -122,6 +139,15 @@ wrangler d1 execute cramerica --remote \
 
 ## Roadmap (post-MVP)
 
-- Photo intake for meal logging (Claude vision → protein estimate).
-- Weekly trend chart (weight + adherence) posted with Sunday retro.
 - `/retro` manual command to re-open last Sunday's reflection.
+- Self-hosted chart rendering (replace QuickChart with a Worker-native
+  SVG → PNG path) if the external dependency becomes an issue.
+- Trend deltas surfaced inline during weekday check-ins (e.g., "protein
+  trending +18g vs. last week").
+
+## Third-party note: charts
+
+`src/charts.ts` builds chart images via **QuickChart.io**. Only numeric
+values leave Cloudflare — no names or identifiers. If you'd rather keep
+everything in-house, swap the `qcUrl` builder for a Worker endpoint that
+renders SVG → PNG (e.g., using `@resvg/resvg-wasm`).

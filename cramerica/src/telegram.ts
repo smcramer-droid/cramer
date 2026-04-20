@@ -8,12 +8,21 @@ export interface TgUpdate {
   edited_message?: TgMessage;
   callback_query?: TgCallbackQuery;
 }
+export interface TgPhotoSize {
+  file_id: string;
+  file_unique_id: string;
+  width: number;
+  height: number;
+  file_size?: number;
+}
 export interface TgMessage {
   message_id: number;
   from?: { id: number; first_name?: string; username?: string };
   chat: { id: number; type: string };
   date: number;
   text?: string;
+  caption?: string;
+  photo?: TgPhotoSize[];
 }
 export interface TgCallbackQuery {
   id: string;
@@ -74,6 +83,51 @@ export async function answerCallbackQuery(
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ callback_query_id: callbackId, text, show_alert: false }),
   }).catch(() => {});
+}
+
+export async function sendPhoto(
+  env: Env,
+  chatId: number,
+  photoUrl: string,
+  caption?: string
+): Promise<void> {
+  const res = await fetch(`${API(env.TELEGRAM_BOT_TOKEN)}/sendPhoto`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      chat_id: chatId,
+      photo: photoUrl,
+      caption,
+      parse_mode: "Markdown",
+    }),
+  });
+  if (!res.ok) {
+    console.error("telegram sendPhoto failed", res.status, await res.text());
+  }
+}
+
+export async function fetchPhotoBytes(env: Env, fileId: string): Promise<{ bytes: ArrayBuffer; mime: string } | null> {
+  const gf = await fetch(`${API(env.TELEGRAM_BOT_TOKEN)}/getFile`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ file_id: fileId }),
+  });
+  if (!gf.ok) {
+    console.error("getFile failed", gf.status, await gf.text());
+    return null;
+  }
+  const j = await gf.json<{ ok: boolean; result?: { file_path?: string } }>();
+  const path = j.result?.file_path;
+  if (!path) return null;
+  const dl = await fetch(`https://api.telegram.org/file/bot${env.TELEGRAM_BOT_TOKEN}/${path}`);
+  if (!dl.ok) {
+    console.error("file download failed", dl.status);
+    return null;
+  }
+  const bytes = await dl.arrayBuffer();
+  // Telegram photos are JPEG. If extension suggests PNG, honor it.
+  const mime = path.toLowerCase().endsWith(".png") ? "image/png" : "image/jpeg";
+  return { bytes, mime };
 }
 
 export async function editReplyMarkup(

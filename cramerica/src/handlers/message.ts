@@ -1,5 +1,5 @@
 import { handleAssessmentReply } from "../assessment";
-import { checkinKeyboard } from "../buttons";
+import { sendStatsPack } from "../charts";
 import { chat } from "../claude";
 import {
   appendMessage,
@@ -17,6 +17,7 @@ import {
   setChatId,
   setWeight,
 } from "../db";
+import { handlePendingClarification, handlePhoto } from "../meal";
 import { pickRoutineForDate } from "../pliability";
 import { buildSystemPrompt } from "../prompts/system";
 import { sendChatAction, sendMessage, type TgMessage } from "../telegram";
@@ -114,15 +115,39 @@ async function parseAndLog(env: Env, text: string, date: string, weekStart: stri
 }
 
 export async function handleIncoming(env: Env, msg: TgMessage): Promise<void> {
-  if (!msg.text) return;
-  const text = msg.text.trim();
-  if (!text) return;
-
-  // Auto-capture chat ID on first message.
+  // Auto-capture chat ID on first message (text, photo, or otherwise).
   const profile0 = await getProfile(env);
   if (!profile0.chat_id) {
     await setChatId(env, msg.chat.id);
   }
+
+  const now = etNow();
+
+  // Photo message → meal vision path. Works whether or not assessment is done.
+  if (msg.photo && msg.photo.length > 0) {
+    await handlePhoto(env, msg, now.date);
+    return;
+  }
+
+  if (!msg.text) return;
+  const text = msg.text.trim();
+  if (!text) return;
+
+  // /stats — send the chart pack on demand.
+  if (text.toLowerCase() === "/stats" || text.toLowerCase() === "/charts") {
+    const profile = await getProfile(env);
+    if (profile.chat_id) {
+      const sent = await sendStatsPack(env, profile.chat_id, profile);
+      if (sent === 0) {
+        await sendMessage(env, profile.chat_id, "Not enough data for charts yet. Keep logging.");
+      }
+    }
+    return;
+  }
+
+  // Pending meal clarification? Resolve before anything else.
+  const pendingResolved = await handlePendingClarification(env, text, msg.chat.id, now.date);
+  if (pendingResolved) return;
 
   // Week-1 intake: route through the assessment flow until it's done.
   if (!profile0.assessment_complete) {
@@ -130,7 +155,6 @@ export async function handleIncoming(env: Env, msg: TgMessage): Promise<void> {
     if (consumed) return;
   }
 
-  const now = etNow();
   await ensureWeekSessions(env, now.weekStart);
 
   const logged = await parseAndLog(env, text, now.date, now.weekStart);
