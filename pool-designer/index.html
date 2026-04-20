@@ -1288,6 +1288,23 @@
     return `hsl(${hue}, ${sat}%, ${light}%)`;
   }
 
+  // Generalized axonometric projection. Uses state.isoView { azimuth, elevation }
+  // (in degrees). Returned function maps a 3D pool/spa/site coordinate
+  // (x along-length, y across-width, z depth = +downward) to a 2D [X, Y] screen
+  // vector prior to autofit scaling.
+  function makeIsoProject() {
+    const az = ((state.isoView && state.isoView.azimuth) || 45) * Math.PI / 180;
+    const el = ((state.isoView && state.isoView.elevation) || 35) * Math.PI / 180;
+    const cosA = Math.cos(az), sinA = Math.sin(az);
+    const cosE = Math.cos(el), sinE = Math.sin(el);
+    return (x, y, z) => {
+      // Rotate around z-axis by azimuth, then tilt by elevation.
+      const xr = x * cosA - y * sinA;
+      const yr = x * sinA + y * cosA;
+      return [xr, yr * sinE + z * cosE];
+    };
+  }
+
   // ============== TOP VIEW ==============
   function renderTop() {
     const svg = $('svg_top');
@@ -2281,15 +2298,8 @@
     if (L <= 0) return;
     const maxD = maxDepthIn() / 12;
 
-    // isometric projection: axes at 30° from horizontal
-    const angX = 30 * Math.PI / 180;  // along length
-    const angY = 30 * Math.PI / 180;  // along width (depth into page)
-    const project = (x, y, z) => {
-      // x: length (0..L), y: width (0..W), z: down (+ goes down)
-      const px = (x - y) * Math.cos(angX);
-      const py = (x + y) * Math.sin(angX) + z;
-      return [px, py];
-    };
+    // Generalized axonometric: azimuth + elevation from state.isoView (drag to orbit).
+    const project = makeIsoProject();
 
     // Autofit
     const corners = [];
@@ -3536,9 +3546,8 @@
     const wN = sp.wallIn.near / 12, wF = sp.wallIn.far / 12;
     const L = sp.lengthFt + wL + wR;
     const W = sp.widthFt + wN + wF;
-    // Iso projection 30° axes
-    const angX = 30 * Math.PI / 180, angY = 30 * Math.PI / 180;
-    const project = (x, y, z) => [(x - y) * Math.cos(angX), (x + y) * Math.sin(angX) + z];
+    // Generalized axonometric (drag the iso to orbit)
+    const project = makeIsoProject();
     // Autofit: test corners including the spa deck + a bit of air above
     const deckH = sp.deckAboveWaterIn / 12 + 0.5;
     const corners = [];
@@ -3661,6 +3670,11 @@
 
   // Site plan — pool + spa at their placement, with a draggable cut line.
   state.siteCut = state.siteCut || { yFt: state.width / 2 };
+  // Iso view angles — shared by all three iso renderers (pool, spa, site).
+  // Azimuth = rotation around the vertical axis (0 = looking along +y).
+  // Elevation = tilt above horizontal (0 = edge-on, 90 = top-down).
+  // Clamped to a range that keeps the "near wall in front" convention intact.
+  state.isoView = state.isoView || { azimuth: 45, elevation: 35 };
   // Per-view cuts (all draggable)
   state.poolCuts = state.poolCuts || {
     A: { yFt: state.width / 2 },       // longitudinal cut y-position
@@ -3753,8 +3767,7 @@
     const spaX0 = sp.placement.xFt - wL, spaX1 = sp.placement.xFt + sp.lengthFt + wR;
     const spaY0 = sp.placement.yFt - wN, spaY1 = sp.placement.yFt + sp.widthFt + wF;
     const spaTopZ = -(((+state.copingRiseIn || 0) + (+sp.deckAbovePoolDeckIn || 0)) / 12);
-    const angX = 30 * Math.PI / 180;
-    const project = (x, y, z) => [(x - y) * Math.cos(angX), (x + y) * Math.sin(angX) + z];
+    const project = makeIsoProject();
     const corners = [];
     for (const [x,y,z] of [
       [0, 0, 0], [L, 0, 0], [L, W, 0], [0, W, 0],
@@ -4061,6 +4074,51 @@
     svg.addEventListener('touchstart', start, { passive: false });
     svg.addEventListener('touchmove', move, { passive: false });
     svg.addEventListener('touchend', end);
+  })();
+
+  // Drag-to-orbit on any iso SVG. Horizontal drag changes azimuth, vertical drag
+  // changes elevation. Both are clamped to a range that keeps hidden-line
+  // conventions (near wall in front, back wall dashed) stable.
+  (function wireIsoOrbit() {
+    const ids = ['svg_iso', 'svg_spa_iso', 'svg_site_iso'];
+    let drag = null; // { startX, startY, az0, el0 }
+    const AZ_MIN = 15, AZ_MAX = 75, EL_MIN = 15, EL_MAX = 65;
+    const SENSITIVITY = 0.35;  // degrees per pixel
+    const start = (e) => {
+      const pt = e.touches ? e.touches[0] : e;
+      drag = {
+        startX: pt.clientX, startY: pt.clientY,
+        az0: state.isoView.azimuth, el0: state.isoView.elevation,
+      };
+      e.preventDefault();
+    };
+    const move = (e) => {
+      if (!drag) return;
+      const pt = e.touches ? e.touches[0] : e;
+      const dx = pt.clientX - drag.startX;
+      const dy = pt.clientY - drag.startY;
+      const az = Math.max(AZ_MIN, Math.min(AZ_MAX, drag.az0 + dx * SENSITIVITY));
+      // Dragging UP should TILT UP (more top-down), so invert dy
+      const el = Math.max(EL_MIN, Math.min(EL_MAX, drag.el0 - dy * SENSITIVITY));
+      state.isoView.azimuth = az;
+      state.isoView.elevation = el;
+      scheduleRender();
+      e.preventDefault();
+    };
+    const end = () => { drag = null; };
+    ids.forEach(id => {
+      const svg = $(id); if (!svg) return;
+      svg.style.cursor = 'grab';
+      svg.addEventListener('mousedown', (e) => { svg.style.cursor = 'grabbing'; start(e); });
+      svg.addEventListener('touchstart', start, { passive: false });
+    });
+    window.addEventListener('mousemove', move);
+    window.addEventListener('touchmove', move, { passive: false });
+    window.addEventListener('mouseup', () => {
+      ids.forEach(id => { const svg = $(id); if (svg) svg.style.cursor = 'grab'; });
+      end();
+    });
+    window.addEventListener('touchend', end);
   })();
 
   // ============== RENDER LOOP ==============
@@ -4808,6 +4866,7 @@
       copingRiseIn: state.copingRiseIn,
       desiredLength: state.desiredLength,
       wallIn: state.wallIn,
+      isoView: state.isoView,
       sections: state.sections,
       bench: state.bench,
       spa: state.spa,
@@ -4823,6 +4882,7 @@
     if (typeof snap.desiredLength === 'number') state.desiredLength = snap.desiredLength;
     if (Array.isArray(snap.sections)) state.sections = JSON.parse(JSON.stringify(snap.sections));
     if (snap.wallIn && typeof snap.wallIn === 'object') state.wallIn = { ...state.wallIn, ...snap.wallIn };
+    if (snap.isoView && typeof snap.isoView === 'object') state.isoView = { ...state.isoView, ...snap.isoView };
     if (snap.bench && typeof snap.bench === 'object') state.bench = { ...state.bench, ...snap.bench };
     if (snap.spa && typeof snap.spa === 'object') {
       // Merge carefully: nested objects (wallIn, placement) should be object-merged too.
