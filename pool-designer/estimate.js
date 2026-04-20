@@ -583,10 +583,13 @@
   const allDerivedManual = () =>
     Object.fromEntries(E.DESIGN_DERIVED.map(k => [k, true]));
 
+  const STATE_VERSION = 2;
+
   let state = loadState();
   let spec = loadSpec();
   if (!state) {
     state = defaultState();
+    state.v = STATE_VERSION;
     if (spec) {
       state.design = E.designFromSpec(spec);
       state.designManual = allDerivedManual();
@@ -596,10 +599,12 @@
   if (!state.design) {
     state.design = spec ? E.designFromSpec(spec) : { ...E.DEFAULT_DESIGN };
   }
-  if (!state.designManual) {
-    // Preserve any values the user/spec already set — default to manual so
-    // they don't get overwritten by the new W × L auto-compute.
-    state.designManual = allDerivedManual();
+  if (!state.designManual) state.designManual = {};
+  // v2 migration: earlier builds defaulted legacy state to "all manual",
+  // which blocked auto-compute when entering width/length/depth. Flip to auto.
+  if ((state.v || 1) < 2) {
+    state.designManual = {};
+    state.v = 2;
   }
   if (!spec) $('warn_spec').style.display = '';
 
