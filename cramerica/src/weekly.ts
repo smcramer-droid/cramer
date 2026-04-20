@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { client } from "./claude";
-import { ensureWeekSessions } from "./db";
+import { ensureWeekSessions, logError } from "./db";
 import type { Env, Profile } from "./types";
 
 export interface WeeklyStats {
@@ -175,7 +175,7 @@ ${retroText.slice(-6000)}`;
   try {
     const resp = await anthropic.messages.create({
       model: env.CLAUDE_MODEL_WEEKLY,
-      max_tokens: 2500,
+      max_tokens: 4000,
       system,
       messages: [{ role: "user", content: user }],
       tools: [{ name: "emit_program", description: "Emit the weekly program JSON.", input_schema: REGEN_SCHEMA as unknown as Anthropic.Tool.InputSchema }],
@@ -187,8 +187,17 @@ ${retroText.slice(-6000)}`;
         break;
       }
     }
+    if (!parsed) {
+      await logError(env, "weekly.regen", "no tool_use block in response", {
+        stopReason: resp.stop_reason ?? "(unknown)",
+        model: env.CLAUDE_MODEL_WEEKLY,
+      });
+    }
   } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    const status = (err as { status?: number } | null)?.status ?? null;
     console.error("weekly regen failed", err);
+    await logError(env, "weekly.regen", msg, { status, model: env.CLAUDE_MODEL_WEEKLY });
   }
 
   if (!parsed) return; // leave existing week-one default; retry next tick.

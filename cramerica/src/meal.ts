@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { client } from "./claude";
 import {
   appendMessage,
+  logError,
   logProtein,
   markMealLogged,
   upsertDailyLog,
@@ -118,7 +119,9 @@ export async function estimateFromPhoto(
       }
     }
   } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
     console.error("vision call failed", err);
+    await logError(env, "meal.vision", msg, { model: env.CLAUDE_MODEL_DAILY });
   }
   return null;
 }
@@ -156,7 +159,9 @@ Produce the final estimate via emit_meal.`;
       }
     }
   } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
     console.error("clarification vision call failed", err);
+    await logError(env, "meal.clarification", msg, { model: env.CLAUDE_MODEL_DAILY });
   }
   return null;
 }

@@ -6,6 +6,58 @@ import type { Env, Slot } from "./types";
 import type { TgUpdate } from "./telegram";
 import { etNow } from "./time";
 
+async function dumpState(env: Env, section: string, limit: number): Promise<unknown> {
+  const now = etNow();
+  const sections: Record<string, () => Promise<unknown>> = {
+    overview: async () => ({
+      et: now,
+      profile: (await env.DB.prepare("SELECT * FROM profile WHERE id=1").first()) ?? null,
+      today: (await env.DB.prepare("SELECT * FROM daily_log WHERE date=?").bind(now.date).first()) ?? null,
+      weekSessions: (await env.DB
+        .prepare("SELECT letter, completed_date, plan_json IS NOT NULL AS has_plan FROM strength_session WHERE week_start=? ORDER BY letter")
+        .bind(now.weekStart).all()).results ?? [],
+      recentErrors: (await env.DB
+        .prepare("SELECT id, source, message, substr(details,1,400) AS details, created_at FROM error_log ORDER BY id DESC LIMIT ?")
+        .bind(Math.min(limit, 10)).all()).results ?? [],
+      recentMessages: (await env.DB
+        .prepare("SELECT role, substr(content,1,200) AS content, slot, created_at FROM message ORDER BY id DESC LIMIT ?")
+        .bind(Math.min(limit, 15)).all()).results ?? [],
+    }),
+    errors: async () => ({
+      errors: (await env.DB
+        .prepare("SELECT id, source, message, details, created_at FROM error_log ORDER BY id DESC LIMIT ?")
+        .bind(limit).all()).results ?? [],
+    }),
+    messages: async () => ({
+      messages: (await env.DB
+        .prepare("SELECT id, role, content, slot, created_at FROM message ORDER BY id DESC LIMIT ?")
+        .bind(limit).all()).results ?? [],
+    }),
+    logs: async () => ({
+      daily_log: (await env.DB
+        .prepare("SELECT * FROM daily_log ORDER BY date DESC LIMIT ?")
+        .bind(limit).all()).results ?? [],
+    }),
+    assessment: async () => ({
+      answers: (await env.DB
+        .prepare("SELECT id, question, answer, created_at FROM assessment ORDER BY id").all()).results ?? [],
+    }),
+    program: async () => ({
+      program: (await env.DB
+        .prepare("SELECT * FROM program ORDER BY week_start DESC LIMIT ?").bind(limit).all()).results ?? [],
+      sessions: (await env.DB
+        .prepare("SELECT * FROM strength_session ORDER BY week_start DESC, letter LIMIT ?").bind(limit).all()).results ?? [],
+    }),
+    checkins: async () => ({
+      checkins: (await env.DB
+        .prepare("SELECT * FROM checkin ORDER BY date DESC, slot LIMIT ?").bind(limit).all()).results ?? [],
+    }),
+  };
+  const fn = sections[section];
+  if (!fn) return { error: `unknown section '${section}'`, available: Object.keys(sections) };
+  return await fn();
+}
+
 export default {
   async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
     ctx.waitUntil((async () => {
@@ -49,6 +101,17 @@ export default {
       const now = etNow();
       ctx.waitUntil(fireCheckin(env, slot, now.date, now.weekStart));
       return new Response(`fired ${slot}`);
+    }
+
+    // Remote inspection endpoint — dump state for debugging from Claude Code.
+    if (url.pathname === "/admin/state" && req.method === "GET") {
+      if (req.headers.get("x-admin-secret") !== env.TELEGRAM_WEBHOOK_SECRET) {
+        return new Response("unauthorized", { status: 401 });
+      }
+      const section = url.searchParams.get("section") ?? "overview";
+      const limit = Math.min(Number(url.searchParams.get("limit") ?? "30"), 200);
+      const data = await dumpState(env, section, limit);
+      return Response.json(data, { headers: { "cache-control": "no-store" } });
     }
 
     if (url.pathname === "/healthz") {

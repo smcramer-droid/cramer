@@ -1,4 +1,4 @@
-import { assessmentProgress, sendFirstQuestion } from "./assessment";
+import { assessmentProgress, finalizeAssessment, sendFirstQuestion } from "./assessment";
 import { sendStatsPack } from "./charts";
 import {
   appendMessage,
@@ -31,6 +31,17 @@ export async function handleCommand(env: Env, chatId: number, text: string): Pro
         await sendMessage(env, chatId, `Intake is in progress — ${answered}/${total} answered. Next question coming up.`);
       }
       await sendFirstQuestion(env, chatId);
+      return true;
+    }
+
+    case "/regen": {
+      const { answered, total } = await assessmentProgress(env);
+      if (answered < total) {
+        await sendMessage(env, chatId, `Intake isn't finished (${answered}/${total}). Run /start to continue.`);
+        return true;
+      }
+      await sendMessage(env, chatId, "Regenerating the program. Give me a minute.");
+      await finalizeAssessment(env);
       return true;
     }
 
@@ -96,6 +107,7 @@ Strength week (${now.weekStart}): ${pairs}`;
 /today — today's trackables + streak + strength week
 /stats — send the chart pack (daily adherence, protein/cal, weight, strength)
 /retro — re-open the Sunday retrospective on demand
+/regen — retry program generation (if intake finished but program didn't)
 /help — this message
 
 Outside commands: send me meal photos, log via the buttons on check-ins, or just tell me what you did.`;

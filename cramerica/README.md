@@ -120,6 +120,71 @@ wrangler d1 execute cramerica --remote \
   --command="UPDATE profile SET protein_goal_g=210 WHERE id=1"
 ```
 
+## Feedback loop (dev ↔ prod)
+
+Claude Code can't read your Telegram directly. But we can inspect the
+live Worker's state remotely — I wrote an admin endpoint for exactly
+this. Everything is protected by the `TELEGRAM_WEBHOOK_SECRET` you set
+at deploy.
+
+Get your webhook secret once (you'll reuse it):
+
+```bash
+# If you lost track of the secret, rotate it:
+openssl rand -hex 32 | tee /tmp/cramerica-admin-secret \
+  | wrangler secret put TELEGRAM_WEBHOOK_SECRET
+# Then re-register the webhook with set-webhook.mjs using /tmp/cramerica-admin-secret.
+```
+
+**Inspect live state** (run these and paste output into Claude Code):
+
+```bash
+SECRET="$(cat /tmp/cramerica-admin-secret)"
+URL="https://cramerica.<your-sub>.workers.dev"
+
+# Overview: profile, today's log, week sessions, last 10 errors, last 15 messages.
+curl -sH "x-admin-secret: $SECRET" "$URL/admin/state"
+
+# Just errors (full details).
+curl -sH "x-admin-secret: $SECRET" "$URL/admin/state?section=errors&limit=20"
+
+# Full conversation (last N messages).
+curl -sH "x-admin-secret: $SECRET" "$URL/admin/state?section=messages&limit=50"
+
+# Assessment Q/A pairs.
+curl -sH "x-admin-secret: $SECRET" "$URL/admin/state?section=assessment"
+
+# Program + strength sessions.
+curl -sH "x-admin-secret: $SECRET" "$URL/admin/state?section=program"
+
+# All daily_log rows.
+curl -sH "x-admin-secret: $SECRET" "$URL/admin/state?section=logs&limit=30"
+
+# Cron firings.
+curl -sH "x-admin-secret: $SECRET" "$URL/admin/state?section=checkins&limit=30"
+```
+
+**Manually fire a check-in** (useful for testing without waiting for the window):
+
+```bash
+curl -X POST -H "x-admin-secret: $SECRET" \
+  "$URL/admin/fire?slot=morning"   # or midday / evening / sunday_retro
+```
+
+**Live logs** (separate terminal, runs until you ctrl-C):
+
+```bash
+npx wrangler tail
+```
+
+**Re-deploy a code change** (after I push a fix):
+
+```bash
+git pull && npx wrangler deploy
+```
+
+Typical loop: you send me output of `/admin/state`, I read + change code + push, you `git pull && npx wrangler deploy`, retry, repeat.
+
 ## Commands
 
 - `/start` — begin (or resume) the week-1 intake. Use this right after
@@ -130,6 +195,8 @@ wrangler d1 execute cramerica --remote \
   strength sessions closed (6 weeks).
 - `/retro` — manually re-open Sunday's retrospective (runs the Opus-style
   reflection + sends the chart pack).
+- `/regen` — retry program generation. Use this if Opus failed during
+  intake finalization and you got "program generation hit a snag."
 - `/help` — lists the commands.
 
 ## Meal photos

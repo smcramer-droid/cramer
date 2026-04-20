@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { client } from "./claude";
-import { appendMessage, ensureWeekSessions, getProfile } from "./db";
+import { appendMessage, ensureWeekSessions, getProfile, logError } from "./db";
 import { sendChatAction, sendMessage } from "./telegram";
 import { etNow } from "./time";
 import type { Env } from "./types";
@@ -107,7 +107,7 @@ interface WeeklyProgramOutput {
   coach_summary: string;
 }
 
-async function finalizeAssessment(env: Env): Promise<void> {
+export async function finalizeAssessment(env: Env): Promise<void> {
   const rows = await env.DB
     .prepare("SELECT question, answer FROM assessment ORDER BY id")
     .all<{ question: string; answer: string }>();
@@ -171,7 +171,7 @@ Now produce the JSON.`;
   try {
     const resp = await anthropic.messages.create({
       model: env.CLAUDE_MODEL_WEEKLY,
-      max_tokens: 2500,
+      max_tokens: 4000,
       system,
       messages: [{ role: "user", content: user }],
       tools: [{ name: "emit_program", description: "Emit the structured program JSON.", input_schema: schema as unknown as Anthropic.Tool.InputSchema }],
@@ -183,8 +183,19 @@ Now produce the JSON.`;
         break;
       }
     }
+    if (!parsed) {
+      const blockTypes = resp.content.map((b) => b.type).join(",");
+      const stopReason = resp.stop_reason ?? "(unknown)";
+      await logError(env, "assessment.finalize", "no tool_use block in response", {
+        blockTypes, stopReason, model: env.CLAUDE_MODEL_WEEKLY,
+      });
+    }
   } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack : null;
+    const status = (err as { status?: number } | null)?.status ?? null;
     console.error("assessment finalize Opus call failed", err);
+    await logError(env, "assessment.finalize", msg, { status, stack, model: env.CLAUDE_MODEL_WEEKLY });
   }
 
   const now = etNow();

@@ -180,3 +180,23 @@ function shiftDate(date: string, days: number): string {
   const dd = String(dt.getUTCDate()).padStart(2, "0");
   return `${yy}-${mm}-${dd}`;
 }
+
+export async function logError(env: Env, source: string, message: string, details?: unknown): Promise<void> {
+  let d: string | null = null;
+  if (details != null) {
+    try {
+      d = typeof details === "string" ? details : JSON.stringify(details);
+    } catch {
+      d = String(details);
+    }
+    if (d.length > 4000) d = d.slice(0, 4000) + "…[truncated]";
+  }
+  try {
+    await env.DB
+      .prepare("INSERT INTO error_log (source, message, details) VALUES (?, ?, ?)")
+      .bind(source, message.slice(0, 1000), d)
+      .run();
+  } catch (e) {
+    console.error("logError insert failed", e);
+  }
+}
