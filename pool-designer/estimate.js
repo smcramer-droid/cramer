@@ -14,6 +14,7 @@
     deckSf: 400,
     numLights: 2,
     autoCover: 0,
+    spa: 0,        // 1 if the pool has an attached spa (doubles equip bundle, adds jet pump)
   };
 
   const DEFAULT_MARKUP = {
@@ -39,9 +40,8 @@
     { group:'deck',   desc:'Concrete deck (broomed)',             qtyExpr:'deckSf',                                   unit:'ft²', mat:6,     lab:9    },
     { group:'elec',   desc:'Electrical base (bond/panel/timer)',  qtyExpr:'1',                                        unit:'ls',  mat:0,     lab:4500 },
     { group:'elec',   desc:'Pool lights',                         qtyExpr:'numLights',                                unit:'ea',  mat:250,   lab:300  },
-    { group:'equip',  desc:'Variable-speed pump',                 qtyExpr:'1',                                        unit:'ea',  mat:1500,  lab:150  },
-    { group:'equip',  desc:'Cartridge filter',                    qtyExpr:'1',                                        unit:'ea',  mat:950,   lab:150  },
-    { group:'equip',  desc:'Gas heater 400k BTU',                 qtyExpr:'1',                                        unit:'ea',  mat:3800,  lab:250  },
+    { group:'equip',  desc:'Equipment bundle (pump + filter + heater)', qtyExpr:'1 + spa',                            unit:'set', mat:6250,  lab:550  },
+    { group:'equip',  desc:'Spa jet pump (if spa)',               qtyExpr:'spa',                                      unit:'ea',  mat:1200,  lab:150  },
     { group:'equip',  desc:'Salt chlorinator',                    qtyExpr:'1',                                        unit:'ea',  mat:1400,  lab:150  },
     { group:'equip',  desc:'Automation panel',                    qtyExpr:'1',                                        unit:'ea',  mat:2800,  lab:400  },
     { group:'cover',  desc:'Auto-cover base (if enabled)',        qtyExpr:'autoCover',                                unit:'ls',  mat:10500, lab:0    },
@@ -55,7 +55,7 @@
   const VARS_LIST = [
     'poolSf','perimeterFt','waterVolumeGal','excCuft','avgDepthFt','maxDepthFt',
     'widthFt','lengthFt','tileLf','copingLf','plasterSf',
-    'plumbLines','plumbDist','rebarSp','rebarSz','plasterTier','deckSf','numLights','autoCover',
+    'plumbLines','plumbDist','rebarSp','rebarSz','plasterTier','deckSf','numLights','autoCover','spa',
     'rebarSpMult','rebarSzMult','plasterTierMult',
   ];
 
@@ -233,6 +233,7 @@
       deckSf: +inputs.deckSf || 0,
       numLights: +inputs.numLights || 0,
       autoCover: inputs.autoCover ? 1 : 0,
+      spa: inputs.spa ? 1 : 0,
       rebarSpMult, rebarSzMult, plasterTierMult,
     };
   }
@@ -360,6 +361,7 @@
     host.appendChild(num('in_deckSf',     'deck ft²', i.deckSf));
     host.appendChild(num('in_numLights',  'lights', i.numLights));
     host.appendChild(chk('in_autoCover',  'auto-cover', i.autoCover));
+    host.appendChild(chk('in_spa',        'spa (doubles equip bundle, adds jet pump)', i.spa));
 
     host.oninput = onChange;
     host.onchange = onChange;
@@ -376,6 +378,7 @@
     i.deckSf      = +$('in_deckSf').value || 0;
     i.numLights   = +$('in_numLights').value || 0;
     i.autoCover   = $('in_autoCover').checked ? 1 : 0;
+    i.spa         = $('in_spa').checked ? 1 : 0;
   };
 
   // Render the full editable line-items table.
@@ -441,6 +444,16 @@
       el.addEventListener('change', onChange);
     });
     tr.querySelector('button[data-act=del]').addEventListener('click', () => {
+      // Remove this row from the DOM before onChange runs — onChange calls
+      // readItems() which rebuilds state.items from the DOM, so the row has
+      // to be gone first or the splice below gets overwritten.
+      const prev = tr.previousElementSibling;
+      tr.remove();
+      // If the group header above now has no remaining rows, drop it too.
+      if (prev && prev.classList.contains('group-hd')) {
+        const after = prev.nextElementSibling;
+        if (!after || after.classList.contains('group-hd')) prev.remove();
+      }
       state.items.splice(idx, 1);
       onChange();
     });
