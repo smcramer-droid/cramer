@@ -16,7 +16,7 @@ const endpoint = `https://api.telegram.org/bot${token}/setWebhook`;
 const body = {
   url,
   secret_token: secret,
-  allowed_updates: ["message", "edited_message"],
+  allowed_updates: ["message", "edited_message", "callback_query"],
   drop_pending_updates: true,
 };
 

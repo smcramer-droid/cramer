@@ -1,3 +1,5 @@
+import { sendFirstQuestion } from "../assessment";
+import { checkinKeyboard } from "../buttons";
 import { chat } from "../claude";
 import {
   appendMessage,
@@ -12,6 +14,7 @@ import { pickRoutineForDate } from "../pliability";
 import { checkinDirective } from "../prompts/checkins";
 import { buildSystemPrompt } from "../prompts/system";
 import { sendChatAction, sendMessage } from "../telegram";
+import { computeWeeklyStats, ensureWeekProgram, formatWeeklyStatsForPrompt } from "../weekly";
 import type { Env, Slot } from "../types";
 
 export async function fireCheckin(env: Env, slot: Slot, date: string, weekStart: string): Promise<void> {
@@ -21,7 +24,18 @@ export async function fireCheckin(env: Env, slot: Slot, date: string, weekStart:
     return;
   }
 
+  // Week-1 intake gate: if assessment isn't complete, the morning slot
+  // kicks it off (or re-kicks if the user hasn't replied). Other slots
+  // stay quiet until the intake finishes.
+  if (!profile.assessment_complete) {
+    if (slot === "morning") {
+      await sendFirstQuestion(env, profile.chat_id);
+    }
+    return;
+  }
+
   await ensureWeekSessions(env, weekStart);
+  await ensureWeekProgram(env, weekStart, profile, date);
   await recomputeDailyStreak(env, date, profile);
 
   const [log, streak, weekRows] = await Promise.all([
@@ -34,6 +48,12 @@ export async function fireCheckin(env: Env, slot: Slot, date: string, weekStart:
   ]);
 
   const routine = pickRoutineForDate(date);
+  let weeklyStatsBlock: string | null = null;
+  if (slot === "sunday_retro") {
+    const stats = await computeWeeklyStats(env, date, profile, weekStart);
+    weeklyStatsBlock = formatWeeklyStatsForPrompt(stats, profile);
+  }
+
   const system = buildSystemPrompt({
     profile,
     today: date,
@@ -41,13 +61,14 @@ export async function fireCheckin(env: Env, slot: Slot, date: string, weekStart:
     streak,
     weekSessions: weekRows.results ?? [],
     pliabilityRoutine: `${routine.name}\n${routine.script}`,
+    weeklyStats: weeklyStatsBlock,
   });
 
   const history = await recentMessages(env, 16);
   const messages = [...history, { role: "user" as const, content: checkinDirective(slot) }];
 
   await sendChatAction(env, profile.chat_id).catch(() => {});
-  const reply = await chat(env, { system, messages, maxTokens: 900 });
-  await sendMessage(env, profile.chat_id, reply);
+  const reply = await chat(env, { system, messages, maxTokens: slot === "sunday_retro" ? 1400 : 900 });
+  await sendMessage(env, profile.chat_id, reply, { reply_markup: checkinKeyboard(slot) });
   await appendMessage(env, "assistant", reply, slot);
 }

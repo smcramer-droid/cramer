@@ -1,3 +1,4 @@
+import { handleCallback } from "./handlers/callback";
 import { fireCheckin } from "./handlers/checkin";
 import { handleIncoming } from "./handlers/message";
 import { checkDueCheckin } from "./scheduler";
@@ -30,6 +31,8 @@ export default {
       if (msg) {
         // Ack Telegram immediately; process in background.
         ctx.waitUntil(handleIncoming(env, msg).catch((e) => console.error("incoming error", e)));
+      } else if (update.callback_query) {
+        ctx.waitUntil(handleCallback(env, update.callback_query).catch((e) => console.error("callback error", e)));
       }
       return new Response("ok");
     }

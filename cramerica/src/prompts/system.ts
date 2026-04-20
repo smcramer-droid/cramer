@@ -8,8 +8,9 @@ export function buildSystemPrompt(args: {
   streak: Streak;
   weekSessions: { letter: "A" | "B" | "C"; completed_date: string | null }[];
   pliabilityRoutine: string;
+  weeklyStats?: string | null;
 }): string {
-  const { profile, today, log, streak, weekSessions, pliabilityRoutine } = args;
+  const { profile, today, log, streak, weekSessions, pliabilityRoutine, weeklyStats } = args;
   const daysLeft = daysUntil(profile.target_date, today);
   const kidList = profile.kids.map((k) => `${k.name} (${k.age})`).join(", ");
   const weekSummary = weekSessions
@@ -39,7 +40,7 @@ ${profile.height_in != null ? `- Height: ${profile.height_in} in.` : ""}
 - Weekly strength sessions: ${weekSummary}.
 - Streak: ${streak.daily_count} day(s) hitting all 4 daily targets (best: ${streak.daily_best}). Strength week streak: ${streak.week_count} (best: ${streak.week_best}).
 - Today's pliability routine: ${pliabilityRoutine}
-
+${weeklyStats ? `\n## Last 7 days (use for Sunday retro)\n${weeklyStats}\n` : ""}
 ## Voice
 - Warm when he wins. Hard when he slips. Never preachy, never soft.
 - Reference ${profile.wife_name} and the kids by name when it matters — don't overdo it.

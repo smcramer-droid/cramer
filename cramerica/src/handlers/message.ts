@@ -1,3 +1,5 @@
+import { handleAssessmentReply } from "../assessment";
+import { checkinKeyboard } from "../buttons";
 import { chat } from "../claude";
 import {
   appendMessage,
@@ -120,6 +122,12 @@ export async function handleIncoming(env: Env, msg: TgMessage): Promise<void> {
   const profile0 = await getProfile(env);
   if (!profile0.chat_id) {
     await setChatId(env, msg.chat.id);
+  }
+
+  // Week-1 intake: route through the assessment flow until it's done.
+  if (!profile0.assessment_complete) {
+    const consumed = await handleAssessmentReply(env, text);
+    if (consumed) return;
   }
 
   const now = etNow();

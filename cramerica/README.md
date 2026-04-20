@@ -101,10 +101,27 @@ wrangler d1 execute cramerica --remote \
   --command="UPDATE profile SET protein_goal_g=210 WHERE id=1"
 ```
 
+## Feature map (shipped)
+
+- **Week-1 intake** — first morning check-in runs a 10-question conversational
+  assessment. Last answer triggers Opus 4.7 to extract structured profile
+  fields + generate this week's 3 sessions + a 7-week arc. Flow gates all
+  other check-ins until complete. See `src/assessment.ts`.
+- **Weekly program regen** — on the first check-in of each new week,
+  `ensureWeekProgram` runs Opus 4.7 against the previous week's adherence +
+  strength completion + Sunday retro conversation, persists the next three
+  A/B/C sessions. Falls back to the prior plan on failure. See `src/weekly.ts`.
+- **Sunday retro stats** — Sunday's system prompt includes computed weekly
+  stats: adherence %, daily hit counts for each target, average protein/cal,
+  cardio + pliability totals, strength pairs closed, weight delta.
+- **Inline quick-log buttons** — morning/midday/evening check-ins include
+  four buttons: ✅ Pliability (10m), ✅ Strength done, ✅ Cardio 30m,
+  ✅ Meal logged. Tapped buttons update `daily_log` and are stripped from the
+  keyboard so they can't be double-tapped. See `src/buttons.ts`,
+  `src/handlers/callback.ts`.
+
 ## Roadmap (post-MVP)
 
-- Opus-driven weekly program regeneration after Sunday retro (currently
-  week-1 default in `program.ts` is reused until this lands).
-- Weekly adherence + body-comp trend chart posted on Sundays.
-- Inline buttons for quick "hit session A" / "pliability done" logging.
 - Photo intake for meal logging (Claude vision → protein estimate).
+- Weekly trend chart (weight + adherence) posted with Sunday retro.
+- `/retro` manual command to re-open last Sunday's reflection.
