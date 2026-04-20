@@ -1363,7 +1363,7 @@
       x: x0 - wL_px, y: y0 - wN_px,
       width: poolW + wL_px + wR_px,
       height: poolH + wN_px + wF_px,
-      fill: 'rgba(148,130,108,0.45)',
+      fill: 'rgba(139,135,130,0.45)',
       stroke: 'var(--ink)', 'stroke-width': 1.4,
     }, svg);
     // Small wall-thickness callouts outside each wall
@@ -1845,7 +1845,7 @@
       x: -wLpx, y: -wNpx,
       width: waterWpx + wLpx + wRpx,
       height: waterHpx + wNpx + wFpx,
-      fill: 'rgba(148,130,108,0.45)',
+      fill: 'rgba(139,135,130,0.45)',
       stroke: 'var(--ink)', 'stroke-width': 1.6,
     }, g);
     // Water perimeter
@@ -2128,9 +2128,9 @@
     const wallLeftPx  = Math.max(14, ((state.wallIn && state.wallIn.left ) || 12) / 12 * scale);
     const wallRightPx = Math.max(14, ((state.wallIn && state.wallIn.right) || 12) / 12 * scale);
     el('rect', { x: x0 - wallLeftPx, y: deckY - 2, width: wallLeftPx,
-      height: (waterY - deckY) + 2, fill:'#c8b894', stroke:'var(--ink)', 'stroke-width':1 }, svg);
+      height: (waterY - deckY) + 2, fill:'#b0a89e', stroke:'var(--ink)', 'stroke-width':1 }, svg);
     el('rect', { x: x0 + pxW, y: deckY - 2, width: wallRightPx,
-      height: (waterY - deckY) + 2, fill:'#c8b894', stroke:'var(--ink)', 'stroke-width':1 }, svg);
+      height: (waterY - deckY) + 2, fill:'#b0a89e', stroke:'var(--ink)', 'stroke-width':1 }, svg);
     // Small wall-thickness callouts inside the caps so the dim is obvious.
     if (wallLeftPx >= 20) {
       const t = el('text', { x: x0 - wallLeftPx / 2, y: deckY + (waterY - deckY) / 2 + 3,
@@ -2684,7 +2684,7 @@
         P(L + wR_ft, W + wF_ft, capZbot),
         P(-wL_ft, W + wF_ft, capZbot),
       ];
-      const capStroke = '#8a7150';
+      const capStroke = '#6f6a63';
       // Outer perimeter at deck top — dashed (hidden edge behind pool rim)
       el('path', { d: wobbleClosed(outerTop, 0.4, 1400),
         stroke: capStroke, 'stroke-width': 0.9, 'stroke-dasharray': '4 3', fill: 'none' }, svg);
@@ -2803,7 +2803,7 @@
     const drawSide = (a, b, c, d, visible) => {
       el('path', {
         d: wobbleClosed([a, b, c, d], 0.3, 1100 + (opts.seed || 0)),
-        fill: '#c9b68a', 'fill-opacity': 0.9,
+        fill: '#a0998f', 'fill-opacity': 0.9,
         stroke: 'var(--ink)', 'stroke-width': visible ? 1.2 : 1.0,
         'stroke-dasharray': visible ? null : '4 3',
       }, svg);
@@ -2813,7 +2813,7 @@
     drawSide(outer[2], outer[3], outerBase[3], outerBase[2], true);
     drawSide(outer[3], outer[0], outerBase[0], outerBase[3], false);
     el('path', { d: wobbleClosed(outer, 0.3, 1110 + (opts.seed || 0)),
-      fill: '#c9b68a', 'fill-opacity': 0.85, stroke: 'var(--ink)', 'stroke-width': 1.5 }, svg);
+      fill: '#a0998f', 'fill-opacity': 0.85, stroke: 'var(--ink)', 'stroke-width': 1.5 }, svg);
     const waterPoly = [
       PP(0, 0, spaWaterZ),
       PP(sp.lengthFt, 0, spaWaterZ),
@@ -2917,19 +2917,19 @@
     // Left wall (x = 0): walk across cols (along y)
     const leftDepths = Array.from({length: cols}, (_, c) => sp.cells[0][c] || 0);
     quads.push({ pts: buildWallPoly(leftDepths, 'x', true, 0),
-      fill: '#c9b68a', opacity: 0.95, stroke: 'var(--ink)', strokeW: 0.9, kind: 'wall' });
+      fill: '#a0998f', opacity: 0.95, stroke: 'var(--ink)', strokeW: 0.9, kind: 'wall' });
     // Right wall (x = lengthFt)
     const rightDepths = Array.from({length: cols}, (_, c) => sp.cells[rows-1][c] || 0);
     quads.push({ pts: buildWallPoly(rightDepths, 'x', true, sp.lengthFt),
-      fill: '#c9b68a', opacity: 0.95, stroke: 'var(--ink)', strokeW: 0.9, kind: 'wall' });
+      fill: '#a0998f', opacity: 0.95, stroke: 'var(--ink)', strokeW: 0.9, kind: 'wall' });
     // Near wall (y = 0): walk along rows (along x)
     const nearDepths = Array.from({length: rows}, (_, r) => sp.cells[r][0] || 0);
     quads.push({ pts: buildWallPoly(nearDepths, 'y', false, 0),
-      fill: '#c9b68a', opacity: 0.95, stroke: 'var(--ink)', strokeW: 0.9, kind: 'wall' });
+      fill: '#a0998f', opacity: 0.95, stroke: 'var(--ink)', strokeW: 0.9, kind: 'wall' });
     // Far wall (y = widthFt)
     const farDepths = Array.from({length: rows}, (_, r) => sp.cells[r][cols-1] || 0);
     quads.push({ pts: buildWallPoly(farDepths, 'y', false, sp.widthFt),
-      fill: '#c9b68a', opacity: 0.95, stroke: 'var(--ink)', strokeW: 0.9, kind: 'wall' });
+      fill: '#a0998f', opacity: 0.95, stroke: 'var(--ink)', strokeW: 0.9, kind: 'wall' });
     // Painter's sort by centroid depth: farther in screen (small y) first,
     // front later. Tie-break: walls behind floor so floor paints on top.
     quads.sort((a, b) => {
@@ -3688,9 +3688,9 @@
     const wB = (isA ? sp.wallIn.right : sp.wallIn.far) / 12 * scale;
     // Ground/deck caps outside the water footprint
     el('rect', { x: x0 - wA, y: deckY, width: wA, height: waterY - deckY + 10,
-      fill: '#c9b68a', stroke:'var(--ink)', 'stroke-width':1.2 }, svg);
+      fill: '#a0998f', stroke:'var(--ink)', 'stroke-width':1.2 }, svg);
     el('rect', { x: x0 + pxW, y: deckY, width: wB, height: waterY - deckY + 10,
-      fill: '#c9b68a', stroke:'var(--ink)', 'stroke-width':1.2 }, svg);
+      fill: '#a0998f', stroke:'var(--ink)', 'stroke-width':1.2 }, svg);
     // Build stepped floor profile from cells along the cut
     const floorPts = [];
     for (let i = 0; i < steps; i++) {
@@ -3811,7 +3811,7 @@
     el('rect', {
       x: poolX0 - pwL, y: poolY0 - pwN,
       width: poolW_px + pwL + pwR, height: poolH_px + pwN + pwF,
-      fill: 'rgba(148,130,108,0.45)',
+      fill: 'rgba(139,135,130,0.45)',
       stroke:'var(--ink)', 'stroke-width': 1.4,
     }, svg);
     el('rect', { x: poolX0, y: poolY0, width: poolW_px, height: poolH_px,
@@ -4009,7 +4009,7 @@
       }
       // Outer concrete block side view
       el('rect', { x: spaX0Px, y: spaDeckY, width: spaX1Px - spaX0Px, height: waterY - spaDeckY,
-        fill: '#c9b68a', 'fill-opacity': 0.85, stroke:'var(--ink)', 'stroke-width':1.5 }, svg);
+        fill: '#a0998f', 'fill-opacity': 0.85, stroke:'var(--ink)', 'stroke-width':1.5 }, svg);
       // Spa water
       if (state.showWater && floorPts.length) {
         const waterPoly = [[spaInnerX0, spaWaterY], ...floorPts, [spaInnerX1, spaWaterY]];
