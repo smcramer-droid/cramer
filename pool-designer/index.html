@@ -540,6 +540,23 @@
         <div class="input"><input type="number" id="coping_rise" min="4" max="18" step="0.5" value="7"/><span class="u">in</span></div>
         <input type="range" id="coping_rise_r" min="4" max="18" step="0.5" value="7"/>
       </div>
+      <div style="margin-top:10px; font-family:'Special Elite',monospace; font-size:10px; letter-spacing:1.2px; color:var(--ink-soft); text-transform:uppercase;">Wall thickness</div>
+      <div class="row">
+        <div class="field">
+          <label>Near / Far</label>
+          <div style="display:flex; gap:6px">
+            <div class="input" style="flex:1"><input type="number" id="pool_wall_n" min="6" max="36" step="1" value="12"/><span class="u">in</span></div>
+            <div class="input" style="flex:1"><input type="number" id="pool_wall_f" min="6" max="36" step="1" value="12"/><span class="u">in</span></div>
+          </div>
+        </div>
+        <div class="field">
+          <label>Left / Right</label>
+          <div style="display:flex; gap:6px">
+            <div class="input" style="flex:1"><input type="number" id="pool_wall_l" min="6" max="36" step="1" value="12"/><span class="u">in</span></div>
+            <div class="input" style="flex:1"><input type="number" id="pool_wall_r" min="6" max="36" step="1" value="12"/><span class="u">in</span></div>
+          </div>
+        </div>
+      </div>
       <div class="toggle-row" style="margin-top:8px">
         <span>Entrance side · mirror views</span>
         <div class="switch" id="mirror_toggle"></div>
@@ -966,6 +983,8 @@
     // coping rises 7" above waterline (user: top of deck = waterline + 7")
     copingRiseIn: 7,
     desiredLength: 32,       // ft — target length (user-set)
+    // Pool wall concrete thickness (inches), per edge. Water-only footprint is L × W.
+    wallIn: { near: 12, far: 12, left: 12, right: 12 },
     sections: DEFAULT_SECTIONS.map(s => ({ ...s })),
     // Bench
     bench: {
@@ -1304,17 +1323,29 @@
       }
     }
 
-    // coping
-    const copingPad = 10;
-    el('path', {
-      d: wobbleClosed([
-        [x0 - copingPad, y0 - copingPad],
-        [x0 + poolW + copingPad, y0 - copingPad],
-        [x0 + poolW + copingPad, y0 + poolH + copingPad],
-        [x0 - copingPad, y0 + poolH + copingPad],
-      ], 0.6, 3),
-      class: 'ink-soft', 'stroke-width': 1,
+    // Pool wall concrete — tan shell around the water footprint, thicknesses per side
+    const wN_px = ((state.wallIn && state.wallIn.near) || 12) / 12 * widthScale;
+    const wF_px = ((state.wallIn && state.wallIn.far)  || 12) / 12 * widthScale;
+    const wL_px = ((state.wallIn && state.wallIn.left) || 12) / 12 * scale;
+    const wR_px = ((state.wallIn && state.wallIn.right)|| 12) / 12 * scale;
+    // Outer footprint outline
+    el('rect', {
+      x: x0 - wL_px, y: y0 - wN_px,
+      width: poolW + wL_px + wR_px,
+      height: poolH + wN_px + wF_px,
+      fill: 'rgba(148,130,108,0.45)',
+      stroke: 'var(--ink)', 'stroke-width': 1.4,
     }, svg);
+    // Small wall-thickness callouts outside each wall
+    const wallLbl = (x, y, anchor, txt) => {
+      const t = el('text', { x, y, class: 'label', 'text-anchor': anchor,
+        style: 'font-size:9.5px; fill:var(--ink-soft); letter-spacing:1px' }, svg);
+      t.textContent = txt;
+    };
+    wallLbl(x0 + poolW / 2, y0 - wN_px - 3, 'middle', `${state.wallIn.near}″`);
+    wallLbl(x0 + poolW / 2, y0 + poolH + wF_px + 11, 'middle', `${state.wallIn.far}″`);
+    wallLbl(x0 - wL_px - 3, y0 + poolH / 2 + 3, 'end', `${state.wallIn.left}″`);
+    wallLbl(x0 + poolW + wR_px + 3, y0 + poolH / 2 + 3, 'start', `${state.wallIn.right}″`);
 
     // per-section shaded bands by depth
     const resolved = resolvedSections();
@@ -2752,37 +2783,61 @@
             });
           }
         }
-        // Interior wall panels on perimeter — each outside-facing edge of a perimeter
-        // cell gets a quad from its floor up to the spa deck.
-        if (r === 0) {
-          quads.push({
-            pts: [PP(0, ys0, perimeterZ), PP(0, ys1, perimeterZ), PP(0, ys1, floorZ), PP(0, ys0, floorZ)],
-            fill: '#c9b68a', opacity: 0.75, stroke: 'var(--ink)', strokeW: 0.7, kind: 'wall',
-          });
-        }
-        if (r === rows - 1) {
-          quads.push({
-            pts: [PP(sp.lengthFt, ys0, perimeterZ), PP(sp.lengthFt, ys1, perimeterZ),
-                  PP(sp.lengthFt, ys1, floorZ), PP(sp.lengthFt, ys0, floorZ)],
-            fill: '#c9b68a', opacity: 0.75, stroke: 'var(--ink)', strokeW: 0.7, kind: 'wall',
-          });
-        }
-        if (c === 0) {
-          quads.push({
-            pts: [PP(xs0, 0, perimeterZ), PP(xs1, 0, perimeterZ),
-                  PP(xs1, 0, floorZ), PP(xs0, 0, floorZ)],
-            fill: '#c9b68a', opacity: 0.75, stroke: 'var(--ink)', strokeW: 0.7, kind: 'wall',
-          });
-        }
-        if (c === cols - 1) {
-          quads.push({
-            pts: [PP(xs0, sp.widthFt, perimeterZ), PP(xs1, sp.widthFt, perimeterZ),
-                  PP(xs1, sp.widthFt, floorZ), PP(xs0, sp.widthFt, floorZ)],
-            fill: '#c9b68a', opacity: 0.75, stroke: 'var(--ink)', strokeW: 0.7, kind: 'wall',
-          });
-        }
+        // (Interior wall panels drawn below as single stepped polygons per side
+        //  rather than one quad per cell — avoids the "vertical lines between
+        //  every cell" look in the iso rendering.)
       }
     }
+    // Interior wall polygons — one per side. Bottom edge steps with cell depths;
+    // top edge is the spa deck level. This creates clean continuous walls without
+    // per-cell vertical dividers.
+    const buildWallPoly = (cellsDepthAlong, constAxis, isXConst, constVal) => {
+      // cellsDepthAlong: array of N cell depths along the wall
+      // isXConst: true if this wall is on a fixed x (left/right); false for fixed y.
+      // For x-const walls (r=0 or r=rows-1): c goes 0..cols-1, varying y
+      // For y-const walls (c=0 or c=cols-1): r goes 0..rows-1, varying x
+      const N = cellsDepthAlong.length;
+      const pts = [];
+      if (isXConst) {
+        // along y from 0 to widthFt
+        pts.push(PP(constVal, 0, perimeterZ));
+        pts.push(PP(constVal, sp.widthFt, perimeterZ));
+        // bottom stepped edge along y (from widthFt back down to 0)
+        for (let c = N - 1; c >= 0; c--) {
+          const z = spaWaterZ + cellsDepthAlong[c] / 12;
+          const y1 = (c + 1) * cs, y0 = c * cs;
+          pts.push(PP(constVal, y1, z));
+          pts.push(PP(constVal, y0, z));
+        }
+      } else {
+        // along x from 0 to lengthFt
+        pts.push(PP(0, constVal, perimeterZ));
+        pts.push(PP(sp.lengthFt, constVal, perimeterZ));
+        for (let r = N - 1; r >= 0; r--) {
+          const z = spaWaterZ + cellsDepthAlong[r] / 12;
+          const x1 = (r + 1) * cs, x0 = r * cs;
+          pts.push(PP(x1, constVal, z));
+          pts.push(PP(x0, constVal, z));
+        }
+      }
+      return pts;
+    };
+    // Left wall (x = 0): walk across cols (along y)
+    const leftDepths = Array.from({length: cols}, (_, c) => sp.cells[0][c] || 0);
+    quads.push({ pts: buildWallPoly(leftDepths, 'x', true, 0),
+      fill: '#c9b68a', opacity: 0.78, stroke: 'var(--ink)', strokeW: 0.9, kind: 'wall' });
+    // Right wall (x = lengthFt)
+    const rightDepths = Array.from({length: cols}, (_, c) => sp.cells[rows-1][c] || 0);
+    quads.push({ pts: buildWallPoly(rightDepths, 'x', true, sp.lengthFt),
+      fill: '#c9b68a', opacity: 0.78, stroke: 'var(--ink)', strokeW: 0.9, kind: 'wall' });
+    // Near wall (y = 0): walk along rows (along x)
+    const nearDepths = Array.from({length: rows}, (_, r) => sp.cells[r][0] || 0);
+    quads.push({ pts: buildWallPoly(nearDepths, 'y', false, 0),
+      fill: '#c9b68a', opacity: 0.78, stroke: 'var(--ink)', strokeW: 0.9, kind: 'wall' });
+    // Far wall (y = widthFt)
+    const farDepths = Array.from({length: rows}, (_, r) => sp.cells[r][cols-1] || 0);
+    quads.push({ pts: buildWallPoly(farDepths, 'y', false, sp.widthFt),
+      fill: '#c9b68a', opacity: 0.78, stroke: 'var(--ink)', strokeW: 0.9, kind: 'wall' });
     // Painter's sort by centroid depth: farther in screen (small y) first,
     // front later. Tie-break: walls behind floor so floor paints on top.
     quads.sort((a, b) => {
@@ -3623,23 +3678,37 @@
     ensureSpaCells();
     const VBW = 1000, VBH = 560;
     const pad = 70;
-    // Compute site bounds (pool + spa footprint including walls)
+    // Compute site bounds (pool + spa footprint including walls on both)
     const L = totalLength();
     const W = state.width;
     const wL = sp.wallIn.left / 12, wR = sp.wallIn.right / 12;
     const wN = sp.wallIn.near / 12, wF = sp.wallIn.far / 12;
+    const pwL_ft = ((state.wallIn && state.wallIn.left) || 0) / 12;
+    const pwR_ft = ((state.wallIn && state.wallIn.right)|| 0) / 12;
+    const pwN_ft = ((state.wallIn && state.wallIn.near) || 0) / 12;
+    const pwF_ft = ((state.wallIn && state.wallIn.far)  || 0) / 12;
     const spaX0 = sp.placement.xFt - wL, spaX1 = sp.placement.xFt + sp.lengthFt + wR;
     const spaY0 = sp.placement.yFt - wN, spaY1 = sp.placement.yFt + sp.widthFt + wF;
-    const minX = Math.min(0, spaX0), maxX = Math.max(L, spaX1);
-    const minY = Math.min(0, spaY0), maxY = Math.max(W, spaY1);
+    const minX = Math.min(-pwL_ft, spaX0), maxX = Math.max(L + pwR_ft, spaX1);
+    const minY = Math.min(-pwN_ft, spaY0), maxY = Math.max(W + pwF_ft, spaY1);
     const spanX = maxX - minX, spanY = maxY - minY;
     const availW = VBW - pad * 2, availH = VBH - pad * 2 - 30;
     const scale = Math.min(availW / spanX, availH / spanY);
     const x0 = pad + (availW - spanX * scale) / 2 - minX * scale;
     const y0 = pad + (availH - spanY * scale) / 2 - minY * scale;
-    // Draw pool shell
+    // Draw pool outer wall shell (concrete) + inner water footprint
     const poolX0 = x0 + 0 * scale, poolY0 = y0 + 0 * scale;
     const poolW_px = L * scale, poolH_px = W * scale;
+    const pwN = ((state.wallIn && state.wallIn.near) || 12) / 12 * scale;
+    const pwF = ((state.wallIn && state.wallIn.far)  || 12) / 12 * scale;
+    const pwL = ((state.wallIn && state.wallIn.left) || 12) / 12 * scale;
+    const pwR = ((state.wallIn && state.wallIn.right)|| 12) / 12 * scale;
+    el('rect', {
+      x: poolX0 - pwL, y: poolY0 - pwN,
+      width: poolW_px + pwL + pwR, height: poolH_px + pwN + pwF,
+      fill: 'rgba(148,130,108,0.45)',
+      stroke:'var(--ink)', 'stroke-width': 1.4,
+    }, svg);
     el('rect', { x: poolX0, y: poolY0, width: poolW_px, height: poolH_px,
       fill: 'rgba(255,255,255,0.18)', stroke:'var(--ink)', 'stroke-width':1.8 }, svg);
     const poolLabel = el('text', { x: poolX0 + poolW_px / 2, y: poolY0 + poolH_px / 2 + 5,
@@ -4031,6 +4100,15 @@
   linkPair('width','width_r', v => state.width = v);
   linkPair('coping_rise','coping_rise_r', v => state.copingRiseIn = v);
   linkPair('desired_len','desired_len_r', v => state.desiredLength = v);
+  // Pool wall thickness
+  const linkWall = (id, key) => {
+    const el = $(id); if (!el) return;
+    el.addEventListener('input', e => { state.wallIn[key] = +e.target.value; scheduleRender(); });
+  };
+  linkWall('pool_wall_n', 'near');
+  linkWall('pool_wall_f', 'far');
+  linkWall('pool_wall_l', 'left');
+  linkWall('pool_wall_r', 'right');
 
   // Bench inputs
   linkPair('bench_depth','bench_depth_r', v => state.bench.depthIn = v);
@@ -4729,6 +4807,7 @@
       mirror: !!state.mirror,
       copingRiseIn: state.copingRiseIn,
       desiredLength: state.desiredLength,
+      wallIn: state.wallIn,
       sections: state.sections,
       bench: state.bench,
       spa: state.spa,
@@ -4743,6 +4822,7 @@
     if (typeof snap.copingRiseIn === 'number') state.copingRiseIn = snap.copingRiseIn;
     if (typeof snap.desiredLength === 'number') state.desiredLength = snap.desiredLength;
     if (Array.isArray(snap.sections)) state.sections = JSON.parse(JSON.stringify(snap.sections));
+    if (snap.wallIn && typeof snap.wallIn === 'object') state.wallIn = { ...state.wallIn, ...snap.wallIn };
     if (snap.bench && typeof snap.bench === 'object') state.bench = { ...state.bench, ...snap.bench };
     if (snap.spa && typeof snap.spa === 'object') {
       // Merge carefully: nested objects (wallIn, placement) should be object-merged too.
@@ -4759,6 +4839,12 @@
     setVal('width', state.width); setVal('width_r', state.width);
     setVal('desired_len', state.desiredLength); setVal('desired_len_r', state.desiredLength);
     setVal('coping_rise', state.copingRiseIn); setVal('coping_rise_r', state.copingRiseIn);
+    if (state.wallIn) {
+      setVal('pool_wall_n', state.wallIn.near);
+      setVal('pool_wall_f', state.wallIn.far);
+      setVal('pool_wall_l', state.wallIn.left);
+      setVal('pool_wall_r', state.wallIn.right);
+    }
     setVal('project_name', state.tweaks && state.tweaks.projectName);
     if ($('mirror_toggle')) $('mirror_toggle').classList.toggle('on', !!state.mirror);
     if ($('water_toggle')) $('water_toggle').classList.toggle('on', !!state.showWater);
