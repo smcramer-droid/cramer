@@ -104,8 +104,12 @@ export default {
     }
 
     // Remote inspection endpoint — dump state for debugging from Claude Code.
+    // Accepts secret via x-admin-secret header OR ?secret=... query param
+    // (the latter so Claude Code's WebFetch, which can't send custom headers,
+    // can still inspect state directly).
     if (url.pathname === "/admin/state" && req.method === "GET") {
-      if (req.headers.get("x-admin-secret") !== env.TELEGRAM_WEBHOOK_SECRET) {
+      const providedSecret = req.headers.get("x-admin-secret") ?? url.searchParams.get("secret");
+      if (providedSecret !== env.TELEGRAM_WEBHOOK_SECRET) {
         return new Response("unauthorized", { status: 401 });
       }
       const section = url.searchParams.get("section") ?? "overview";
