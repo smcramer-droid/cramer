@@ -8,6 +8,7 @@ on:
     branches:
       - main
       - claude/implement-pool-designer-1Bby3
+      - claude/pool-design-tools-3pjeT
     paths:
       - pool-designer/**
       - .github/workflows/deploy-pool-designer.yml
