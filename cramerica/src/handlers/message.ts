@@ -1,5 +1,5 @@
 import { handleAssessmentReply } from "../assessment";
-import { sendStatsPack } from "../charts";
+import { handleCommand } from "../commands";
 import { chat } from "../claude";
 import {
   appendMessage,
@@ -133,16 +133,10 @@ export async function handleIncoming(env: Env, msg: TgMessage): Promise<void> {
   const text = msg.text.trim();
   if (!text) return;
 
-  // /stats — send the chart pack on demand.
-  if (text.toLowerCase() === "/stats" || text.toLowerCase() === "/charts") {
-    const profile = await getProfile(env);
-    if (profile.chat_id) {
-      const sent = await sendStatsPack(env, profile.chat_id, profile);
-      if (sent === 0) {
-        await sendMessage(env, profile.chat_id, "Not enough data for charts yet. Keep logging.");
-      }
-    }
-    return;
+  // Slash-command dispatcher (/start, /retro, /today, /stats, /help).
+  if (text.startsWith("/")) {
+    const consumed = await handleCommand(env, msg.chat.id, text);
+    if (consumed) return;
   }
 
   // Pending meal clarification? Resolve before anything else.

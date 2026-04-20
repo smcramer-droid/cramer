@@ -63,10 +63,9 @@ WEBHOOK_URL=https://cramerica.<subdomain>.workers.dev/webhook \
 WEBHOOK_SECRET=<same string you just set as secret> \
 node scripts/set-webhook.mjs
 
-# 6. In Telegram, send the bot any message — this captures your chat_id.
-#    Then manually trigger the first check-in:
-curl -X POST -H "x-admin-secret: <WEBHOOK_SECRET>" \
-  "https://cramerica.<subdomain>.workers.dev/admin/fire?slot=morning"
+# 6. In Telegram, send the bot /start — this captures your chat_id and
+#    kicks off the week-1 intake conversation. Answer the 10 questions and
+#    Opus will generate your first week's program automatically.
 ```
 
 ## Development
@@ -103,9 +102,15 @@ wrangler d1 execute cramerica --remote \
 
 ## Commands
 
+- `/start` — begin (or resume) the week-1 intake. Use this right after
+  deploy to kick off the first conversation.
+- `/today` — today's trackables + streak + strength-week status.
 - `/stats` (or `/charts`) — sends the current chart pack: daily-targets
   adherence (7 days), protein + calories (7 days), weight trend (28 days),
   strength sessions closed (6 weeks).
+- `/retro` — manually re-open Sunday's retrospective (runs the Opus-style
+  reflection + sends the chart pack).
+- `/help` — lists the commands.
 
 ## Meal photos
 
