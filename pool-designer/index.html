@@ -324,6 +324,13 @@
   /* Spa group on the site plan is draggable */
   #svg_site_top [data-spa]{ cursor:move; }
   #svg_site_top [data-spa]:hover rect:first-child{ stroke:var(--accent); stroke-width:2.2; }
+  /* Cross-section cut lines on the pool + spa plans */
+  .pool-cut-line, .spa-cut-line{ cursor:ns-resize; }
+  .pool-cut-line[data-cut="A"], .spa-cut-line[data-cut="A"]{ cursor:ns-resize; }
+  .pool-cut-line[data-cut="B"], .spa-cut-line[data-cut="B"]{ cursor:ns-resize; }
+  .spa-cut-line[data-cut="B"]{ cursor:ew-resize; } /* vertical line moves horizontally */
+  .pool-cut-handle, .spa-cut-handle{ cursor:ns-resize; }
+  .spa-cut-handle[data-cut="B"]{ cursor:ew-resize; }
   .view-save{
     background:transparent; border:1.5px solid var(--ink); cursor:pointer;
     font-family:"Special Elite",monospace; font-size:10px; letter-spacing:1.2px;
@@ -1650,11 +1657,44 @@
     }
     // (Plan view: desired-length reference removed — already shown in sidebar + hatch overlay)
 
-    // section indicator A—A
-    const ay = y0 - 26;
-    el('line', { x1: x0 - 8, y1: ay, x2: x0 + poolW + 8, y2: ay, class:'ink-soft', 'stroke-dasharray':'6 4', 'stroke-width':0.9 }, svg);
-    const ta1 = el('text', { x: x0 - 14, y: ay + 5, class: 'dim-text', 'text-anchor': 'end' }, svg); ta1.textContent = 'A';
-    const ta2 = el('text', { x: x0 + poolW + 14, y: ay + 5, class: 'dim-text', 'text-anchor': 'start' }, svg); ta2.textContent = 'A';
+    // ===== Draggable cut lines (A-A always; B-B when partial shelf) =====
+    const aYpx = y0 + (state.poolCuts.A.yFt || 0) * widthScale;
+    // A-A cut line across the pool
+    el('line', { x1: x0 - 8, y1: aYpx, x2: x0 + poolW + 8, y2: aYpx,
+      class: 'pool-cut-line', 'data-cut': 'A',
+      stroke: 'var(--accent)', 'stroke-width': 2, 'stroke-dasharray': '6 4' }, svg);
+    // Draggable handles at each end
+    el('circle', { cx: x0 - 10, cy: aYpx, r: 5,
+      class: 'pool-cut-handle', 'data-cut': 'A',
+      fill: 'var(--accent)', stroke: 'var(--ink)', 'stroke-width': 1 }, svg);
+    el('circle', { cx: x0 + poolW + 10, cy: aYpx, r: 5,
+      class: 'pool-cut-handle', 'data-cut': 'A',
+      fill: 'var(--accent)', stroke: 'var(--ink)', 'stroke-width': 1 }, svg);
+    // A labels
+    const ta1 = el('text', { x: x0 - 18, y: aYpx + 5, class: 'dim-text', 'text-anchor': 'end' }, svg); ta1.textContent = 'A';
+    const ta2 = el('text', { x: x0 + poolW + 18, y: aYpx + 5, class: 'dim-text', 'text-anchor': 'start' }, svg); ta2.textContent = 'A';
+    // B-B cut (only if needed — partial shelf)
+    const needB = state.sections.some(s => {
+      if (s.type !== 'entry') return false;
+      const side = s.shelf && s.shelf.side;
+      return side === 'near' || side === 'far';
+    });
+    if (needB) {
+      const bYpx = y0 + (state.poolCuts.B.yFt || 0) * widthScale;
+      el('line', { x1: x0 - 8, y1: bYpx, x2: x0 + poolW + 8, y2: bYpx,
+        class: 'pool-cut-line', 'data-cut': 'B',
+        stroke: '#8a5a9a', 'stroke-width': 2, 'stroke-dasharray': '6 4' }, svg);
+      el('circle', { cx: x0 - 10, cy: bYpx, r: 5,
+        class: 'pool-cut-handle', 'data-cut': 'B',
+        fill: '#8a5a9a', stroke: 'var(--ink)', 'stroke-width': 1 }, svg);
+      el('circle', { cx: x0 + poolW + 10, cy: bYpx, r: 5,
+        class: 'pool-cut-handle', 'data-cut': 'B',
+        fill: '#8a5a9a', stroke: 'var(--ink)', 'stroke-width': 1 }, svg);
+      const tb1 = el('text', { x: x0 - 18, y: bYpx + 5, class: 'dim-text', 'text-anchor': 'end', style: 'fill:#8a5a9a' }, svg); tb1.textContent = 'B';
+      const tb2 = el('text', { x: x0 + poolW + 18, y: bYpx + 5, class: 'dim-text', 'text-anchor': 'start', style: 'fill:#8a5a9a' }, svg); tb2.textContent = 'B';
+    }
+    // Stash coord mapping for drag handlers
+    svg._planMap = { x0, y0, scale, widthScale, W };
 
     // dims
     dimLine(svg, x0, y0 + poolH, x0 + poolW, y0 + poolH, fmtFt(L), { offset: 34, side: 1, textOffset: 16 });
@@ -1801,25 +1841,26 @@
   }
 
   function renderSectionAll() {
-    // Show two views if any entry section has an asymmetric (near vs far) profile
+    // B-B cut is shown when the pool has an asymmetric (partial-shelf) layout,
+    // or any time the user has moved it away from A-A.
     const needTwo = state.sections.some(s => {
       if (s.type !== 'entry') return false;
       const side = s.shelf && s.shelf.side;
       return side === 'near' || side === 'far';
     });
     $('sec2_view').style.display = needTwo ? '' : 'none';
+    // Clamp cut positions to the pool's y-extent.
+    const A = Math.max(0, Math.min(state.width, +state.poolCuts.A.yFt || 0));
+    state.poolCuts.A.yFt = A;
+    renderSection('svg_sec', A, null);
+    $('sec_title').textContent = 'Cross-section A–A';
+    $('sec_tag').textContent = `at y = ${fmt1(A)}′ (drag on plan)`;
     if (needTwo) {
-      // Near edge cut and far edge cut
-      renderSection('svg_sec', 0, 'A–A · near edge');
-      renderSection('svg_sec_2', state.width, 'B–B · far edge');
-      $('sec_title').textContent = 'Cross-section A–A';
-      $('sec_tag').textContent = 'near edge (y = 0)';
+      const B = Math.max(0, Math.min(state.width, +state.poolCuts.B.yFt || state.width));
+      state.poolCuts.B.yFt = B;
+      renderSection('svg_sec_2', B, null);
       $('sec2_title').textContent = 'Cross-section B–B';
-      $('sec2_tag').textContent = `far edge (y = ${fmt1(state.width)}′)`;
-    } else {
-      renderSection('svg_sec', state.width / 2, null);
-      $('sec_title').textContent = 'Cross-section A–A';
-      $('sec_tag').textContent = 'longitudinal';
+      $('sec2_tag').textContent = `at y = ${fmt1(B)}′ (drag on plan)`;
     }
   }
 
@@ -2660,26 +2701,102 @@
       fill: state.showWater ? state.tweaks.waterColor : 'none',
       'fill-opacity': state.showWater ? 0.35 : 0,
       stroke: 'var(--ink)', 'stroke-width': 1.2 }, svg);
-    // Cells
+    // === Interior geometry: floor tiles + risers between adjacent cells of different
+    //     depths + interior wall panels around the perimeter. Without these, the spa
+    //     looked like a set of floating floor tiles in iso. ===
     const quads = [];
+    const perimeterZ = spaDeckZ; // interior walls go from cell floor up to spa deck
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
         const d = sp.cells[r][c] || 0;
         const floorZ = spaWaterZ + d / 12;
         const xs0 = r * cs, xs1 = (r + 1) * cs;
         const ys0 = c * cs, ys1 = (c + 1) * cs;
-        const pts = [
-          PP(xs0, ys0, floorZ), PP(xs1, ys0, floorZ),
-          PP(xs1, ys1, floorZ), PP(xs0, ys1, floorZ),
-        ];
-        quads.push({ pts, d });
+        // Floor tile
+        quads.push({
+          pts: [
+            PP(xs0, ys0, floorZ), PP(xs1, ys0, floorZ),
+            PP(xs1, ys1, floorZ), PP(xs0, ys1, floorZ),
+          ],
+          fill: depthColor(d), opacity: 0.7, stroke: depthColor(d), kind: 'floor'
+        });
+        // Riser to +x neighbor (r+1, c)
+        if (r < rows - 1) {
+          const d2 = sp.cells[r+1][c] || 0;
+          if (Math.abs(d - d2) > 0.01) {
+            const z2 = spaWaterZ + d2 / 12;
+            const zA = Math.min(floorZ, z2), zB = Math.max(floorZ, z2);
+            quads.push({
+              pts: [
+                PP(xs1, ys0, zA), PP(xs1, ys1, zA),
+                PP(xs1, ys1, zB), PP(xs1, ys0, zB),
+              ],
+              fill: depthColor(Math.max(d, d2)), opacity: 0.55,
+              stroke: 'var(--ink)', strokeW: 0.5, kind: 'riser'
+            });
+          }
+        }
+        // Riser to +y neighbor (r, c+1)
+        if (c < cols - 1) {
+          const d2 = sp.cells[r][c+1] || 0;
+          if (Math.abs(d - d2) > 0.01) {
+            const z2 = spaWaterZ + d2 / 12;
+            const zA = Math.min(floorZ, z2), zB = Math.max(floorZ, z2);
+            quads.push({
+              pts: [
+                PP(xs0, ys1, zA), PP(xs1, ys1, zA),
+                PP(xs1, ys1, zB), PP(xs0, ys1, zB),
+              ],
+              fill: depthColor(Math.max(d, d2)), opacity: 0.55,
+              stroke: 'var(--ink)', strokeW: 0.5, kind: 'riser'
+            });
+          }
+        }
+        // Interior wall panels on perimeter — each outside-facing edge of a perimeter
+        // cell gets a quad from its floor up to the spa deck.
+        if (r === 0) {
+          quads.push({
+            pts: [PP(0, ys0, perimeterZ), PP(0, ys1, perimeterZ), PP(0, ys1, floorZ), PP(0, ys0, floorZ)],
+            fill: '#c9b68a', opacity: 0.75, stroke: 'var(--ink)', strokeW: 0.7, kind: 'wall',
+          });
+        }
+        if (r === rows - 1) {
+          quads.push({
+            pts: [PP(sp.lengthFt, ys0, perimeterZ), PP(sp.lengthFt, ys1, perimeterZ),
+                  PP(sp.lengthFt, ys1, floorZ), PP(sp.lengthFt, ys0, floorZ)],
+            fill: '#c9b68a', opacity: 0.75, stroke: 'var(--ink)', strokeW: 0.7, kind: 'wall',
+          });
+        }
+        if (c === 0) {
+          quads.push({
+            pts: [PP(xs0, 0, perimeterZ), PP(xs1, 0, perimeterZ),
+                  PP(xs1, 0, floorZ), PP(xs0, 0, floorZ)],
+            fill: '#c9b68a', opacity: 0.75, stroke: 'var(--ink)', strokeW: 0.7, kind: 'wall',
+          });
+        }
+        if (c === cols - 1) {
+          quads.push({
+            pts: [PP(xs0, sp.widthFt, perimeterZ), PP(xs1, sp.widthFt, perimeterZ),
+                  PP(xs1, sp.widthFt, floorZ), PP(xs0, sp.widthFt, floorZ)],
+            fill: '#c9b68a', opacity: 0.75, stroke: 'var(--ink)', strokeW: 0.7, kind: 'wall',
+          });
+        }
       }
     }
-    quads.sort((a, b) => ((a.pts[0][1] + a.pts[2][1]) / 2) - ((b.pts[0][1] + b.pts[2][1]) / 2));
+    // Painter's sort by centroid depth: farther in screen (small y) first,
+    // front later. Tie-break: walls behind floor so floor paints on top.
+    quads.sort((a, b) => {
+      const ay = (a.pts[0][1] + a.pts[2][1]) / 2;
+      const by = (b.pts[0][1] + b.pts[2][1]) / 2;
+      return ay - by;
+    });
     quads.forEach(q => {
       const pathD = `M${q.pts.map(p => p[0].toFixed(2) + ',' + p[1].toFixed(2)).join('L')}Z`;
-      const color = depthColor(q.d);
-      el('path', { d: pathD, fill: color, 'fill-opacity': 0.6, stroke: color, 'stroke-width': 0.3 }, svg);
+      el('path', {
+        d: pathD,
+        fill: q.fill, 'fill-opacity': q.opacity,
+        stroke: q.stroke, 'stroke-width': q.strokeW || 0.3,
+      }, svg);
     });
   }
 
@@ -3222,6 +3339,8 @@
     ensureSpaCells();
     const VBW = 500, VBH = 400;
     const pad = 50;
+    const cs = sp.cellSizeIn / 12; // ft per cell
+    const rows = sp.cells.length, cols = sp.cells[0] ? sp.cells[0].length : 0;
     // Footprint including walls
     const wL = sp.wallIn.left / 12, wR = sp.wallIn.right / 12;
     const wN = sp.wallIn.near / 12, wF = sp.wallIn.far / 12;
@@ -3237,22 +3356,116 @@
     sp.placement = { xFt: 0, yFt: 0, rotationDeg: 0 };
     drawSpaPlan(svg, x0, y0, scale, scale, { label: true });
     sp.placement = savedPlacement;
-    // Dimension lines
+    // Dimension lines — overall length (bottom) and width (right of shell)
     dimLine(svg, x0, y0 + sp.widthFt * scale, x0 + sp.lengthFt * scale, y0 + sp.widthFt * scale,
-      fmtFt(sp.lengthFt), { offset: 24, side: 1, textOffset: 14 });
+      fmtFt(sp.lengthFt), { offset: 28, side: 1, textOffset: 14 });
     dimLine(svg, x0 + sp.lengthFt * scale, y0, x0 + sp.lengthFt * scale, y0 + sp.widthFt * scale,
-      fmtFt(sp.widthFt), { offset: 24, side: -1, textOffset: 14, vertical: true });
-    // A–A / B–B cut indicators
-    const midY = y0 + sp.widthFt * scale / 2;
-    const midX = x0 + sp.lengthFt * scale / 2;
-    el('line', { x1: x0 - 10, y1: midY, x2: x0 + sp.lengthFt * scale + 10, y2: midY,
-      class:'ink-soft', 'stroke-dasharray':'6 4', 'stroke-width':0.9 }, svg);
-    const ta1 = el('text', { x: x0 - 14, y: midY + 5, class:'dim-text', 'text-anchor':'end' }, svg); ta1.textContent = 'A';
-    const ta2 = el('text', { x: x0 + sp.lengthFt*scale + 14, y: midY + 5, class:'dim-text', 'text-anchor':'start' }, svg); ta2.textContent = 'A';
-    el('line', { x1: midX, y1: y0 - 10, x2: midX, y2: y0 + sp.widthFt * scale + 10,
-      class:'ink-soft', 'stroke-dasharray':'6 4', 'stroke-width':0.9 }, svg);
-    const tb1 = el('text', { x: midX, y: y0 - 14, class:'dim-text', 'text-anchor':'middle' }, svg); tb1.textContent = 'B';
-    const tb2 = el('text', { x: midX, y: y0 + sp.widthFt*scale + 22, class:'dim-text', 'text-anchor':'middle' }, svg); tb2.textContent = 'B';
+      fmtFt(sp.widthFt), { offset: 28, side: -1, textOffset: 14, vertical: true });
+
+    // Wall-thickness callouts — small labels just outside each wall
+    const wallLbl = (x, y, anchor, txt) => {
+      const t = el('text', { x, y, class: 'label', 'text-anchor': anchor,
+        style: 'font-size:9.5px; fill:var(--ink-soft); letter-spacing:1px' }, svg);
+      t.textContent = txt;
+    };
+    // Near wall (top, y = -wN) — label just above the outer shell, centered over the wall strip
+    wallLbl(x0 + sp.lengthFt * scale / 2, y0 - wN * scale - 3, 'middle', `${sp.wallIn.near}″`);
+    wallLbl(x0 + sp.lengthFt * scale / 2, y0 + sp.widthFt * scale + wF * scale + 11, 'middle', `${sp.wallIn.far}″`);
+    wallLbl(x0 - wL * scale - 3, y0 + sp.widthFt * scale / 2 + 3, 'end', `${sp.wallIn.left}″`);
+    wallLbl(x0 + sp.lengthFt * scale + wR * scale + 3, y0 + sp.widthFt * scale / 2 + 3, 'start', `${sp.wallIn.right}″`);
+
+    // === Depth-region outlines + labels ===
+    // Flood-fill connected same-depth regions, outline them, put a depth label at
+    // each region's centroid. This avoids labeling every cell while making depth
+    // transitions crisp.
+    const regions = [];
+    const visited = Array.from({length: rows}, () => Array(cols).fill(false));
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (visited[r][c]) continue;
+        const d = sp.cells[r][c] || 0;
+        const cells = [];
+        const stack = [[r, c]];
+        while (stack.length) {
+          const [rr, cc] = stack.pop();
+          if (rr < 0 || rr >= rows || cc < 0 || cc >= cols) continue;
+          if (visited[rr][cc]) continue;
+          if ((sp.cells[rr][cc] || 0) !== d) continue;
+          visited[rr][cc] = true;
+          cells.push([rr, cc]);
+          stack.push([rr+1, cc], [rr-1, cc], [rr, cc+1], [rr, cc-1]);
+        }
+        regions.push({ depth: d, cells });
+      }
+    }
+    // For each region, trace its boundary edges (edges where neighbor depth differs).
+    // Then draw each as a solid ink line (thin) so the region reads as one zone.
+    const cellSet = (cellsArr) => new Set(cellsArr.map(([r,c]) => r + ',' + c));
+    regions.forEach((reg, idx) => {
+      const set = cellSet(reg.cells);
+      const edges = [];
+      reg.cells.forEach(([r, c]) => {
+        // Top edge (between row r-1 and row r in the editor — i.e. column boundary at c*cs? NO)
+        // row = along-length (x), col = across-width (y)
+        // cell (r,c) occupies x ∈ [r*cs, (r+1)*cs], y ∈ [c*cs, (c+1)*cs] in spa-local
+        // Edge to r-1 neighbor (same c): line at x = r*cs, from y=c*cs to y=(c+1)*cs
+        const xL = r * cs, xR = (r+1) * cs;
+        const yT = c * cs, yB = (c+1) * cs;
+        if (!set.has((r-1) + ',' + c))     edges.push([[xL, yT], [xL, yB]]);
+        if (!set.has((r+1) + ',' + c))     edges.push([[xR, yT], [xR, yB]]);
+        if (!set.has(r + ',' + (c-1)))     edges.push([[xL, yT], [xR, yT]]);
+        if (!set.has(r + ',' + (c+1)))     edges.push([[xL, yB], [xR, yB]]);
+      });
+      edges.forEach(([a, b]) => {
+        el('line', {
+          x1: x0 + a[0] * scale, y1: y0 + a[1] * scale,
+          x2: x0 + b[0] * scale, y2: y0 + b[1] * scale,
+          stroke: 'var(--ink)', 'stroke-width': 1.1, 'stroke-linecap': 'round',
+        }, svg);
+      });
+      // Centroid label (skip tiny regions so the SPA overlay still reads)
+      if (reg.cells.length >= 2) {
+        const mr = reg.cells.reduce((s, [r]) => s + r, 0) / reg.cells.length + 0.5;
+        const mc = reg.cells.reduce((s, [, c]) => s + c, 0) / reg.cells.length + 0.5;
+        const lx = x0 + mr * cs * scale;
+        const ly = y0 + mc * cs * scale;
+        const t = el('text', { x: lx, y: ly + 4, 'text-anchor': 'middle',
+          style: 'font-family: JetBrains Mono, monospace; font-size:11px; fill:var(--ink); font-weight:600;',
+          'pointer-events': 'none',
+        }, svg);
+        t.textContent = `${Math.round(reg.depth)}″`;
+      }
+    });
+
+    // A–A / B–B draggable cut indicators
+    // Clamp cuts to spa footprint
+    const aY = Math.max(0, Math.min(sp.widthFt,  +state.spaCuts.A.yFt || 0));
+    const bX = Math.max(0, Math.min(sp.lengthFt, +state.spaCuts.B.xFt || 0));
+    state.spaCuts.A.yFt = aY; state.spaCuts.B.xFt = bX;
+    const aYpx = y0 + aY * scale;
+    const bXpx = x0 + bX * scale;
+    // A-A (horizontal, draggable up/down)
+    el('line', { x1: x0 - 10, y1: aYpx, x2: x0 + sp.lengthFt*scale + 10, y2: aYpx,
+      class:'spa-cut-line', 'data-cut':'A',
+      stroke:'var(--accent)', 'stroke-width': 2, 'stroke-dasharray':'6 4' }, svg);
+    el('circle', { cx: x0 - 12, cy: aYpx, r: 5, class:'spa-cut-handle', 'data-cut':'A',
+      fill:'var(--accent)', stroke:'var(--ink)', 'stroke-width': 1 }, svg);
+    el('circle', { cx: x0 + sp.lengthFt*scale + 12, cy: aYpx, r: 5, class:'spa-cut-handle', 'data-cut':'A',
+      fill:'var(--accent)', stroke:'var(--ink)', 'stroke-width': 1 }, svg);
+    el('text', { x: x0 - 20, y: aYpx + 5, class:'dim-text', 'text-anchor':'end' }, svg).textContent = 'A';
+    el('text', { x: x0 + sp.lengthFt*scale + 20, y: aYpx + 5, class:'dim-text', 'text-anchor':'start' }, svg).textContent = 'A';
+    // B-B (vertical, draggable left/right)
+    el('line', { x1: bXpx, y1: y0 - 10, x2: bXpx, y2: y0 + sp.widthFt*scale + 10,
+      class:'spa-cut-line', 'data-cut':'B',
+      stroke:'#8a5a9a', 'stroke-width': 2, 'stroke-dasharray':'6 4' }, svg);
+    el('circle', { cx: bXpx, cy: y0 - 12, r: 5, class:'spa-cut-handle', 'data-cut':'B',
+      fill:'#8a5a9a', stroke:'var(--ink)', 'stroke-width': 1 }, svg);
+    el('circle', { cx: bXpx, cy: y0 + sp.widthFt*scale + 12, r: 5, class:'spa-cut-handle', 'data-cut':'B',
+      fill:'#8a5a9a', stroke:'var(--ink)', 'stroke-width': 1 }, svg);
+    el('text', { x: bXpx, y: y0 - 18, class:'dim-text', 'text-anchor':'middle', style:'fill:#8a5a9a' }, svg).textContent = 'B';
+    el('text', { x: bXpx, y: y0 + sp.widthFt*scale + 26, class:'dim-text', 'text-anchor':'middle', style:'fill:#8a5a9a' }, svg).textContent = 'B';
+    // Stash spa-plan coord mapping for drag handlers
+    svg._spaPlanMap = { x0, y0, scale, widthFt: sp.widthFt, lengthFt: sp.lengthFt };
   }
 
   // Spa iso (spa-only, centered in its own SVG).
@@ -3308,7 +3521,11 @@
     // For axis A: cut at middle col; walk cells along rows.
     // For axis B: cut at middle row; walk cells along cols.
     const isA = axis === 'A';
-    const cutIdx = isA ? Math.floor(cols / 2) : Math.floor(rows / 2);
+    // A-A cut: horizontal line at y = spaCuts.A.yFt — maps to a COLUMN index in cells[r][c]
+    // B-B cut: vertical   line at x = spaCuts.B.xFt — maps to a ROW index
+    const cutIdx = isA
+      ? Math.max(0, Math.min(cols - 1, Math.floor((state.spaCuts.A.yFt || 0) / cs)))
+      : Math.max(0, Math.min(rows - 1, Math.floor((state.spaCuts.B.xFt || 0) / cs)));
     const steps = isA ? rows : cols;
     const lenFt = isA ? sp.lengthFt : sp.widthFt;
     const maxD = Math.max(...sp.cells.flat(), 6) / 12;
@@ -3350,18 +3567,33 @@
     const shellPts = [[x0, deckY], [x0, floorPts[0][1]], ...floorPts.slice(1,-1),
       [x0 + pxW, floorPts[floorPts.length-1][1]], [x0 + pxW, deckY]];
     el('path', { d: wobble(shellPts, 0.5, 51), class:'ink', 'stroke-width':2, fill:'none' }, svg);
-    // Depth callouts every few cells
-    const callEvery = Math.max(1, Math.floor(steps / 8));
-    for (let i = 0; i < steps; i += callEvery) {
-      const d = isA ? sp.cells[i][cutIdx] : sp.cells[cutIdx][i];
-      const midX = x0 + (i + 0.5) * cs * scale;
-      const fy = waterY + (d/12) * scale;
-      const t = el('text', { x: midX, y: fy + 14, class:'dim-text', 'text-anchor':'middle',
-        style:'font-size:12px' }, svg);
-      t.textContent = `${Math.round(d)}″`;
+    // Depth callouts — merge adjacent same-depth runs into one callout at run midpoint.
+    {
+      let runStart = 0;
+      let runDepth = Math.round(isA ? sp.cells[0][cutIdx] : sp.cells[cutIdx][0]);
+      for (let i = 1; i <= steps; i++) {
+        const d = i < steps
+          ? Math.round(isA ? sp.cells[i][cutIdx] : sp.cells[cutIdx][i])
+          : null;
+        if (d !== runDepth) {
+          const runEnd = i;
+          const midCellsX = (runStart + runEnd) / 2;
+          const midX = x0 + midCellsX * cs * scale;
+          const fy = waterY + (runDepth / 12) * scale;
+          const t = el('text', { x: midX, y: fy + 14, class:'dim-text', 'text-anchor':'middle',
+            style:'font-size:12px' }, svg);
+          t.textContent = `${runDepth}″`;
+          runStart = i;
+          runDepth = d;
+        }
+      }
     }
-    // Axis title at the bottom
-    const label = axis === 'A' ? 'length-wise cut (middle of width)' : 'width-wise cut (middle of length)';
+    // Axis title at the bottom — include current cut position
+    const isAlen = isA;
+    const cutPosFt = isAlen ? (state.spaCuts.A.yFt || 0) : (state.spaCuts.B.xFt || 0);
+    const label = (isAlen
+      ? `length-wise cut · y = ${fmt1(cutPosFt)}' (drag on plan)`
+      : `width-wise cut · x = ${fmt1(cutPosFt)}' (drag on plan)`);
     const t = el('text', { x: x0 + pxW/2, y: VBH - 20, class:'label', 'text-anchor':'middle' }, svg);
     t.textContent = label;
     // Overall length dim
@@ -3374,6 +3606,15 @@
 
   // Site plan — pool + spa at their placement, with a draggable cut line.
   state.siteCut = state.siteCut || { yFt: state.width / 2 };
+  // Per-view cuts (all draggable)
+  state.poolCuts = state.poolCuts || {
+    A: { yFt: state.width / 2 },       // longitudinal cut y-position
+    B: { yFt: 0 },                     // second cut (used when partial shelf)
+  };
+  state.spaCuts = state.spaCuts || {
+    A: { yFt: state.spa.widthFt / 2 }, // length-wise cut (horizontal on plan)
+    B: { xFt: state.spa.lengthFt / 2 },// width-wise cut (vertical on plan)
+  };
   function renderSitePlan() {
     const svg = $('svg_site_top'); if (!svg) return;
     clear(svg);
@@ -3658,6 +3899,89 @@
       } else if (mode === 'cut') {
         state.siteCut.yFt = pos.yFt;
       }
+      scheduleRender();
+      e.preventDefault();
+    };
+    const end = () => { mode = null; };
+    svg.addEventListener('mousedown', start);
+    svg.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', end);
+    svg.addEventListener('touchstart', start, { passive: false });
+    svg.addEventListener('touchmove', move, { passive: false });
+    svg.addEventListener('touchend', end);
+  })();
+
+  // Drag handlers for pool plan cut lines (A-A, B-B)
+  (function wirePoolPlanCuts() {
+    const svg = $('svg_top'); if (!svg) return;
+    let mode = null; // 'A' or 'B'
+    const toFt = (clientY) => {
+      const map = svg._planMap; if (!map) return null;
+      const rect = svg.getBoundingClientRect();
+      const vb = (svg.getAttribute('viewBox') || '0 0 0 0').split(/\s+/).map(Number);
+      const vbH = vb[3] || rect.height;
+      const y = ((clientY - rect.top) / rect.height) * vbH;
+      return (y - map.y0) / map.widthScale;
+    };
+    const start = (e) => {
+      const tgt = e.target;
+      const cutAttr = tgt && tgt.getAttribute && tgt.getAttribute('data-cut');
+      if (!cutAttr) return;
+      mode = cutAttr;
+      const pt = e.touches ? e.touches[0] : e;
+      const ft = toFt(pt.clientY); if (ft == null) return;
+      state.poolCuts[mode].yFt = Math.max(0, Math.min(state.width, ft));
+      scheduleRender();
+      e.preventDefault();
+    };
+    const move = (e) => {
+      if (!mode) return;
+      const pt = e.touches ? e.touches[0] : e;
+      const ft = toFt(pt.clientY); if (ft == null) return;
+      state.poolCuts[mode].yFt = Math.max(0, Math.min(state.width, ft));
+      scheduleRender();
+      e.preventDefault();
+    };
+    const end = () => { mode = null; };
+    svg.addEventListener('mousedown', start);
+    svg.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', end);
+    svg.addEventListener('touchstart', start, { passive: false });
+    svg.addEventListener('touchmove', move, { passive: false });
+    svg.addEventListener('touchend', end);
+  })();
+
+  // Drag handlers for spa plan cut lines (A-A horizontal, B-B vertical)
+  (function wireSpaPlanCuts() {
+    const svg = $('svg_spa_top'); if (!svg) return;
+    let mode = null;
+    const toFt = (clientX, clientY) => {
+      const map = svg._spaPlanMap; if (!map) return null;
+      const rect = svg.getBoundingClientRect();
+      const vb = (svg.getAttribute('viewBox') || '0 0 0 0').split(/\s+/).map(Number);
+      const vbW = vb[2] || rect.width, vbH = vb[3] || rect.height;
+      const x = ((clientX - rect.left) / rect.width) * vbW;
+      const y = ((clientY - rect.top)  / rect.height) * vbH;
+      return { xFt: (x - map.x0) / map.scale, yFt: (y - map.y0) / map.scale };
+    };
+    const start = (e) => {
+      const tgt = e.target;
+      const cutAttr = tgt && tgt.getAttribute && tgt.getAttribute('data-cut');
+      if (!cutAttr) return;
+      mode = cutAttr;
+      const pt = e.touches ? e.touches[0] : e;
+      const pos = toFt(pt.clientX, pt.clientY); if (!pos) return;
+      if (mode === 'A') state.spaCuts.A.yFt = Math.max(0, Math.min(state.spa.widthFt, pos.yFt));
+      else if (mode === 'B') state.spaCuts.B.xFt = Math.max(0, Math.min(state.spa.lengthFt, pos.xFt));
+      scheduleRender();
+      e.preventDefault();
+    };
+    const move = (e) => {
+      if (!mode) return;
+      const pt = e.touches ? e.touches[0] : e;
+      const pos = toFt(pt.clientX, pt.clientY); if (!pos) return;
+      if (mode === 'A') state.spaCuts.A.yFt = Math.max(0, Math.min(state.spa.widthFt, pos.yFt));
+      else if (mode === 'B') state.spaCuts.B.xFt = Math.max(0, Math.min(state.spa.lengthFt, pos.xFt));
       scheduleRender();
       e.preventDefault();
     };
