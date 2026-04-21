@@ -192,6 +192,64 @@
       .entry-line select {
         min-height: 40px;
       }
+
+      .item-info-custom {
+        color: var(--brand);
+        font-weight: 500;
+      }
+
+      .custom-wrap { margin-top: 6px; }
+
+      .customize-toggle {
+        background: none;
+        border: none;
+        color: var(--sky);
+        font-size: 12px;
+        padding: 4px 0;
+        cursor: pointer;
+        font-weight: 600;
+      }
+      .customize-toggle:hover { text-decoration: underline; }
+
+      .customize-panel {
+        margin-top: 8px;
+        padding: 10px 12px;
+        background: rgba(255, 138, 61, 0.06);
+        border: 1px dashed rgba(255, 138, 61, 0.35);
+        border-radius: 12px;
+      }
+      .customize-label {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--brand);
+        margin: 6px 0 4px;
+      }
+      .customize-panel input {
+        min-height: 36px;
+        font-size: 13px;
+        padding: 6px 10px;
+      }
+      .customize-actions {
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+        margin-top: 8px;
+      }
+      .customize-clear,
+      .customize-close {
+        background: none;
+        border: 1.5px solid rgba(18,58,74,0.2);
+        color: var(--ink-soft);
+        border-radius: 999px;
+        padding: 5px 14px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .customize-clear:hover,
+      .customize-close:hover { background: rgba(18,58,74,0.06); }
       .remove-entry {
         background: rgba(226, 85, 85, 0.1);
         border: 1.5px solid rgba(226, 85, 85, 0.3);
@@ -748,7 +806,9 @@
           id: genId(),
           optionId: (seed && seed.optionId) || "none",
           qty: (seed && seed.qty) != null ? seed.qty : (cat && cat.defaultQty) || 1,
-          bodyId: (seed && "bodyId" in seed) ? seed.bodyId : inherit
+          bodyId: (seed && "bodyId" in seed) ? seed.bodyId : inherit,
+          customModel: (seed && seed.customModel) || "",
+          customInfo: (seed && seed.customInfo) || ""
         };
         list.push(entry);
         return entry;
@@ -887,8 +947,77 @@
         const opt = cat.options.find(o => o.id === entry.optionId);
         const children = [topLine];
         if (opt && opt.id !== "none") {
-          const info = [opt.manufacturer, opt.model, opt.info].filter(Boolean).join(" · ");
-          if (info) children.push(el("div", { class: "item-info" }, info));
+          const effectiveModel = entry.customModel || opt.model || "";
+          const effectiveInfo = entry.customInfo || opt.info || "";
+          const infoParts = [opt.manufacturer, effectiveModel, effectiveInfo].filter(Boolean);
+          if (infoParts.length) {
+            const hasOverride = !!(entry.customModel || entry.customInfo);
+            const infoEl = el("div", { class: "item-info" + (hasOverride ? " item-info-custom" : "") }, infoParts.join(" · ") + (hasOverride ? "  •  customized" : ""));
+            children.push(infoEl);
+          }
+        }
+        // Per-entry override panel
+        if (opt && opt.id !== "none") {
+          const wrap = el("div", { class: "custom-wrap" });
+          const hasCustom = !!(entry.customModel || entry.customInfo);
+          let expanded = hasCustom;
+          const render = () => {
+            wrap.innerHTML = "";
+            if (!expanded) {
+              const btn = el("button", { type: "button", class: "customize-toggle no-print" },
+                hasCustom ? "✎ Customized for this project — edit" : "+ Customize for this project");
+              btn.addEventListener("click", () => { expanded = true; render(); });
+              wrap.appendChild(btn);
+              return;
+            }
+            const modelInp = el("input", { type: "text", value: entry.customModel || "" });
+            modelInp.placeholder = opt.model ? "Default: " + opt.model : "Custom model (blank = use catalog)";
+            modelInp.addEventListener("input", () => {
+              entry.customModel = modelInp.value;
+              saveAndRender(true);
+              updateSummary();
+            });
+            modelInp.addEventListener("blur", () => { renderEntryRefresh(); });
+            const infoInp = el("input", { type: "text", value: entry.customInfo || "" });
+            infoInp.placeholder = opt.info ? "Default: " + opt.info : "Custom notes (blank = use catalog)";
+            infoInp.addEventListener("input", () => {
+              entry.customInfo = infoInp.value;
+              saveAndRender(true);
+              updateSummary();
+            });
+            infoInp.addEventListener("blur", () => { renderEntryRefresh(); });
+            const clearBtn = el("button", { type: "button", class: "customize-clear no-print" }, "Clear");
+            clearBtn.addEventListener("click", () => {
+              entry.customModel = "";
+              entry.customInfo = "";
+              saveAndRender();
+            });
+            const closeBtn = el("button", { type: "button", class: "customize-close no-print" }, "Hide");
+            closeBtn.addEventListener("click", () => {
+              expanded = (entry.customModel || entry.customInfo) ? false : false;
+              if (entry.customModel || entry.customInfo) {
+                // keep inline overridden info line visible but collapse panel
+                expanded = false;
+                renderEntryRefresh();
+              } else {
+                expanded = false;
+                render();
+              }
+            });
+            wrap.appendChild(el("div", { class: "customize-panel no-print" }, [
+              el("div", { class: "customize-label" }, "Override model"),
+              modelInp,
+              el("div", { class: "customize-label" }, "Override notes"),
+              infoInp,
+              el("div", { class: "customize-actions" }, [clearBtn, closeBtn])
+            ]));
+          };
+          function renderEntryRefresh() {
+            // Re-render the whole core on blur so the info line reflects the new override.
+            renderCore();
+          }
+          render();
+          children.push(wrap);
         }
         return el("div", { class: "entry" }, children);
       }
@@ -986,10 +1115,11 @@
               location: bodyLabel(entry.bodyId),
               qty: entry.qty,
               item: cat.label,
-              model: opt.model || "",
+              model: entry.customModel || opt.model || "",
               manufacturer: opt.manufacturer || "",
-              info: opt.info || "",
-              label: opt.label
+              info: entry.customInfo || opt.info || "",
+              label: opt.label,
+              customized: !!(entry.customModel || entry.customInfo)
             });
           }
         }
@@ -1144,7 +1274,9 @@
                 id: e.id || genId(),
                 optionId: e.optionId || "none",
                 qty: e.qty != null ? e.qty : 1,
-                bodyId: e.bodyId || mapLoc(e.location)
+                bodyId: e.bodyId || mapLoc(e.location),
+                customModel: e.customModel || "",
+                customInfo: e.customInfo || ""
               }));
             } else if (typeof v === "object" && v.optionId) {
               if (v.optionId !== "none" || v.qty) {
