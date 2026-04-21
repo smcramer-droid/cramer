@@ -5303,7 +5303,43 @@
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); applyDialog(); }
   });
 
-  // ============== SAVE / LOAD (cloud, via /api/configs) ==============
+  // ============== SAVE / LOAD (cloud via /api/configs, with localStorage fallback) ==============
+  // Configs saved locally get slugs prefixed with "local:" so they're
+  // distinguishable from cloud slugs. When the Cloudflare Functions endpoint
+  // is unavailable (405 / network error), we silently fall back to
+  // localStorage so saves never get lost.
+  const LS_KEY = 'pool-design:configs:v1';
+  function lsList() {
+    try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); } catch { return []; }
+  }
+  function lsWrite(list) {
+    try { localStorage.setItem(LS_KEY, JSON.stringify(list)); return true; }
+    catch (e) { console.warn('localStorage write failed:', e); return false; }
+  }
+  function lsSlugify(name) {
+    return (name || 'pool').toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 64) || 'pool';
+  }
+  function lsSaveConfig(name, snapState) {
+    const list = lsList();
+    const base = lsSlugify(name);
+    let slug = 'local:' + base, version = 1, versionedName = name;
+    while (list.some(i => i.slug === slug)) {
+      version++;
+      slug = 'local:' + base + '-v' + version;
+      versionedName = name + ' v' + version;
+    }
+    const rec = { slug, name, versionedName, createdAt: new Date().toISOString(), state: snapState };
+    list.unshift(rec);
+    if (!lsWrite(list)) return null;
+    return rec;
+  }
+  function lsGetConfig(slug) { return lsList().find(i => i.slug === slug) || null; }
+  function lsDeleteConfig(slug) {
+    const list = lsList().filter(i => i.slug !== slug);
+    return lsWrite(list);
+  }
+
   function saveStatus(msg, kind) {
     const el = $('save_status'); if (!el) return;
     el.textContent = msg || '';
@@ -5376,26 +5412,33 @@
     scheduleRender();
   }
 
-  async function refreshLoadList(selectSlug) {
-    const sel = $('load_select'); if (!sel) return;
+  // Attempts the cloud list; returns [] on any failure (function unavailable
+  // etc.). Local items are fetched separately and merged.
+  async function fetchCloudList() {
     try {
       const r = await fetch('/api/configs', { cache: 'no-store' });
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      const list = await r.json();
-      // Preserve the placeholder
-      sel.innerHTML = '<option value="">— pick a saved configuration —</option>';
-      list.forEach(item => {
-        const opt = document.createElement('option');
-        opt.value = item.slug;
-        const date = item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '';
-        opt.textContent = date ? `${item.versionedName}  ·  ${date}` : item.versionedName;
-        sel.appendChild(opt);
-      });
-      if (selectSlug) sel.value = selectSlug;
-    } catch (e) {
-      // Non-fatal — likely KV not yet bound. Keep placeholder.
-      console.warn('refreshLoadList failed:', e);
-    }
+      if (!r.ok) return [];
+      const text = await r.text();
+      if (!text || text.trim().startsWith('<')) return []; // HTML fallback = not a JSON function
+      return JSON.parse(text);
+    } catch { return []; }
+  }
+  async function refreshLoadList(selectSlug) {
+    const sel = $('load_select'); if (!sel) return;
+    const cloud = await fetchCloudList();
+    const local = lsList();
+    const merged = [...cloud, ...local].sort((a, b) =>
+      (b.createdAt || '').localeCompare(a.createdAt || ''));
+    sel.innerHTML = '<option value="">— pick a saved configuration —</option>';
+    merged.forEach(item => {
+      const opt = document.createElement('option');
+      opt.value = item.slug;
+      const date = item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '';
+      const tag = item.slug.startsWith('local:') ? ' · local' : '';
+      opt.textContent = (date ? `${item.versionedName}  ·  ${date}` : item.versionedName) + tag;
+      sel.appendChild(opt);
+    });
+    if (selectSlug) sel.value = selectSlug;
   }
   async function onSave() {
     const name = ($('save_name')?.value || state.tweaks.projectName || '').trim();
@@ -5408,42 +5451,66 @@
       saveStatus('Save failed: could not serialize state (' + (e.message || 'unknown') + ')', 'err');
       return;
     }
-    let r, text;
+    // Try cloud first.
+    let cloudOk = false, cloudData = null, cloudError = null;
     try {
-      r = await fetch('/api/configs', {
+      const r = await fetch('/api/configs', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ name, state: snapshot }),
       });
-      text = await r.text();
-    } catch (e) {
-      saveStatus('Save failed (network): ' + (e.message || 'unknown'), 'err');
-      return;
-    }
-    let data = null;
-    try { data = text ? JSON.parse(text) : null; } catch { data = null; }
-    if (!r.ok || !data || data.error) {
-      const detail = (data && data.error) ? data.error
-        : (text ? text.slice(0, 140) : ('HTTP ' + r.status));
-      saveStatus('Save failed: ' + detail, 'err');
-      return;
-    }
-    try {
-      saveStatus(`Saved as “${data.versionedName}”`, 'ok');
-      if ($('save_name')) $('save_name').value = data.versionedName;
-      state.tweaks.projectName = data.versionedName;
-      if ($('project_name')) $('project_name').value = data.versionedName;
+      const text = await r.text();
+      let data = null;
+      try { data = text ? JSON.parse(text) : null; } catch { data = null; }
+      if (r.ok && data && !data.error && data.slug) {
+        cloudOk = true; cloudData = data;
+      } else {
+        cloudError = (data && data.error) ? data.error
+                   : (r.status === 405 ? 'cloud save not available'
+                   : (text ? text.slice(0, 80) : ('HTTP ' + r.status)));
+      }
+    } catch (e) { cloudError = e.message || 'network error'; }
+
+    if (cloudOk) {
+      saveStatus(`Saved as “${cloudData.versionedName}” (cloud)`, 'ok');
+      if ($('save_name')) $('save_name').value = cloudData.versionedName;
+      state.tweaks.projectName = cloudData.versionedName;
+      if ($('project_name')) $('project_name').value = cloudData.versionedName;
       scheduleRender();
-      refreshLoadList(data.slug);
-    } catch (e) {
-      // Save itself succeeded; only post-success UI update threw.
-      saveStatus('Saved, but UI refresh failed: ' + (e.message || 'unknown'), 'err');
+      refreshLoadList(cloudData.slug);
+      return;
     }
+    // Fallback to localStorage
+    const rec = lsSaveConfig(name, snapshot);
+    if (!rec) {
+      saveStatus('Save failed: ' + (cloudError || 'local storage unavailable'), 'err');
+      return;
+    }
+    saveStatus(`Saved as “${rec.versionedName}” (local, cloud unavailable)`, 'ok');
+    if ($('save_name')) $('save_name').value = rec.versionedName;
+    state.tweaks.projectName = rec.versionedName;
+    if ($('project_name')) $('project_name').value = rec.versionedName;
+    scheduleRender();
+    refreshLoadList(rec.slug);
   }
   async function onLoad() {
     const slug = $('load_select')?.value;
     if (!slug) { saveStatus('Pick a configuration to load', 'err'); return; }
     saveStatus('Loading…');
+    // Local slugs are handled entirely client-side.
+    if (slug.startsWith('local:')) {
+      const rec = lsGetConfig(slug);
+      if (!rec) { saveStatus('Load failed: not found locally', 'err'); return; }
+      try {
+        applySnapshot(rec.state || {});
+        saveStatus(`Loaded “${rec.versionedName || rec.name || slug}” (local)`, 'ok');
+        if ($('save_name')) $('save_name').value = rec.versionedName || rec.name || '';
+      } catch (e) {
+        saveStatus('Load failed to apply: ' + (e.message || 'unknown'), 'err');
+      }
+      return;
+    }
+    // Cloud slug — fetch through the Function.
     let r, text;
     try {
       r = await fetch('/api/configs/' + encodeURIComponent(slug), { cache: 'no-store' });
@@ -5474,6 +5541,12 @@
     const label = sel.options[sel.selectedIndex]?.textContent || slug;
     if (!confirm('Delete ' + label + ' ?')) return;
     saveStatus('Deleting…');
+    if (slug.startsWith('local:')) {
+      lsDeleteConfig(slug);
+      saveStatus('Deleted (local).', 'ok');
+      refreshLoadList();
+      return;
+    }
     try {
       const r = await fetch('/api/configs/' + encodeURIComponent(slug), { method: 'DELETE' });
       if (!r.ok) throw new Error('HTTP ' + r.status);
