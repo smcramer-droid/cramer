@@ -14,13 +14,17 @@ jobs:
   diagnose:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       PROJECT: pasadena-equipment
       BASE: https://pasadena-equipment.pages.dev
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
       - name: Pages project config
         id: project
         continue-on-error: true
@@ -140,7 +144,36 @@ jobs:
           cat "$OUT" >> "$GITHUB_STEP_SUMMARY"
           cat "$OUT"
 
+      - name: Publish diagnostic output to _diagnostic-output branch
+        if: always()
+        run: |
+          set +e
+          # Collect whatever step output we captured
+          mkdir -p _diag
+          for f in /tmp/step1.md /tmp/step2.md /tmp/step3.md; do
+            [ -f "$f" ] && cat "$f" >> _diag/last-run.md && echo "" >> _diag/last-run.md
+          done
+          # Stamp
+          {
+            echo ""
+            echo "---"
+            echo "Generated at: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "Commit: ${GITHUB_SHA}"
+            echo "Run: ${GITHUB_RUN_ID}"
+          } >> _diag/last-run.md
+
+          # Commit onto a detached branch and force-push
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git checkout --orphan _diagnostic-output
+          git rm -rf --cached . 2>/dev/null
+          # wipe working tree except _diag
+          find . -mindepth 1 -maxdepth 1 ! -name '.git' ! -name '_diag' -exec rm -rf {} +
+          git add -f _diag/last-run.md
+          git commit -m "diag $(date -u +%Y%m%d-%H%M%SZ)" --allow-empty
+          git push -f origin _diagnostic-output
+
       - name: Final verdict (does not fail the job)
         if: always()
         run: |
-          echo "Diagnostic done. See the Summary tab for full output."
+          echo "Diagnostic done. See the Summary tab or the _diagnostic-output branch."
