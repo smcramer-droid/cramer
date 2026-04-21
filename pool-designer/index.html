@@ -179,9 +179,10 @@
 
   /* Entry section editor — compact */
   .sec-baja{margin-top:8px; padding-top:8px; border-top:1px dashed var(--ink-faint);}
-  .entry-panel{margin-top:8px; padding-top:8px; border-top:1px dashed var(--ink-faint); display:flex; flex-direction:column; gap:6px;}
+  .entry-panel{margin-top:8px; padding-top:8px; border-top:1px dashed var(--ink-faint); display:flex; flex-direction:column; gap:6px; min-width:0;}
   .entry-row{
     display:flex; align-items:center; gap:8px;
+    flex-wrap:wrap; row-gap:6px; min-width:0;
     font-family:"Special Elite",monospace; font-size:10px; letter-spacing:1px;
     text-transform:uppercase; color:var(--ink-soft);
   }
@@ -189,8 +190,8 @@
   .entry-check{display:flex; align-items:center; gap:3px; text-transform:uppercase;}
   .entry-check input{margin:0}
   .entry-inputs, .entry-inputs-inline{
-    display:flex; align-items:center; gap:10px;
-    padding-left:0;
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap; row-gap:6px;
+    padding-left:0; min-width:0;
   }
   .entry-inputs label, .entry-inputs-inline{
     display:flex; align-items:center; gap:3px;
@@ -704,10 +705,21 @@
         </div>
 
         <!-- Depth grid editor -->
-        <div style="margin-top:10px; font-family:'Special Elite',monospace; font-size:10px; letter-spacing:1.2px; color:var(--ink-soft); text-transform:uppercase;">
-          Tap/drag to paint · brush: <span id="spa_brush_depth" style="color:var(--accent); font-family:'JetBrains Mono',monospace; letter-spacing:0; font-weight:600;">36″</span>
+        <div style="margin-top:10px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-family:'Special Elite',monospace; font-size:10px; letter-spacing:1.2px; color:var(--ink-soft); text-transform:uppercase;">
+          <div class="seg" id="spa_mode_seg" style="display:flex; gap:0; border:1.5px solid var(--ink);">
+            <button data-mode="paint" class="on" style="font-family:'Special Elite',monospace; font-size:10px; letter-spacing:1px; padding:4px 8px; background:var(--ink); color:var(--paper); border:none; cursor:pointer; text-transform:uppercase;">Paint</button>
+            <button data-mode="select" style="font-family:'Special Elite',monospace; font-size:10px; letter-spacing:1px; padding:4px 8px; background:transparent; color:var(--ink); border:none; border-left:1.5px solid var(--ink); cursor:pointer; text-transform:uppercase;">Select</button>
+          </div>
+          <span style="margin-left:auto">brush: <span id="spa_brush_depth" style="color:var(--accent); font-family:'JetBrains Mono',monospace; letter-spacing:0; font-weight:600;">36″</span></span>
         </div>
+        <div id="spa_mode_hint" style="margin-top:4px; font-family:'Special Elite',monospace; font-size:9px; letter-spacing:1px; color:var(--ink-soft); text-transform:uppercase;">Tap/drag cells to paint brush depth.</div>
         <svg id="spa_grid" style="width:100%; height:auto; display:block; background:var(--paper-2); border:1.5px solid var(--ink); margin-top:6px; touch-action:none; user-select:none;"></svg>
+        <div id="spa_selection_actions" style="display:none; margin-top:6px; gap:6px; align-items:center; flex-wrap:wrap;">
+          <button id="spa_apply_sel" style="flex:1; background:var(--accent); color:var(--paper); border:none; cursor:pointer;
+            font-family:'Special Elite',monospace; font-size:10px; letter-spacing:1px; padding:6px 10px; text-transform:uppercase;">Apply brush to selection</button>
+          <button id="spa_clear_sel" style="background:transparent; color:var(--ink-soft); border:1.5px dashed var(--ink-soft); cursor:pointer;
+            font-family:'Special Elite',monospace; font-size:10px; letter-spacing:1px; padding:6px 10px; text-transform:uppercase;">Clear</button>
+        </div>
         <div class="presets" style="margin-top:6px">
           <button class="spa-preset" data-d="4">4″</button>
           <button class="spa-preset" data-d="10">10″</button>
@@ -1863,7 +1875,8 @@
         fill: 'rgba(255,255,255,0.15)',
         stroke: 'var(--ink)', 'stroke-width': 1.2,
       }, g);
-      // Cells (depth-colored grid) — detailed view
+      // Cells (depth-colored) — detailed view. No stroke so the grid is
+      // invisible; depth zones read as one filled shape per region.
       const rows = sp.cells.length, cols = sp.cells[0] ? sp.cells[0].length : 0;
       const cellLenPx = waterWpx / Math.max(1, rows);
       const cellWidPx = waterHpx / Math.max(1, cols);
@@ -1874,7 +1887,7 @@
             x: r * cellLenPx, y: c * cellWidPx,
             width: cellLenPx, height: cellWidPx,
             fill: depthColor(d), 'fill-opacity': 0.75,
-            stroke: 'rgba(42,35,28,0.25)', 'stroke-width': 0.3,
+            stroke: 'none',
           }, g);
         }
       }
@@ -3561,17 +3574,39 @@
           stroke: 'var(--ink)', 'stroke-width': 1.1, 'stroke-linecap': 'round',
         }, svg);
       });
-      // Centroid label (skip tiny regions so the SPA overlay still reads)
+      // Centroid label (skip tiny regions so the SPA overlay still reads).
+      // Labels are draggable — users can reposition to avoid overlap. The
+      // offset is keyed by (depth, minRow, minCol) so it survives re-renders
+      // as long as a similar region exists.
       if (reg.cells.length >= 2) {
         const mr = reg.cells.reduce((s, [r]) => s + r, 0) / reg.cells.length + 0.5;
         const mc = reg.cells.reduce((s, [, c]) => s + c, 0) / reg.cells.length + 0.5;
-        const lx = x0 + mr * cs * scale;
-        const ly = y0 + mc * cs * scale;
-        const t = el('text', { x: lx, y: ly + 4, 'text-anchor': 'middle',
-          style: 'font-family: JetBrains Mono, monospace; font-size:11px; fill:var(--ink); font-weight:600;',
-          'pointer-events': 'none',
+        const minR = Math.min(...reg.cells.map(([r]) => r));
+        const minC = Math.min(...reg.cells.map(([, c]) => c));
+        const key = `${Math.round(reg.depth)},${minR},${minC}`;
+        state.spa.labelOffsets = state.spa.labelOffsets || {};
+        const off = state.spa.labelOffsets[key] || { dx: 0, dy: 0 };
+        const baseX = x0 + mr * cs * scale;
+        const baseY = y0 + mc * cs * scale;
+        const lx = baseX + off.dx;
+        const ly = baseY + off.dy;
+        const t = el('text', {
+          x: lx, y: ly + 4, 'text-anchor': 'middle',
+          class: 'spa-region-label',
+          'data-key': key,
+          'data-basex': baseX, 'data-basey': baseY,
+          style: 'font-family: JetBrains Mono, monospace; font-size:11px; fill:var(--ink); font-weight:600; cursor:grab; user-select:none;',
         }, svg);
         t.textContent = `${Math.round(reg.depth)}″`;
+        // Thin leader line from base → current label position when the user has
+        // moved it, so it stays anchored to its region visually.
+        if (off.dx !== 0 || off.dy !== 0) {
+          el('line', {
+            x1: baseX, y1: baseY, x2: lx, y2: ly,
+            stroke: 'var(--ink-soft)', 'stroke-width': 0.7, 'stroke-dasharray': '2 2',
+            'pointer-events': 'none',
+          }, svg);
+        }
       }
     });
 
@@ -3704,7 +3739,10 @@
     const shellPts = [[x0, deckY], [x0, floorPts[0][1]], ...floorPts.slice(1,-1),
       [x0 + pxW, floorPts[floorPts.length-1][1]], [x0 + pxW, deckY]];
     el('path', { d: wobble(shellPts, 0.5, 51), class:'ink', 'stroke-width':2, fill:'none' }, svg);
-    // Depth callouts — merge adjacent same-depth runs into one callout at run midpoint.
+    // Depth callouts — merge adjacent same-depth runs into one callout with
+    // both the DEPTH (below) and the horizontal RUN LENGTH (above) at the
+    // run midpoint, plus small tick marks at the boundaries.
+    const runs = [];
     {
       let runStart = 0;
       let runDepth = Math.round(isA ? sp.cells[0][cutIdx] : sp.cells[cutIdx][0]);
@@ -3713,18 +3751,37 @@
           ? Math.round(isA ? sp.cells[i][cutIdx] : sp.cells[cutIdx][i])
           : null;
         if (d !== runDepth) {
-          const runEnd = i;
-          const midCellsX = (runStart + runEnd) / 2;
-          const midX = x0 + midCellsX * cs * scale;
-          const fy = waterY + (runDepth / 12) * scale;
-          const t = el('text', { x: midX, y: fy + 14, class:'dim-text', 'text-anchor':'middle',
-            style:'font-size:12px' }, svg);
-          t.textContent = `${runDepth}″`;
+          runs.push({ start: runStart, end: i, depth: runDepth });
           runStart = i;
           runDepth = d;
         }
       }
     }
+    runs.forEach((r, idx) => {
+      const runLenCells = r.end - r.start;
+      const runLenFt = runLenCells * cs;
+      const midCellsX = (r.start + r.end) / 2;
+      const midX = x0 + midCellsX * cs * scale;
+      const fy = waterY + (r.depth / 12) * scale;
+      // Depth label below the floor
+      const dt = el('text', { x: midX, y: fy + 14, class:'dim-text', 'text-anchor':'middle',
+        style:'font-size:12px' }, svg);
+      dt.textContent = `${r.depth}″`;
+      // Horizontal run-length dim line ABOVE this run, along the water surface.
+      // Use a small offset per-run to reduce overlap with the water line.
+      const rowDimY = waterY - 16 - (idx % 2) * 10;
+      const xA = x0 + r.start * cs * scale;
+      const xB = x0 + r.end   * cs * scale;
+      el('line', { x1: xA, y1: rowDimY, x2: xB, y2: rowDimY,
+        stroke: 'var(--ink-soft)', 'stroke-width': 0.9 }, svg);
+      el('line', { x1: xA, y1: rowDimY - 4, x2: xA, y2: rowDimY + 4,
+        stroke: 'var(--ink-soft)', 'stroke-width': 0.9 }, svg);
+      el('line', { x1: xB, y1: rowDimY - 4, x2: xB, y2: rowDimY + 4,
+        stroke: 'var(--ink-soft)', 'stroke-width': 0.9 }, svg);
+      const rt = el('text', { x: (xA + xB) / 2, y: rowDimY - 4, class:'dim-text', 'text-anchor':'middle',
+        style:'font-size:10px; fill:var(--ink-soft)' }, svg);
+      rt.textContent = fmtFt(runLenFt);
+    });
     // Axis title at the bottom — include current cut position
     const isAlen = isA;
     const cutPosFt = isAlen ? (state.spaCuts.A.yFt || 0) : (state.spaCuts.B.xFt || 0);
@@ -3736,9 +3793,16 @@
     // Overall length dim
     dimLine(svg, x0, waterY + maxD * scale + 30, x0 + pxW, waterY + maxD * scale + 30,
       fmtFt(lenFt), { offset: 0, side: 1, textOffset: 14 });
-    // Deck-to-water callout
+    // Deck-to-water callout (spa coping rise)
     dimLine(svg, x0 - 40, deckY, x0 - 40, waterY, `${sp.deckAboveWaterIn}"`,
       { offset: 0, side: -1, textOffset: -14, vertical: true });
+    // Max water depth callout (right side) — vertical dim from water surface to deepest point
+    const maxDepthHere = Math.max(...runs.map(r => r.depth), 0);
+    if (maxDepthHere > 0) {
+      const deepY = waterY + (maxDepthHere / 12) * scale;
+      dimLine(svg, x0 + pxW + 40, waterY, x0 + pxW + 40, deepY, `${maxDepthHere}"`,
+        { offset: 0, side: 1, textOffset: 14, vertical: true });
+    }
   }
 
   // Site plan — pool + spa at their placement, with a draggable cut line.
@@ -3814,10 +3878,75 @@
     // Spa on site plan — simplified (no cell grid, just solid water) since the site
     // plan is about orientation, not interior detail.
     drawSpaPlan(svg, x0, y0, scale, scale, { label: true, simplified: true });
+    // === Pool dimensions ===
+    dimLine(svg, poolX0, poolY0 + poolH_px, poolX0 + poolW_px, poolY0 + poolH_px,
+      `Pool ${fmtFt(L)}`, { offset: 18, side: 1, textOffset: 12 });
+    dimLine(svg, poolX0, poolY0, poolX0, poolY0 + poolH_px,
+      `${fmtFt(W)}`, { offset: 18, side: -1, textOffset: 12, vertical: true });
+    // === Spa exterior dimensions (includes walls) ===
+    const spaOL = sp.lengthFt + (sp.wallIn.left + sp.wallIn.right) / 12;
+    const spaOW = sp.widthFt  + (sp.wallIn.near + sp.wallIn.far)  / 12;
+    const spaXpx0 = x0 + spaX0 * scale;
+    const spaYpx0 = y0 + spaY0 * scale;
+    const spaWpx = spaOL * scale, spaHpx = spaOW * scale;
+    // Place spa L-dim on the side of the spa that faces away from the pool
+    // (bottom if spa is above pool in y, top if spa is below pool). Fallback: below.
+    const spaAboveY = spaY1 <= 0;
+    const spaBelowY = spaY0 >= W;
+    const sLdimY = spaAboveY ? spaYpx0 : (spaYpx0 + spaHpx);
+    const sLdimSide = spaAboveY ? -1 : 1;
+    dimLine(svg, spaXpx0, sLdimY, spaXpx0 + spaWpx, sLdimY,
+      `Spa ${fmtFt(spaOL)}`, { offset: 18, side: sLdimSide, textOffset: 12 });
+    // Spa W-dim on the side away from the pool (right if spa is right of pool, left otherwise)
+    const spaRightOfPool = spaX0 >= L;
+    const sWdimX = spaRightOfPool ? (spaXpx0 + spaWpx) : spaXpx0;
+    const sWdimSide = spaRightOfPool ? 1 : -1;
+    dimLine(svg, sWdimX, spaYpx0, sWdimX, spaYpx0 + spaHpx,
+      `${fmtFt(spaOW)}`, { offset: 18, side: sWdimSide, textOffset: 12, vertical: true });
+    // === Gap between pool and spa (closest edge) ===
+    // Horizontal gap: spa starts right of pool (or vice versa) with no x-overlap.
+    const poolOX0 = -pwL_ft, poolOX1 = L + pwR_ft;
+    const poolOY0 = -pwN_ft, poolOY1 = W + pwF_ft;
+    const gapX = (spaX0 > poolOX1) ? (spaX0 - poolOX1)
+               : (poolOX0 > spaX1) ? (poolOX0 - spaX1) : 0;
+    const gapY = (spaY0 > poolOY1) ? (spaY0 - poolOY1)
+               : (poolOY0 > spaY1) ? (poolOY0 - spaY1) : 0;
+    if (gapX > 0.25) {
+      // Draw gap dim at a y that's inside both bodies' y-overlap, if any;
+      // otherwise use spa mid-y.
+      const yFtForDim = Math.max(Math.min(poolOY1, spaY1), Math.max(poolOY0, spaY0))
+                        - Math.abs(Math.min(poolOY1, spaY1) - Math.max(poolOY0, spaY0)) / 2;
+      const yDim = y0 + (spaY0 + spaY1) / 2 * scale;
+      const gxStart = (spaX0 > poolOX1) ? x0 + poolOX1 * scale : x0 + spaX1 * scale;
+      const gxEnd   = (spaX0 > poolOX1) ? x0 + spaX0  * scale : x0 + poolOX0 * scale;
+      el('line', { x1: gxStart, y1: yDim, x2: gxEnd, y2: yDim,
+        stroke: 'var(--accent)', 'stroke-width': 1.2, 'stroke-dasharray': '3 3' }, svg);
+      el('line', { x1: gxStart, y1: yDim - 5, x2: gxStart, y2: yDim + 5,
+        stroke: 'var(--accent)', 'stroke-width': 1.2 }, svg);
+      el('line', { x1: gxEnd, y1: yDim - 5, x2: gxEnd, y2: yDim + 5,
+        stroke: 'var(--accent)', 'stroke-width': 1.2 }, svg);
+      const t = el('text', { x: (gxStart + gxEnd) / 2, y: yDim - 5, class: 'dim-text', 'text-anchor': 'middle',
+        style: 'fill:var(--accent); font-weight:600' }, svg);
+      t.textContent = `gap ${fmtFt(gapX)}`;
+    }
+    if (gapY > 0.25) {
+      const xDim = x0 + (spaX0 + spaX1) / 2 * scale;
+      const gyStart = (spaY0 > poolOY1) ? y0 + poolOY1 * scale : y0 + spaY1 * scale;
+      const gyEnd   = (spaY0 > poolOY1) ? y0 + spaY0  * scale : y0 + poolOY0 * scale;
+      el('line', { x1: xDim, y1: gyStart, x2: xDim, y2: gyEnd,
+        stroke: 'var(--accent)', 'stroke-width': 1.2, 'stroke-dasharray': '3 3' }, svg);
+      el('line', { x1: xDim - 5, y1: gyStart, x2: xDim + 5, y2: gyStart,
+        stroke: 'var(--accent)', 'stroke-width': 1.2 }, svg);
+      el('line', { x1: xDim - 5, y1: gyEnd, x2: xDim + 5, y2: gyEnd,
+        stroke: 'var(--accent)', 'stroke-width': 1.2 }, svg);
+      const t = el('text', { x: xDim + 6, y: (gyStart + gyEnd) / 2 + 3, class: 'dim-text',
+        style: 'fill:var(--accent); font-weight:600' }, svg);
+      t.textContent = `gap ${fmtFt(gapY)}`;
+    }
     // Overall site dims
-    dimLine(svg, x0 + minX * scale, y0 + maxY * scale + 14,
-      x0 + maxX * scale, y0 + maxY * scale + 14,
-      `${fmtFt(spanX)} overall`, { offset: 16, side: 1, textOffset: 14 });
+    dimLine(svg, x0 + minX * scale, y0 + maxY * scale + 40,
+      x0 + maxX * scale, y0 + maxY * scale + 40,
+      `${fmtFt(spanX)} overall`, { offset: 0, side: 1, textOffset: 14 });
     // Cut line (horizontal, draggable along Y)
     const cutY = y0 + state.siteCut.yFt * scale;
     const cutLeft = pad - 10, cutRight = VBW - pad + 10;
@@ -4027,6 +4156,57 @@
         style:'font-size:14px; fill:var(--ink-soft); letter-spacing:2px' }, svg);
       t.textContent = 'cut line does not pass through either body';
     }
+    // === Dimensions on this cross-section ===
+    // Pool: length (horizontal) + max water depth (vertical)
+    if (cutInPool) {
+      const poolX0px = xStart;
+      const poolX1px = xStart + L * scale;
+      const maxDepthFt = Math.max(maxDepthIn() / 12, 0.01);
+      dimLine(svg, poolX0px, waterY + maxDepthFt * scale + 20,
+        poolX1px, waterY + maxDepthFt * scale + 20,
+        `Pool ${fmtFt(L)}`, { offset: 0, side: 1, textOffset: 14 });
+      dimLine(svg, poolX0px - 28, waterY, poolX0px - 28, waterY + maxDepthFt * scale,
+        `${(maxDepthIn()).toFixed(0)}″`, { offset: 0, side: -1, textOffset: 14, vertical: true });
+    }
+    // Spa: exterior width (horizontal) + deck-above-pool-deck (vertical)
+    if (cutInSpa) {
+      const spaDeckY2 = zToY(-spaDeckAbovePoolWaterFt);
+      const spaX0Px2 = xStart + spaX0 * scale;
+      const spaX1Px2 = xStart + spaX1 * scale;
+      const spaOW_ft = (spaX1 - spaX0);
+      // Width dim below deepest point
+      const spaMaxD = Math.max(...sp.cells.flat().map(d => (d||0)/12), 0.01);
+      const spaWaterY = zToY(-(spaDeckAbovePoolWaterFt - sp.deckAboveWaterIn / 12));
+      dimLine(svg, spaX0Px2, spaWaterY + spaMaxD * scale + 20,
+        spaX1Px2, spaWaterY + spaMaxD * scale + 20,
+        `Spa ${fmtFt(spaOW_ft)}`, { offset: 0, side: 1, textOffset: 14 });
+      // Deck height above pool deck (vertical) — only when raised
+      if ((sp.deckAbovePoolDeckIn | 0) !== 0) {
+        const deckDiffIn = sp.deckAbovePoolDeckIn;
+        dimLine(svg, spaX1Px2 + 22, spaDeckY2, spaX1Px2 + 22, deckY,
+          `+${deckDiffIn}″`, { offset: 0, side: 1, textOffset: 14, vertical: true });
+      }
+    }
+    // Gap between pool and spa (horizontal) — only when non-overlapping in x
+    if (cutInPool && cutInSpa) {
+      const poolRightPx = xStart + L * scale;
+      const poolLeftPx  = xStart + 0 * scale;
+      const spaLeftPx   = xStart + spaX0 * scale;
+      const spaRightPx  = xStart + spaX1 * scale;
+      let a = null, b = null, gapFt = 0;
+      if (spaX0 >= L) { a = poolRightPx; b = spaLeftPx;  gapFt = spaX0 - L; }
+      else if (0 >= spaX1) { a = spaRightPx; b = poolLeftPx; gapFt = -spaX1; }
+      if (a != null && gapFt > 0.25) {
+        const yMid = deckY - 22;
+        el('line', { x1: a, y1: yMid, x2: b, y2: yMid,
+          stroke: 'var(--accent)', 'stroke-width': 1.2, 'stroke-dasharray': '3 3' }, svg);
+        el('line', { x1: a, y1: yMid - 5, x2: a, y2: yMid + 5, stroke: 'var(--accent)', 'stroke-width': 1.2 }, svg);
+        el('line', { x1: b, y1: yMid - 5, x2: b, y2: yMid + 5, stroke: 'var(--accent)', 'stroke-width': 1.2 }, svg);
+        const t = el('text', { x: (a + b) / 2, y: yMid - 5, class: 'dim-text', 'text-anchor': 'middle',
+          style: 'fill:var(--accent); font-weight:600' }, svg);
+        t.textContent = `gap ${fmtFt(gapFt)}`;
+      }
+    }
     // C–C endpoint labels
     el('text', { x: padL - 30, y: deckY + 4, class:'dim-text' }, svg).textContent = 'C';
     el('text', { x: VBW - padR + 20, y: deckY + 4, class:'dim-text' }, svg).textContent = 'C';
@@ -4131,6 +4311,52 @@
     svg.addEventListener('mousemove', move);
     window.addEventListener('mouseup', end);
     svg.addEventListener('touchstart', start, { passive: false });
+    svg.addEventListener('touchmove', move, { passive: false });
+    svg.addEventListener('touchend', end);
+  })();
+
+  // Drag handlers for spa region labels on the spa top plan. Users can drag
+  // each depth label to reposition it (useful when adjacent regions are small
+  // and their labels overlap). Stops propagation so it doesn't trigger the
+  // cut-line drag handler below.
+  (function wireSpaLabelDrag() {
+    const svg = $('svg_spa_top'); if (!svg) return;
+    let activeKey = null, startX = 0, startY = 0, baseOff = null;
+    const svgPt = (cx, cy) => {
+      const rect = svg.getBoundingClientRect();
+      const vb = (svg.getAttribute('viewBox') || '0 0 0 0').split(/\s+/).map(Number);
+      const vbW = vb[2] || rect.width, vbH = vb[3] || rect.height;
+      return { x: ((cx - rect.left) / rect.width) * vbW, y: ((cy - rect.top) / rect.height) * vbH };
+    };
+    const start = (e) => {
+      const t = e.target;
+      if (!t || !t.classList || !t.classList.contains('spa-region-label')) return;
+      activeKey = t.getAttribute('data-key');
+      state.spa.labelOffsets = state.spa.labelOffsets || {};
+      baseOff = { ...(state.spa.labelOffsets[activeKey] || { dx: 0, dy: 0 }) };
+      const pt = e.touches ? e.touches[0] : e;
+      const p = svgPt(pt.clientX, pt.clientY);
+      startX = p.x; startY = p.y;
+      t.style.cursor = 'grabbing';
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    const move = (e) => {
+      if (!activeKey) return;
+      const pt = e.touches ? e.touches[0] : e;
+      const p = svgPt(pt.clientX, pt.clientY);
+      state.spa.labelOffsets[activeKey] = {
+        dx: baseOff.dx + (p.x - startX),
+        dy: baseOff.dy + (p.y - startY),
+      };
+      if (typeof renderSpaOwnPlan === 'function') renderSpaOwnPlan();
+      e.preventDefault();
+    };
+    const end = () => { activeKey = null; };
+    svg.addEventListener('mousedown', start, true);
+    svg.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', end);
+    svg.addEventListener('touchstart', start, { passive: false, capture: true });
     svg.addEventListener('touchmove', move, { passive: false });
     svg.addEventListener('touchend', end);
   })();
@@ -4576,6 +4802,8 @@
         `${spaSel.size} cell${spaSel.size > 1 ? 's' : ''} · ${fmtFt(selWFt)} × ${fmtFt(selLFt)} · ${depthLabel}`,
         { font: 'Special Elite, monospace', size: 9.5, fill: 'var(--accent)', letterSpacing: 1.2 }));
     }
+    // Show/hide the Apply / Clear buttons based on current selection + mode.
+    if (typeof updateSpaModeUI === 'function') updateSpaModeUI();
   }
   // Pointer painting: tap or drag a cell to apply the active brush depth.
   let spaPainting = false;
@@ -4601,10 +4829,50 @@
     if (!sp.cells[r]) return;
     sp.cells[r][c] = spaBrushDepth;
   }
+  // Mode: 'paint' (default) or 'select'. Paint: tap/drag applies brush to cells.
+  // Select: drag draws a rectangular selection with live dimensions; Apply fills it.
+  let spaMode = 'paint';
+  let spaSelectAnchor = null; // {r, c} — first cell of a rectangular drag-select
+  function updateSpaModeUI() {
+    document.querySelectorAll('#spa_mode_seg button').forEach(b => {
+      const on = b.dataset.mode === spaMode;
+      b.classList.toggle('on', on);
+      b.style.background = on ? 'var(--ink)' : 'transparent';
+      b.style.color = on ? 'var(--paper)' : 'var(--ink)';
+    });
+    const hint = $('spa_mode_hint');
+    if (hint) hint.textContent = spaMode === 'select'
+      ? 'Drag a rectangle. Apply fills it with the brush depth.'
+      : 'Tap/drag cells to paint brush depth.';
+    const acts = $('spa_selection_actions');
+    if (acts) acts.style.display = (spaMode === 'select' && spaSel.size > 0) ? 'flex' : 'none';
+  }
+  function setSpaMode(m) {
+    spaMode = (m === 'select') ? 'select' : 'paint';
+    if (spaMode === 'paint') { spaSel.clear(); spaSelectAnchor = null; }
+    updateSpaModeUI();
+    renderSpaGrid();
+  }
+  function fillRect(r0, c0, r1, c1) {
+    spaSel.clear();
+    const rMin = Math.min(r0, r1), rMax = Math.max(r0, r1);
+    const cMin = Math.min(c0, c1), cMax = Math.max(c0, c1);
+    for (let r = rMin; r <= rMax; r++) {
+      for (let c = cMin; c <= cMax; c++) spaSel.add(r + ',' + c);
+    }
+  }
   function wireSpaGrid() {
     const svg = $('spa_grid'); if (!svg) return;
     const start = (e) => {
       const cell = cellFromEvent(e, svg); if (!cell) return;
+      if (spaMode === 'select') {
+        spaSelectAnchor = cell;
+        fillRect(cell.r, cell.c, cell.r, cell.c);
+        renderSpaGrid();
+        updateSpaModeUI();
+        e.preventDefault();
+        return;
+      }
       spaPainting = true;
       spaLastPainted = '';
       const key = cell.r + ',' + cell.c;
@@ -4618,6 +4886,15 @@
       e.preventDefault();
     };
     const move = (e) => {
+      if (spaMode === 'select') {
+        if (!spaSelectAnchor) return;
+        const cell = cellFromEvent(e, svg); if (!cell) return;
+        fillRect(spaSelectAnchor.r, spaSelectAnchor.c, cell.r, cell.c);
+        renderSpaGrid();
+        updateSpaModeUI();
+        e.preventDefault();
+        return;
+      }
       if (!spaPainting) return;
       const cell = cellFromEvent(e, svg); if (!cell) return;
       const key = cell.r + ',' + cell.c;
@@ -4628,7 +4905,12 @@
       scheduleRender();
       e.preventDefault();
     };
-    const end = () => { spaPainting = false; spaLastPainted = ''; };
+    const end = () => {
+      spaPainting = false;
+      spaLastPainted = '';
+      spaSelectAnchor = null;
+      updateSpaModeUI();
+    };
     svg.addEventListener('mousedown', start);
     svg.addEventListener('mousemove', move);
     window.addEventListener('mouseup', end);
@@ -4723,10 +5005,35 @@
     spaStatus('Reset all cells to 36″');
     scheduleRender();
   });
+  // Paint/Select mode toggle
+  document.querySelectorAll('#spa_mode_seg button').forEach(b => {
+    b.addEventListener('click', () => setSpaMode(b.dataset.mode));
+  });
+  // Default to Select on devices with a mouse/trackpad (desktop); keep Paint on touch-only devices.
+  // matchMedia('(hover: hover) and (pointer: fine)') is true for mouse devices, false for touch-only.
+  if (window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+    spaMode = 'select';
+  }
+  if ($('spa_apply_sel')) $('spa_apply_sel').addEventListener('click', () => {
+    if (!spaSel.size) return;
+    for (const k of spaSel) {
+      const [r, c] = k.split(',').map(Number);
+      paintCell(r, c);
+    }
+    spaStatus(`Filled ${spaSel.size} cell${spaSel.size > 1 ? 's' : ''} with ${Math.round(spaBrushDepth)}″`);
+    renderSpaGrid();
+    scheduleRender();
+  });
+  if ($('spa_clear_sel')) $('spa_clear_sel').addEventListener('click', () => {
+    spaSel.clear();
+    updateSpaModeUI();
+    renderSpaGrid();
+  });
   // Initial UI sync + grid setup
   syncSpaControls();
   wireSpaGrid();
   updateBrushUI();
+  updateSpaModeUI();
   renderSpaGrid();
 
   // Section preset buttons
