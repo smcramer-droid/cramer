@@ -2846,9 +2846,10 @@
       el('path', { d, fill: q.fill, 'fill-opacity': 0.92, stroke: 'none' }, svg);
     });
 
-    // 3) Risers between adjacent cells with different depths — drawn as thin ink
-    //    LINES at the boundary (top edge + a vertical drop tick), NOT filled quads.
-    //    This avoids the wobble noise that filled stepped polygons produced.
+    // 3) Risers between adjacent cells with different depths — horizontal step
+    //    edge only, at the shallower cell's depth. A vertical drop tick was too
+    //    noisy visually (read as bars on the treads), so we rely on the floor-
+    //    fill color difference + the single top edge line to convey the step.
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
         const d = sp.cells[r][c] || 0;
@@ -2856,15 +2857,7 @@
           const d2 = sp.cells[r+1][c] || 0;
           if (Math.abs(d - d2) > 0.01) {
             const zShallow = waterZ + Math.min(d, d2) / 12;
-            const zDeep    = waterZ + Math.max(d, d2) / 12;
-            const x = (r + 1) * cs, yMid = (c + 0.5) * cs;
-            // Vertical drop tick at the boundary midpoint
-            el('line', {
-              x1: PP(x, yMid, zShallow)[0], y1: PP(x, yMid, zShallow)[1],
-              x2: PP(x, yMid, zDeep)[0], y2: PP(x, yMid, zDeep)[1],
-              stroke: 'var(--ink-soft)', 'stroke-width': 0.7,
-            }, svg);
-            // Horizontal step edge at the shallower depth (the visible top of the riser)
+            const x = (r + 1) * cs;
             el('line', {
               x1: PP(x, c*cs, zShallow)[0], y1: PP(x, c*cs, zShallow)[1],
               x2: PP(x, (c+1)*cs, zShallow)[0], y2: PP(x, (c+1)*cs, zShallow)[1],
@@ -2876,13 +2869,7 @@
           const d2 = sp.cells[r][c+1] || 0;
           if (Math.abs(d - d2) > 0.01) {
             const zShallow = waterZ + Math.min(d, d2) / 12;
-            const zDeep    = waterZ + Math.max(d, d2) / 12;
-            const y = (c + 1) * cs, xMid = (r + 0.5) * cs;
-            el('line', {
-              x1: PP(xMid, y, zShallow)[0], y1: PP(xMid, y, zShallow)[1],
-              x2: PP(xMid, y, zDeep)[0], y2: PP(xMid, y, zDeep)[1],
-              stroke: 'var(--ink-soft)', 'stroke-width': 0.7,
-            }, svg);
+            const y = (c + 1) * cs;
             el('line', {
               x1: PP(r*cs, y, zShallow)[0], y1: PP(r*cs, y, zShallow)[1],
               x2: PP((r+1)*cs, y, zShallow)[0], y2: PP((r+1)*cs, y, zShallow)[1],
@@ -5028,6 +5015,9 @@
       sections: state.sections,
       bench: state.bench,
       spa: state.spa,
+      poolCuts: state.poolCuts,
+      spaCuts: state.spaCuts,
+      siteCut: state.siteCut,
       tweaks: state.tweaks,
     }));
   }
@@ -5051,6 +5041,9 @@
         cells: Array.isArray(snap.spa.cells) ? JSON.parse(JSON.stringify(snap.spa.cells)) : state.spa.cells,
       };
     }
+    if (snap.poolCuts && typeof snap.poolCuts === 'object') state.poolCuts = JSON.parse(JSON.stringify(snap.poolCuts));
+    if (snap.spaCuts && typeof snap.spaCuts === 'object') state.spaCuts = JSON.parse(JSON.stringify(snap.spaCuts));
+    if (snap.siteCut && typeof snap.siteCut === 'object') state.siteCut = { ...state.siteCut, ...snap.siteCut };
     if (snap.tweaks && typeof snap.tweaks === 'object') state.tweaks = { ...state.tweaks, ...snap.tweaks };
     // Sync input fields from new state
     const setVal = (id, v) => { const e = $(id); if (e && v != null) e.value = v; };
@@ -5101,14 +5094,34 @@
     const name = ($('save_name')?.value || state.tweaks.projectName || '').trim();
     if (!name) { saveStatus('Enter a project name first', 'err'); return; }
     saveStatus('Saving…');
+    let snapshot;
     try {
-      const r = await fetch('/api/configs', {
+      snapshot = stateSnapshot();
+    } catch (e) {
+      saveStatus('Save failed: could not serialize state (' + (e.message || 'unknown') + ')', 'err');
+      return;
+    }
+    let r, text;
+    try {
+      r = await fetch('/api/configs', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ name, state: stateSnapshot() }),
+        body: JSON.stringify({ name, state: snapshot }),
       });
-      const data = await r.json();
-      if (!r.ok || data.error) throw new Error(data.error || ('HTTP ' + r.status));
+      text = await r.text();
+    } catch (e) {
+      saveStatus('Save failed (network): ' + (e.message || 'unknown'), 'err');
+      return;
+    }
+    let data = null;
+    try { data = text ? JSON.parse(text) : null; } catch { data = null; }
+    if (!r.ok || !data || data.error) {
+      const detail = (data && data.error) ? data.error
+        : (text ? text.slice(0, 140) : ('HTTP ' + r.status));
+      saveStatus('Save failed: ' + detail, 'err');
+      return;
+    }
+    try {
       saveStatus(`Saved as “${data.versionedName}”`, 'ok');
       if ($('save_name')) $('save_name').value = data.versionedName;
       state.tweaks.projectName = data.versionedName;
@@ -5116,22 +5129,36 @@
       scheduleRender();
       refreshLoadList(data.slug);
     } catch (e) {
-      saveStatus('Save failed: ' + (e.message || 'unknown'), 'err');
+      // Save itself succeeded; only post-success UI update threw.
+      saveStatus('Saved, but UI refresh failed: ' + (e.message || 'unknown'), 'err');
     }
   }
   async function onLoad() {
     const slug = $('load_select')?.value;
     if (!slug) { saveStatus('Pick a configuration to load', 'err'); return; }
     saveStatus('Loading…');
+    let r, text;
     try {
-      const r = await fetch('/api/configs/' + encodeURIComponent(slug), { cache: 'no-store' });
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      const rec = await r.json();
+      r = await fetch('/api/configs/' + encodeURIComponent(slug), { cache: 'no-store' });
+      text = await r.text();
+    } catch (e) {
+      saveStatus('Load failed (network): ' + (e.message || 'unknown'), 'err');
+      return;
+    }
+    let rec = null;
+    try { rec = text ? JSON.parse(text) : null; } catch { rec = null; }
+    if (!r.ok || !rec || rec.error) {
+      const detail = (rec && rec.error) ? rec.error
+        : (text ? text.slice(0, 140) : ('HTTP ' + r.status));
+      saveStatus('Load failed: ' + detail, 'err');
+      return;
+    }
+    try {
       applySnapshot(rec.state || {});
       saveStatus(`Loaded “${rec.versionedName || rec.name || slug}”`, 'ok');
       if ($('save_name')) $('save_name').value = rec.versionedName || rec.name || '';
     } catch (e) {
-      saveStatus('Load failed: ' + (e.message || 'unknown'), 'err');
+      saveStatus('Load failed to apply: ' + (e.message || 'unknown'), 'err');
     }
   }
   async function onDelete() {
