@@ -26,6 +26,21 @@ jobs:
         with:
           node-version: 20
 
+      - name: Inspect what we're about to deploy
+        run: |
+          echo "=== equipment-selector tree ==="
+          find equipment-selector -maxdepth 5 -type f | sort
+          echo ""
+          echo "=== package.json ==="
+          cat equipment-selector/package.json || echo "(missing)"
+          echo ""
+          echo "=== functions/api files ==="
+          for f in equipment-selector/functions/api/*.js; do
+            echo "--- $f ---"
+            head -20 "$f"
+            echo ""
+          done
+
       - name: Ensure Pages project exists
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -38,14 +53,15 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WRANGLER_LOG: debug
         run: |
           npx --yes wrangler@latest pages deploy equipment-selector \
             --project-name=pasadena-equipment \
             --branch=main \
             --commit-dirty=true 2>&1 | tee wrangler.log
           echo ""
-          echo "=== wrangler.log post-deploy check ==="
-          grep -iE 'function|worker|compiled|bundled|error|warn' wrangler.log || echo "(no function-related output found)"
+          echo "=== wrangler.log function/route-related lines ==="
+          grep -iE 'function|worker|compiled|bundled|error|warn|_worker|_routes|skipped|uploading' wrangler.log || echo "(no function-related output found)"
 
       - name: Verify Functions are live
         run: |
