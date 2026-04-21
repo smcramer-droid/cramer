@@ -55,10 +55,19 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           WRANGLER_LOG: debug
         run: |
-          npx --yes wrangler@3.90.0 pages deploy equipment-selector \
+          # Explicit version + run wrangler from INSIDE the deploy directory
+          # so functions/ is detected as a relative path. Matches how
+          # pool-designer's wrangler CLI sees the project when their repo
+          # layout has other root-level files.
+          echo "Wrangler version:"
+          npx --yes wrangler@3.90.0 --version || true
+          echo ""
+          cd equipment-selector
+          npx --yes wrangler@3.90.0 pages deploy . \
             --project-name=pasadena-equipment \
             --branch=main \
-            --commit-dirty=true 2>&1 | tee wrangler.log
+            --commit-dirty=true 2>&1 | tee ../wrangler.log
+          cd ..
           echo ""
           echo "=== wrangler.log function/route-related lines ==="
           grep -iE 'function|worker|compiled|bundled|error|warn|_worker|_routes|skipped|uploading' wrangler.log || echo "(no function-related output found)"
