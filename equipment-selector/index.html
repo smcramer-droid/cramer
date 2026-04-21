@@ -445,6 +445,35 @@
       .summary.hide-col-model .col-model,
       .summary.hide-col-notes .col-notes { display: none; }
 
+      .sync-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        align-items: flex-end;
+        justify-content: space-between;
+        padding: 10px 0 14px;
+        margin-bottom: 10px;
+        border-bottom: 1px dashed rgba(18,58,74,0.12);
+      }
+      .sync-row > div:first-child { flex: 1 1 220px; min-width: 0; }
+      .sync-row input[type="password"] {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 13px;
+      }
+      .sync-indicator {
+        font-size: 12px;
+        padding: 6px 12px;
+        border-radius: 999px;
+        background: rgba(18,58,74,0.06);
+        color: var(--ink-soft);
+        white-space: nowrap;
+      }
+      .sync-indicator[data-status="loading"],
+      .sync-indicator[data-status="saving"] { background: rgba(41,193,224,0.15); color: #0e6b7f; }
+      .sync-indicator[data-status="saved"] { background: rgba(61,213,152,0.18); color: #156b50; }
+      .sync-indicator[data-status="error"] { background: rgba(226,85,85,0.15); color: #8e2a2a; }
+      .sync-indicator[data-status="local-only"] { background: rgba(255,138,61,0.15); color: #a34e19; }
+
       .catalog-summary {
         font-size: 15px;
         font-weight: 700;
@@ -628,7 +657,14 @@
       <section class="card">
         <details id="catalogSection">
           <summary class="catalog-summary">Catalog <span class="sub">(edit the dropdown options that populate this tool)</span></summary>
-          <p class="item-info" style="margin: 4px 0 12px;">Changes are saved to this browser. Use Export JSON to back up and Import JSON to restore or share.</p>
+          <p class="item-info" style="margin: 4px 0 12px;">Edits sync to every device via the shared catalog. Add your edit token once to unlock saving.</p>
+          <div class="sync-row no-print">
+            <div>
+              <div class="customize-label">Catalog edit token</div>
+              <input type="password" id="editToken" placeholder="Paste the token from the setup workflow" autocomplete="off" />
+            </div>
+            <div class="sync-indicator" id="syncStatus" data-status="idle"></div>
+          </div>
           <div id="catalogEditor"></div>
           <div class="actions no-print" style="margin-top: 16px;">
             <button type="button" class="btn btn--copy" id="catalogReset">Reset to Defaults</button>
@@ -1447,12 +1483,29 @@
             updateSummary();
           });
         }
+        // Edit token field
+        const tokenInput = document.getElementById("editToken");
+        if (tokenInput) {
+          tokenInput.value = getEditToken();
+          tokenInput.addEventListener("change", () => {
+            const v = tokenInput.value.trim();
+            setEditToken(v);
+            if (v) {
+              // Sanity check: send a harmless sync to confirm token works.
+              scheduleCatalogSync();
+              flash("Token saved");
+            } else {
+              setSyncStatus("local-only", "Token cleared — updates saved locally only");
+            }
+          });
+        }
         // Catalog editor actions
         document.getElementById("catalogReset").addEventListener("click", () => {
           if (!confirm("Reset the catalog to the factory defaults? All models you've added or edited will be removed.")) return;
           CATALOG.length = 0;
           for (const c of deepClone(DEFAULT_CATALOG)) CATALOG.push(c);
           state.catalog = CATALOG;
+          scheduleCatalogSync();
           saveAndRender();
           flash("Catalog reset");
         });
@@ -1476,6 +1529,7 @@
             CATALOG.length = 0;
             for (const c of parsed) CATALOG.push(c);
             state.catalog = CATALOG;
+            scheduleCatalogSync();
             saveAndRender();
             flash("Catalog imported");
           } catch (err) {
@@ -1521,6 +1575,7 @@
                 if (e.optionId === opt.id) e.optionId = "none";
               }
               if (cat.id === "saltCell") recomputeSaltPower();
+              scheduleCatalogSync();
               saveAndRender();
             });
             row.appendChild(labelInp); row.appendChild(modelInp); row.appendChild(mfrInp); row.appendChild(infoInp); row.appendChild(rm);
@@ -1529,6 +1584,7 @@
           const addOptBtn = el("button", { type: "button", class: "add-another no-print" }, "+ Add model");
           addOptBtn.addEventListener("click", () => {
             cat.options.push({ id: "opt-" + genId().slice(0, 8), label: "New model", model: "", manufacturer: "", info: "" });
+            scheduleCatalogSync();
             saveAndRender();
           });
           block.appendChild(addOptBtn);
@@ -1539,6 +1595,106 @@
       function persistCatalog() {
         state.catalog = CATALOG;
         localStorage.setItem("pps.equipment.v3", JSON.stringify(state));
+        scheduleCatalogSync();
+      }
+
+      // ============ REMOTE CATALOG SYNC ============
+      const SYNC_URL = "/api/catalog";
+      const TOKEN_STORAGE_KEY = "pps.equipment.editToken";
+      const SYNC_DEBOUNCE_MS = 900;
+
+      const sync = {
+        pending: false,
+        timer: null,
+        status: "idle", // idle | loading | saving | saved | error | local-only
+        message: ""
+      };
+
+      function getEditToken() {
+        try { return localStorage.getItem(TOKEN_STORAGE_KEY) || ""; } catch { return ""; }
+      }
+      function setEditToken(tok) {
+        try {
+          if (tok) localStorage.setItem(TOKEN_STORAGE_KEY, tok);
+          else localStorage.removeItem(TOKEN_STORAGE_KEY);
+        } catch {}
+      }
+
+      async function fetchRemoteCatalog() {
+        try {
+          setSyncStatus("loading", "Loading shared catalog…");
+          const res = await fetch(SYNC_URL, { cache: "no-store" });
+          if (!res.ok) {
+            setSyncStatus("local-only", res.status === 503 ? "Sync not configured — using this browser only" : "Sync unavailable — using this browser only");
+            return null;
+          }
+          const text = await res.text();
+          if (!text || text === "null") {
+            setSyncStatus("saved", "Shared catalog is empty — seeding from defaults");
+            return null;
+          }
+          const parsed = JSON.parse(text);
+          if (!Array.isArray(parsed)) {
+            setSyncStatus("error", "Shared catalog is malformed");
+            return null;
+          }
+          setSyncStatus("saved", "Loaded from shared catalog");
+          return parsed;
+        } catch (err) {
+          setSyncStatus("local-only", "Offline — using this browser only");
+          return null;
+        }
+      }
+
+      function scheduleCatalogSync() {
+        sync.pending = true;
+        if (sync.timer) clearTimeout(sync.timer);
+        sync.timer = setTimeout(pushCatalogNow, SYNC_DEBOUNCE_MS);
+      }
+
+      async function pushCatalogNow() {
+        sync.timer = null;
+        if (!sync.pending) return;
+        sync.pending = false;
+        const token = getEditToken();
+        if (!token) {
+          setSyncStatus("local-only", "Saved locally. Add the edit token to sync.");
+          return;
+        }
+        try {
+          setSyncStatus("saving", "Syncing…");
+          const res = await fetch(SYNC_URL, {
+            method: "PUT",
+            headers: { "content-type": "application/json", "X-Edit-Token": token },
+            body: JSON.stringify(CATALOG)
+          });
+          if (res.status === 403) {
+            setSyncStatus("error", "Edit token rejected — updates saved locally only");
+            return;
+          }
+          if (res.status === 503) {
+            setSyncStatus("local-only", "Sync not configured on server");
+            return;
+          }
+          if (!res.ok) {
+            const body = await res.text().catch(() => "");
+            setSyncStatus("error", "Sync failed: " + (body || res.status));
+            return;
+          }
+          setSyncStatus("saved", "Synced to all devices");
+        } catch (err) {
+          setSyncStatus("error", "Sync failed — saved locally");
+        }
+      }
+
+      function setSyncStatus(status, message) {
+        sync.status = status;
+        sync.message = message || "";
+        const indicator = document.getElementById("syncStatus");
+        if (indicator) {
+          indicator.textContent = message || "";
+          indicator.dataset.status = status;
+        }
       }
 
       function refreshCoreDropdowns() {
@@ -1585,6 +1741,20 @@
       wireActions();
       updateSummary();
       saveAndRender(true);
+
+      // After initial render, try to pull the shared catalog from the server.
+      // If the server has one, it wins over whatever's in localStorage.
+      (async () => {
+        const remote = await fetchRemoteCatalog();
+        if (!remote) return;
+        CATALOG.length = 0;
+        for (const c of remote) CATALOG.push(c);
+        state.catalog = CATALOG;
+        try { localStorage.setItem("pps.equipment.v3", JSON.stringify(state)); } catch {}
+        renderCore();
+        renderCatalogEditor();
+        updateSummary();
+      })();
     </script>
   </body>
 </html>
