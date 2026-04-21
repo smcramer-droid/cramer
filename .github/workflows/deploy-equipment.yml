@@ -17,7 +17,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       deployments: write
     steps:
       - uses: actions/checkout@v4
@@ -111,3 +111,35 @@ jobs:
           fi
           echo ""
           echo "All verification checks passed."
+
+      - name: Publish wrangler.log to _diagnostic-output branch (always)
+        if: always()
+        run: |
+          set +e
+          mkdir -p _diag
+          {
+            echo "## Deploy Equipment Selector — commit ${GITHUB_SHA}"
+            echo ""
+            echo "Run: ${GITHUB_RUN_ID}"
+            echo ""
+            echo '### equipment-selector tree'
+            echo '```'
+            find equipment-selector -maxdepth 5 -type f | sort 2>&1
+            echo '```'
+            echo ""
+            echo '### wrangler.log'
+            echo '```'
+            cat wrangler.log 2>/dev/null || echo "(no wrangler.log)"
+            echo '```'
+          } > _diag/deploy.md
+
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          # Keep existing _diag/last-run.md if present
+          git fetch origin _diagnostic-output 2>/dev/null || true
+          git checkout -B _diagnostic-output
+          # Wipe tree, keep .git and _diag/
+          find . -mindepth 1 -maxdepth 1 ! -name '.git' ! -name '_diag' -exec rm -rf {} +
+          git add -f _diag/deploy.md
+          git commit -m "deploy-log $(date -u +%Y%m%d-%H%M%SZ)" --allow-empty
+          git push -f origin _diagnostic-output
