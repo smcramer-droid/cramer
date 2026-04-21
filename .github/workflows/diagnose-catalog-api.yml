@@ -78,36 +78,63 @@ jobs:
           TOKEN: ${{ steps.project.outputs.token }}
         run: |
           set -u
+          OUT=/tmp/probe.md
+          : > "$OUT"
+
           probe() {
             METHOD="$1"; URL="$2"; shift; shift
-            echo ""
-            echo "──────────────────────────────────────────"
-            echo ">>> $METHOD $URL"
-            echo "──────────────────────────────────────────"
-            curl -sS -D /tmp/h.txt -o /tmp/b.txt -X "$METHOD" "$URL" "$@" -w 'HTTP %{http_code}  |  size %{size_download}B  |  time %{time_total}s\n'
-            echo "--- response headers ---"
-            cat /tmp/h.txt
-            echo "--- response body (first 1000 chars) ---"
-            head -c 1000 /tmp/b.txt
-            echo ""
+            {
+              echo ""
+              echo "### \`$METHOD\` $URL"
+              echo ""
+              echo '```'
+            } >> "$OUT"
+            curl -sS -D /tmp/h.txt -o /tmp/b.txt -X "$METHOD" "$URL" "$@" -w 'HTTP %{http_code}  |  size %{size_download}B  |  time %{time_total}s\n' >> "$OUT" 2>&1
+            {
+              echo ""
+              echo "--- response headers ---"
+              cat /tmp/h.txt
+              echo "--- response body (first 1500 chars) ---"
+              head -c 1500 /tmp/b.txt
+              echo ""
+              echo '```'
+            } >> "$OUT"
           }
 
           probe GET     "${BASE}/api/ping"
           probe GET     "${BASE}/api/catalog"
-          probe OPTIONS "${BASE}/api/catalog" -H "Origin: https://pasadena-equipment.pages.dev" -H "Access-Control-Request-Method: PUT" -H "Access-Control-Request-Headers: content-type, x-edit-token"
+          probe OPTIONS "${BASE}/api/catalog" -H "Origin: ${BASE}" -H "Access-Control-Request-Method: PUT" -H "Access-Control-Request-Headers: content-type, x-edit-token"
           if [ -n "$TOKEN" ]; then
             probe PUT "${BASE}/api/catalog" \
               -H "content-type: application/json" \
               -H "X-Edit-Token: $TOKEN" \
               --data '[{"id":"_diag","label":"Diagnostic","options":[{"id":"none","label":"— Select —"}]}]'
-            # Read back what we just wrote, then clean up.
             probe GET "${BASE}/api/catalog"
-            echo ""
-            echo "Cleaning up diagnostic write (restoring to empty)…"
+            {
+              echo ""
+              echo "_Cleaning up diagnostic write (restoring to empty list)…_"
+              echo '```'
+            } >> "$OUT"
             curl -sS -X PUT "${BASE}/api/catalog" \
               -H "content-type: application/json" \
               -H "X-Edit-Token: $TOKEN" \
-              --data '[]' -w 'HTTP %{http_code}\n'
+              --data '[]' -w 'HTTP %{http_code}\n' >> "$OUT" 2>&1
+            echo '```' >> "$OUT"
           else
-            echo "No token configured on Pages project — skipping PUT probe."
+            echo "" >> "$OUT"
+            echo "**No token configured on Pages project — skipping PUT probe.**" >> "$OUT"
           fi
+
+          # Dump to stdout for the job logs too, then attach as summary.
+          echo "============== PROBE RESULTS =============="
+          cat "$OUT"
+          echo "============================================"
+          {
+            echo "## Catalog API diagnostic"
+            echo ""
+            echo "- **Base URL:** ${BASE}"
+            echo "- **Latest deployment:** ${{ steps.project.outputs.dep_id }}"
+            echo "- **KV bound:** $([ -n '${{ steps.project.outputs.kv_id }}' ] && echo yes || echo no)"
+            echo "- **Token configured:** $([ -n "$TOKEN" ] && echo yes || echo no)"
+            cat "$OUT"
+          } >> "$GITHUB_STEP_SUMMARY"
