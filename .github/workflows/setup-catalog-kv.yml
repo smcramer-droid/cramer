@@ -1,0 +1,154 @@
+# One-time (idempotent) setup for the Equipment Selector catalog sync.
+#
+# Creates a Cloudflare KV namespace, binds it to the pasadena-equipment
+# Pages project as `CATALOG`, generates an edit token, and sets it as
+# the `CATALOG_EDIT_TOKEN` Pages secret. Run this once from the Actions
+# tab (workflow_dispatch) after merging catalog-sync changes.
+#
+# The edit token is printed as a workflow notice — copy it from the
+# run summary and paste it into the Equipment Selector UI once.
+#
+# Re-running this workflow without --rotate-token keeps the existing
+# token. Pass rotate-token=true to generate a new one.
+name: Setup Catalog Sync (one-time)
+
+on:
+  workflow_dispatch:
+    inputs:
+      rotate-token:
+        description: "Generate a new edit token (invalidates the old one)"
+        required: false
+        default: "false"
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      PROJECT: pasadena-equipment
+      KV_TITLE: CATALOG
+    steps:
+      - name: Ensure KV namespace exists
+        id: kv
+        run: |
+          set -eu
+          LIST=$(curl -sS -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/storage/kv/namespaces?per_page=100")
+          ID=$(echo "$LIST" | jq -r --arg t "${KV_TITLE}" '.result[] | select(.title==$t) | .id' | head -n1)
+          if [ -z "$ID" ] || [ "$ID" = "null" ]; then
+            CREATE=$(curl -sS -X POST \
+              -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+              -H "Content-Type: application/json" \
+              "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/storage/kv/namespaces" \
+              --data "{\"title\":\"${KV_TITLE}\"}")
+            ID=$(echo "$CREATE" | jq -r '.result.id')
+            if [ -z "$ID" ] || [ "$ID" = "null" ]; then
+              echo "Failed to create KV namespace:" >&2
+              echo "$CREATE" >&2
+              exit 1
+            fi
+            echo "Created KV namespace ${KV_TITLE}=${ID}"
+          else
+            echo "Found existing KV namespace ${KV_TITLE}=${ID}"
+          fi
+          echo "id=${ID}" >> "$GITHUB_OUTPUT"
+
+      - name: Fetch current Pages project config
+        id: project
+        run: |
+          set -eu
+          PROJ=$(curl -sS -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${PROJECT}")
+          EXISTING_TOKEN=$(echo "$PROJ" | jq -r '.result.deployment_configs.production.env_vars.CATALOG_EDIT_TOKEN.value // empty')
+          echo "existing-token-present=$([ -n "$EXISTING_TOKEN" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+      - name: Generate or keep edit token
+        id: token
+        run: |
+          set -eu
+          ROTATE="${{ github.event.inputs.rotate-token }}"
+          EXISTING="${{ steps.project.outputs.existing-token-present }}"
+          if [ "$ROTATE" = "true" ] || [ "$EXISTING" != "true" ]; then
+            TOKEN=$(openssl rand -hex 24)
+            ACTION="generated"
+          else
+            TOKEN=""
+            ACTION="kept"
+          fi
+          echo "action=${ACTION}" >> "$GITHUB_OUTPUT"
+          # Mask token regardless
+          if [ -n "$TOKEN" ]; then echo "::add-mask::$TOKEN"; fi
+          echo "token=${TOKEN}" >> "$GITHUB_OUTPUT"
+
+      - name: Patch Pages project (KV binding + token)
+        env:
+          KV_ID: ${{ steps.kv.outputs.id }}
+          TOKEN: ${{ steps.token.outputs.token }}
+          TOKEN_ACTION: ${{ steps.token.outputs.action }}
+        run: |
+          set -eu
+          if [ "$TOKEN_ACTION" = "generated" ]; then
+            BODY=$(jq -n --arg id "$KV_ID" --arg tok "$TOKEN" '{
+              deployment_configs: {
+                production: {
+                  kv_namespaces: { CATALOG: { namespace_id: $id } },
+                  env_vars: { CATALOG_EDIT_TOKEN: { value: $tok, type: "secret_text" } }
+                },
+                preview: {
+                  kv_namespaces: { CATALOG: { namespace_id: $id } }
+                }
+              }
+            }')
+          else
+            BODY=$(jq -n --arg id "$KV_ID" '{
+              deployment_configs: {
+                production: {
+                  kv_namespaces: { CATALOG: { namespace_id: $id } }
+                },
+                preview: {
+                  kv_namespaces: { CATALOG: { namespace_id: $id } }
+                }
+              }
+            }')
+          fi
+          RESP=$(curl -sS -X PATCH \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${PROJECT}" \
+            --data "$BODY")
+          SUCCESS=$(echo "$RESP" | jq -r '.success')
+          if [ "$SUCCESS" != "true" ]; then
+            echo "Pages PATCH failed:" >&2
+            echo "$RESP" | jq '.' >&2
+            exit 1
+          fi
+          echo "Pages project patched successfully."
+
+      - name: Trigger a fresh production deploy (picks up new bindings)
+        run: |
+          set -eu
+          curl -sS -X POST \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${PROJECT}/deployments" > /dev/null
+          echo "Deploy requested."
+
+      - name: Summary
+        env:
+          TOKEN: ${{ steps.token.outputs.token }}
+          TOKEN_ACTION: ${{ steps.token.outputs.action }}
+          KV_ID: ${{ steps.kv.outputs.id }}
+        run: |
+          echo "### Catalog sync setup complete" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **KV namespace id**: \`$KV_ID\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Bound as**: \`CATALOG\` on production + preview of \`$PROJECT\`" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$TOKEN_ACTION" = "generated" ]; then
+            echo "- **Edit token (save this!)**: \`$TOKEN\`" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "Open <https://pasadena-equipment.pages.dev/>, expand the Catalog section, and paste this token into the **Catalog edit token** field." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- **Edit token**: _kept existing_ (pass \`rotate-token=true\` to generate a new one)" >> "$GITHUB_STEP_SUMMARY"
+          fi
