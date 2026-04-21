@@ -84,8 +84,8 @@ jobs:
             ACTION="kept"
           fi
           echo "action=${ACTION}" >> "$GITHUB_OUTPUT"
-          # Mask token regardless
-          if [ -n "$TOKEN" ]; then echo "::add-mask::$TOKEN"; fi
+          # Note: intentionally NOT masking the token so it's visible in the
+          # workflow summary. Actions is private to repo collaborators.
           echo "token=${TOKEN}" >> "$GITHUB_OUTPUT"
 
       - name: Patch Pages project (KV binding + token)
