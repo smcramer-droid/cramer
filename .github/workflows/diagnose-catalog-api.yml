@@ -1,22 +1,11 @@
 # Dispatchable diagnostic for /api/catalog.
-#
-# What it does:
-#   1. Fetches the Pages project config via Cloudflare API and reports
-#      whether CATALOG KV binding and CATALOG_EDIT_TOKEN env var are
-#      attached to production.
-#   2. Reads the CATALOG_EDIT_TOKEN from the Pages project config and
-#      uses it to exercise GET, OPTIONS, and PUT against the live
-#      endpoint.
-#   3. Dumps full status codes, response headers, and bodies into the
-#      job summary so we can see exactly what Cloudflare is returning.
-#
-# Run from Actions → Diagnose Catalog API → Run workflow.
+# Best-effort: every step is defensive, dumps raw output, and does not
+# exit the workflow on soft failures — we want to SEE the responses, not
+# fail out before they're captured.
 name: Diagnose Catalog API
 
 on:
   workflow_dispatch:
-  # Auto-run once on merge so we get immediate diagnosis without needing
-  # to hunt for the workflow in the UI.
   push:
     branches: [main]
     paths: [".github/workflows/diagnose-catalog-api.yml"]
@@ -32,109 +21,126 @@ jobs:
       PROJECT: pasadena-equipment
       BASE: https://pasadena-equipment.pages.dev
     steps:
-      - name: Describe Pages project config
+      - name: Pages project config
         id: project
+        continue-on-error: true
         run: |
-          set -eu
+          set +e
+          OUT=/tmp/step1.md
+          : > "$OUT"
+          echo "## 1. Pages project config" >> "$OUT"
+          echo "" >> "$OUT"
+          echo '```json' >> "$OUT"
           PROJ=$(curl -sS -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
-            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${PROJECT}")
-          echo "--- project config ---"
-          echo "$PROJ" | jq '.result | {name, subdomain, production_branch, latest_deployment: .latest_deployment | {id, created_on, url, environment, short_id, project_name, source, stages: [.stages[] | {name, status}]}, deployment_configs}'
-          TOKEN=$(echo "$PROJ" | jq -r '.result.deployment_configs.production.env_vars.CATALOG_EDIT_TOKEN.value // empty')
-          KV_ID=$(echo "$PROJ" | jq -r '.result.deployment_configs.production.kv_namespaces.CATALOG.namespace_id // empty')
-          DEP_ID=$(echo "$PROJ" | jq -r '.result.latest_deployment.id // empty')
-          echo ""
-          echo "Edit token present:  $([ -n "$TOKEN" ] && echo YES || echo NO)"
-          echo "CATALOG KV bound:    $([ -n "$KV_ID" ] && echo YES (id=$KV_ID) || echo NO)"
-          echo "Latest deployment:   ${DEP_ID:-unknown}"
-          if [ -z "$TOKEN" ]; then
-            echo "::warning::CATALOG_EDIT_TOKEN not set on Pages project — PUT will always 403"
-          fi
-          echo "token=${TOKEN}" >> "$GITHUB_OUTPUT"
-          echo "kv_id=${KV_ID}" >> "$GITHUB_OUTPUT"
-          echo "dep_id=${DEP_ID}" >> "$GITHUB_OUTPUT"
-          # Mask the token from further logs
-          if [ -n "$TOKEN" ]; then echo "::add-mask::$TOKEN"; fi
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${PROJECT}" || echo '{"error":"curl_failed"}')
+          # pretty-print if parseable, else raw
+          echo "$PROJ" | jq '.' 2>/dev/null || echo "$PROJ"
+          echo '```' >> "$OUT"
 
-      - name: Describe latest deployment (are Functions bundled?)
+          {
+            echo ""
+            echo "Response saved to /tmp/proj.json"
+          } >> "$OUT"
+          echo "$PROJ" > /tmp/proj.json
+
+          TOKEN=$(echo "$PROJ" | jq -r '.result.deployment_configs.production.env_vars.CATALOG_EDIT_TOKEN.value // empty' 2>/dev/null || true)
+          KV_ID=$(echo "$PROJ" | jq -r '.result.deployment_configs.production.kv_namespaces.CATALOG.namespace_id // empty' 2>/dev/null || true)
+          DEP_ID=$(echo "$PROJ" | jq -r '.result.latest_deployment.id // empty' 2>/dev/null || true)
+
+          echo "" >> "$OUT"
+          echo "- **CATALOG_EDIT_TOKEN configured:** $([ -n "$TOKEN" ] && echo yes || echo NO)" >> "$OUT"
+          echo "- **CATALOG KV namespace bound:** $([ -n "$KV_ID" ] && echo "yes ($KV_ID)" || echo NO)" >> "$OUT"
+          echo "- **Latest deployment id:** ${DEP_ID:-unknown}" >> "$OUT"
+
+          if [ -n "$TOKEN" ]; then echo "::add-mask::$TOKEN"; fi
+          {
+            echo "token=${TOKEN}"
+            echo "kv_id=${KV_ID}"
+            echo "dep_id=${DEP_ID}"
+          } >> "$GITHUB_OUTPUT"
+
+          cat "$OUT" >> "$GITHUB_STEP_SUMMARY"
+          cat "$OUT"
+
+      - name: Latest deployment details
+        continue-on-error: true
         env:
           DEP_ID: ${{ steps.project.outputs.dep_id }}
         run: |
-          set -eu
+          set +e
+          OUT=/tmp/step2.md
+          : > "$OUT"
+          echo "## 2. Latest deployment details" >> "$OUT"
+          echo "" >> "$OUT"
           if [ -z "$DEP_ID" ]; then
-            echo "No latest deployment id — skipping."
+            echo "_No latest deployment id; skipping._" >> "$OUT"
+            cat "$OUT" >> "$GITHUB_STEP_SUMMARY"
+            cat "$OUT"
             exit 0
           fi
           DEP=$(curl -sS -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
-            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${PROJECT}/deployments/${DEP_ID}")
-          echo "--- deployment summary ---"
-          echo "$DEP" | jq '.result | {id, created_on, url, environment, short_id, stages: [.stages[] | {name, status, ended_on}], build_config, deployment_trigger, env_vars: (.env_vars // {} | keys), kv_namespaces: (.kv_namespaces // {} | keys)}'
-          echo ""
-          echo "Functions-related fields (if any):"
-          echo "$DEP" | jq '.result | {compatibility_flags, compatibility_date, usage_model}'
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${PROJECT}/deployments/${DEP_ID}" || echo '{"error":"curl_failed"}')
+          echo '```json' >> "$OUT"
+          echo "$DEP" | jq '.' 2>/dev/null || echo "$DEP"
+          echo '```' >> "$OUT"
+          cat "$OUT" >> "$GITHUB_STEP_SUMMARY"
+          cat "$OUT"
 
       - name: Probe endpoints
+        continue-on-error: true
         env:
           TOKEN: ${{ steps.project.outputs.token }}
         run: |
-          set -u
-          OUT=/tmp/probe.md
+          set +e
+          OUT=/tmp/step3.md
           : > "$OUT"
+          echo "## 3. Endpoint probes" >> "$OUT"
 
           probe() {
             METHOD="$1"; URL="$2"; shift; shift
-            {
-              echo ""
-              echo "### \`$METHOD\` $URL"
-              echo ""
-              echo '```'
-            } >> "$OUT"
-            curl -sS -D /tmp/h.txt -o /tmp/b.txt -X "$METHOD" "$URL" "$@" -w 'HTTP %{http_code}  |  size %{size_download}B  |  time %{time_total}s\n' >> "$OUT" 2>&1
-            {
-              echo ""
-              echo "--- response headers ---"
-              cat /tmp/h.txt
-              echo "--- response body (first 1500 chars) ---"
-              head -c 1500 /tmp/b.txt
-              echo ""
-              echo '```'
-            } >> "$OUT"
+            echo "" >> "$OUT"
+            echo "### \`$METHOD\` $URL" >> "$OUT"
+            echo "" >> "$OUT"
+            echo '```' >> "$OUT"
+            curl -sS -D /tmp/h.txt -o /tmp/b.txt -X "$METHOD" "$URL" "$@" \
+              -w 'HTTP %{http_code}  size %{size_download}B  time %{time_total}s\n' \
+              >> "$OUT" 2>&1
+            echo "" >> "$OUT"
+            echo "--- response headers ---" >> "$OUT"
+            cat /tmp/h.txt >> "$OUT" 2>&1 || true
+            echo "--- response body (first 1500 chars) ---" >> "$OUT"
+            head -c 1500 /tmp/b.txt >> "$OUT" 2>&1 || true
+            echo "" >> "$OUT"
+            echo '```' >> "$OUT"
           }
 
           probe GET     "${BASE}/api/ping"
           probe GET     "${BASE}/api/catalog"
-          probe OPTIONS "${BASE}/api/catalog" -H "Origin: ${BASE}" -H "Access-Control-Request-Method: PUT" -H "Access-Control-Request-Headers: content-type, x-edit-token"
+          probe OPTIONS "${BASE}/api/catalog" \
+            -H "Origin: ${BASE}" \
+            -H "Access-Control-Request-Method: PUT" \
+            -H "Access-Control-Request-Headers: content-type, x-edit-token"
+
           if [ -n "$TOKEN" ]; then
             probe PUT "${BASE}/api/catalog" \
               -H "content-type: application/json" \
               -H "X-Edit-Token: $TOKEN" \
               --data '[{"id":"_diag","label":"Diagnostic","options":[{"id":"none","label":"— Select —"}]}]'
             probe GET "${BASE}/api/catalog"
-            {
-              echo ""
-              echo "_Cleaning up diagnostic write (restoring to empty list)…_"
-              echo '```'
-            } >> "$OUT"
+            # Reset to empty array so diagnostic doesn't leave stale data.
             curl -sS -X PUT "${BASE}/api/catalog" \
               -H "content-type: application/json" \
               -H "X-Edit-Token: $TOKEN" \
-              --data '[]' -w 'HTTP %{http_code}\n' >> "$OUT" 2>&1
-            echo '```' >> "$OUT"
+              --data '[]' >/dev/null
           else
             echo "" >> "$OUT"
-            echo "**No token configured on Pages project — skipping PUT probe.**" >> "$OUT"
+            echo "**No token — skipping PUT probe.**" >> "$OUT"
           fi
 
-          # Dump to stdout for the job logs too, then attach as summary.
-          echo "============== PROBE RESULTS =============="
+          cat "$OUT" >> "$GITHUB_STEP_SUMMARY"
           cat "$OUT"
-          echo "============================================"
-          {
-            echo "## Catalog API diagnostic"
-            echo ""
-            echo "- **Base URL:** ${BASE}"
-            echo "- **Latest deployment:** ${{ steps.project.outputs.dep_id }}"
-            echo "- **KV bound:** $([ -n '${{ steps.project.outputs.kv_id }}' ] && echo yes || echo no)"
-            echo "- **Token configured:** $([ -n "$TOKEN" ] && echo yes || echo no)"
-            cat "$OUT"
-          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Final verdict (does not fail the job)
+        if: always()
+        run: |
+          echo "Diagnostic done. See the Summary tab for full output."
