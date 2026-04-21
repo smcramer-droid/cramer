@@ -19,6 +19,11 @@ on:
         description: "Generate a new edit token (invalidates the old one)"
         required: false
         default: "false"
+  # Also trigger on any push that touches this workflow file, so the
+  # very first setup runs automatically when the file lands on main.
+  push:
+    branches: [main]
+    paths: [".github/workflows/setup-catalog-kv.yml"]
 
 jobs:
   setup:
