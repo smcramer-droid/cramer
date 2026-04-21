@@ -1,0 +1,113 @@
+# Dispatchable diagnostic for /api/catalog.
+#
+# What it does:
+#   1. Fetches the Pages project config via Cloudflare API and reports
+#      whether CATALOG KV binding and CATALOG_EDIT_TOKEN env var are
+#      attached to production.
+#   2. Reads the CATALOG_EDIT_TOKEN from the Pages project config and
+#      uses it to exercise GET, OPTIONS, and PUT against the live
+#      endpoint.
+#   3. Dumps full status codes, response headers, and bodies into the
+#      job summary so we can see exactly what Cloudflare is returning.
+#
+# Run from Actions → Diagnose Catalog API → Run workflow.
+name: Diagnose Catalog API
+
+on:
+  workflow_dispatch:
+  # Auto-run once on merge so we get immediate diagnosis without needing
+  # to hunt for the workflow in the UI.
+  push:
+    branches: [main]
+    paths: [".github/workflows/diagnose-catalog-api.yml"]
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      PROJECT: pasadena-equipment
+      BASE: https://pasadena-equipment.pages.dev
+    steps:
+      - name: Describe Pages project config
+        id: project
+        run: |
+          set -eu
+          PROJ=$(curl -sS -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${PROJECT}")
+          echo "--- project config ---"
+          echo "$PROJ" | jq '.result | {name, subdomain, production_branch, latest_deployment: .latest_deployment | {id, created_on, url, environment, short_id, project_name, source, stages: [.stages[] | {name, status}]}, deployment_configs}'
+          TOKEN=$(echo "$PROJ" | jq -r '.result.deployment_configs.production.env_vars.CATALOG_EDIT_TOKEN.value // empty')
+          KV_ID=$(echo "$PROJ" | jq -r '.result.deployment_configs.production.kv_namespaces.CATALOG.namespace_id // empty')
+          DEP_ID=$(echo "$PROJ" | jq -r '.result.latest_deployment.id // empty')
+          echo ""
+          echo "Edit token present:  $([ -n "$TOKEN" ] && echo YES || echo NO)"
+          echo "CATALOG KV bound:    $([ -n "$KV_ID" ] && echo YES (id=$KV_ID) || echo NO)"
+          echo "Latest deployment:   ${DEP_ID:-unknown}"
+          if [ -z "$TOKEN" ]; then
+            echo "::warning::CATALOG_EDIT_TOKEN not set on Pages project — PUT will always 403"
+          fi
+          echo "token=${TOKEN}" >> "$GITHUB_OUTPUT"
+          echo "kv_id=${KV_ID}" >> "$GITHUB_OUTPUT"
+          echo "dep_id=${DEP_ID}" >> "$GITHUB_OUTPUT"
+          # Mask the token from further logs
+          if [ -n "$TOKEN" ]; then echo "::add-mask::$TOKEN"; fi
+
+      - name: Describe latest deployment (are Functions bundled?)
+        env:
+          DEP_ID: ${{ steps.project.outputs.dep_id }}
+        run: |
+          set -eu
+          if [ -z "$DEP_ID" ]; then
+            echo "No latest deployment id — skipping."
+            exit 0
+          fi
+          DEP=$(curl -sS -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${PROJECT}/deployments/${DEP_ID}")
+          echo "--- deployment summary ---"
+          echo "$DEP" | jq '.result | {id, created_on, url, environment, short_id, stages: [.stages[] | {name, status, ended_on}], build_config, deployment_trigger, env_vars: (.env_vars // {} | keys), kv_namespaces: (.kv_namespaces // {} | keys)}'
+          echo ""
+          echo "Functions-related fields (if any):"
+          echo "$DEP" | jq '.result | {compatibility_flags, compatibility_date, usage_model}'
+
+      - name: Probe endpoints
+        env:
+          TOKEN: ${{ steps.project.outputs.token }}
+        run: |
+          set -u
+          probe() {
+            METHOD="$1"; URL="$2"; shift; shift
+            echo ""
+            echo "──────────────────────────────────────────"
+            echo ">>> $METHOD $URL"
+            echo "──────────────────────────────────────────"
+            curl -sS -D /tmp/h.txt -o /tmp/b.txt -X "$METHOD" "$URL" "$@" -w 'HTTP %{http_code}  |  size %{size_download}B  |  time %{time_total}s\n'
+            echo "--- response headers ---"
+            cat /tmp/h.txt
+            echo "--- response body (first 1000 chars) ---"
+            head -c 1000 /tmp/b.txt
+            echo ""
+          }
+
+          probe GET     "${BASE}/api/ping"
+          probe GET     "${BASE}/api/catalog"
+          probe OPTIONS "${BASE}/api/catalog" -H "Origin: https://pasadena-equipment.pages.dev" -H "Access-Control-Request-Method: PUT" -H "Access-Control-Request-Headers: content-type, x-edit-token"
+          if [ -n "$TOKEN" ]; then
+            probe PUT "${BASE}/api/catalog" \
+              -H "content-type: application/json" \
+              -H "X-Edit-Token: $TOKEN" \
+              --data '[{"id":"_diag","label":"Diagnostic","options":[{"id":"none","label":"— Select —"}]}]'
+            # Read back what we just wrote, then clean up.
+            probe GET "${BASE}/api/catalog"
+            echo ""
+            echo "Cleaning up diagnostic write (restoring to empty)…"
+            curl -sS -X PUT "${BASE}/api/catalog" \
+              -H "content-type: application/json" \
+              -H "X-Edit-Token: $TOKEN" \
+              --data '[]' -w 'HTTP %{http_code}\n'
+          else
+            echo "No token configured on Pages project — skipping PUT probe."
+          fi
