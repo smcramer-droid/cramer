@@ -26,12 +26,20 @@ jobs:
         with:
           node-version: 20
 
+      - name: Inventory deploy directory (debug)
+        run: |
+          echo "=== pool-designer tree ==="
+          find pool-designer -maxdepth 4 -type f | sort
+          echo ""
+          echo "=== Function files ==="
+          find pool-designer/functions -type f -name '*.js' 2>/dev/null | sort || echo "NO functions/ DIRECTORY"
+
       - name: Ensure Pages project exists
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          npx --yes wrangler@latest pages project create pool-design \
+          npx --yes wrangler@3 pages project create pool-design \
             --production-branch=main || true
 
       - name: Deploy to Cloudflare Pages (production)
@@ -39,7 +47,26 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          npx --yes wrangler@latest pages deploy pool-designer \
+          # Pinned to wrangler@3 because wrangler@4 changed Functions
+          # discovery behavior in ways that skipped our functions/ dir on
+          # this project. `wrangler@3 pages deploy` reliably picks up
+          # <dir>/functions/** and publishes them as Pages Functions.
+          npx --yes wrangler@3 pages deploy pool-designer \
             --project-name=pool-design \
             --branch=main \
             --commit-dirty=true
+
+      - name: Verify Functions are live
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          # Give the deploy a moment to propagate to the edge, then hit the
+          # diagnostic endpoint. If this returns HTML, the deploy didn't
+          # include Functions and the job should fail loudly.
+          sleep 15
+          RESP=$(curl -fsSL https://pool-design.pages.dev/api/ping || true)
+          echo "ping response: $RESP"
+          case "$RESP" in
+            *'"ok":true'*) echo "OK: Functions are live." ;;
+            *) echo "FAIL: /api/ping did not return the expected JSON." ; exit 1 ;;
+          esac
