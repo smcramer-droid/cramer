@@ -52,19 +52,24 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # Surface esbuild warnings/errors during Functions bundling.
-          WRANGLER_LOG: debug
+        # wrangler@3 detects `functions/` relative to CWD, not relative to
+        # the deploy directory argument — so running
+        # `wrangler pages deploy pool-designer` from the repo root silently
+        # skips Functions bundling. Run from inside pool-designer/ with `.`.
+        working-directory: pool-designer
         run: |
-          # Pinned to a specific wrangler@3 version that is known to bundle
-          # Pages Functions from <dir>/functions/** when a package.json with
-          # "type": "module" sits in <dir>.
-          npx --yes wrangler@3.90.0 pages deploy pool-designer \
+          npx --yes wrangler@3.90.0 pages deploy . \
             --project-name=pool-design \
             --branch=main \
             --commit-dirty=true 2>&1 | tee wrangler.log
           echo ""
           echo "=== wrangler.log post-deploy check ==="
-          grep -iE 'function|worker|compiled|bundled|error|warn' wrangler.log || echo "(no function-related output found)"
+          if grep -q 'Uploading Functions bundle' wrangler.log; then
+            echo "OK: Functions bundle was uploaded."
+          else
+            echo "FAIL: wrangler did not upload a Functions bundle." >&2
+            exit 1
+          fi
 
       - name: Verify Functions are live
         env:
