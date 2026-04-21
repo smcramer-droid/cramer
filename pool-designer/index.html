@@ -241,6 +241,7 @@
     padding:5px 8px; color:var(--ink); text-transform:uppercase;
   }
   .presets button:hover{ background:var(--ink); color:var(--paper); }
+  .presets button.on{ background:var(--accent); color:var(--paper); border-color:var(--accent); }
   .sec-actions{
     display:flex; gap:6px; margin-top:8px;
     font-family:"Special Elite",monospace; font-size:9.5px;
@@ -570,7 +571,7 @@
         </div>
       </div>
       <div class="toggle-row" style="margin-top:8px">
-        <span>Entrance side · mirror views</span>
+        <span>Flip pool views · entrance right</span>
         <div class="switch" id="mirror_toggle"></div>
       </div>
       <span id="actual_len" style="display:none">32.0</span>
@@ -703,27 +704,27 @@
         </div>
 
         <!-- Depth grid editor -->
-        <div style="margin-top:10px; font-family:'Special Elite',monospace; font-size:10px; letter-spacing:1.2px; color:var(--ink-soft); text-transform:uppercase;">Cell depths · click or drag to select</div>
+        <div style="margin-top:10px; font-family:'Special Elite',monospace; font-size:10px; letter-spacing:1.2px; color:var(--ink-soft); text-transform:uppercase;">
+          Tap/drag to paint · brush: <span id="spa_brush_depth" style="color:var(--accent); font-family:'JetBrains Mono',monospace; letter-spacing:0; font-weight:600;">36″</span>
+        </div>
         <svg id="spa_grid" style="width:100%; height:auto; display:block; background:var(--paper-2); border:1.5px solid var(--ink); margin-top:6px; touch-action:none; user-select:none;"></svg>
         <div class="presets" style="margin-top:6px">
           <button class="spa-preset" data-d="4">4″</button>
           <button class="spa-preset" data-d="10">10″</button>
           <button class="spa-preset" data-d="18">18″</button>
           <button class="spa-preset" data-d="36">36″</button>
-          <button id="spa_bump_up" title="Raise (shallower)">+6″</button>
-          <button id="spa_bump_down" title="Lower (deeper)">−6″</button>
+          <button id="spa_bump_up" title="Shallower brush">+6″</button>
+          <button id="spa_bump_down" title="Deeper brush">−6″</button>
         </div>
         <div style="display:flex; gap:6px; margin-top:6px; align-items:center">
           <input type="number" id="spa_custom_d" min="0" max="72" step="1" placeholder="custom in"
             style="flex:1; background:rgba(255,255,255,0.4); border:1.5px solid var(--ink); padding:5px 8px;
-                   font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--ink); outline:none;"/>
+                   font-family:'JetBrains Mono',monospace; font-size:16px; color:var(--ink); outline:none;"/>
           <button id="spa_apply_custom" style="background:var(--ink); color:var(--paper); border:none; cursor:pointer;
-            font-family:'Special Elite',monospace; font-size:10px; letter-spacing:1px; padding:6px 10px; text-transform:uppercase;">Apply</button>
+            font-family:'Special Elite',monospace; font-size:10px; letter-spacing:1px; padding:6px 10px; text-transform:uppercase;">Set brush</button>
         </div>
         <div class="sec-actions" style="margin-top:6px">
-          <button id="spa_sel_clear">Clear selection</button>
-          <button id="spa_sel_all">Select all</button>
-          <button id="spa_reset">Reset all</button>
+          <button id="spa_reset">Reset all to 36″</button>
         </div>
         <div id="spa_status" style="font-family:'Special Elite',monospace; font-size:10px; letter-spacing:1px; color:var(--ink-soft); margin-top:6px; text-transform:uppercase; min-height:12px;"></div>
       </div>
@@ -2761,152 +2762,70 @@
     const sp = state.spa;
     const rot = ((sp.placement.rotationDeg | 0) % 360) * Math.PI / 180;
     const cs = sp.cellSizeIn / 12;
-    // Elevation: spa deck sits `copingRiseIn + deckAbovePoolDeckIn` above pool water.
-    // For the spa-only view, caller passes topRelative=true so we use deckAboveWater only.
     const topRelative = !!opts.topRelative;
-    const spaDeckZ = topRelative
+    // Z coords (positive = deeper). Deck is at a negative z (above pool water).
+    const deckZ  = topRelative
       ? -(sp.deckAboveWaterIn / 12)
       : -(((+state.copingRiseIn || 0) + (+sp.deckAbovePoolDeckIn || 0)) / 12);
-    const spaWaterZ = spaDeckZ + (sp.deckAboveWaterIn / 12);
+    const waterZ = deckZ + (sp.deckAboveWaterIn / 12);
     const rows = sp.cells.length, cols = sp.cells[0] ? sp.cells[0].length : 0;
     if (rows === 0 || cols === 0) return;
+    // World-space transform for rotated spa
     const cxSpa = sp.lengthFt / 2, cySpa = sp.widthFt / 2;
     const cosR = Math.cos(rot), sinR = Math.sin(rot);
     const ox = opts.originXFt != null ? opts.originXFt : sp.placement.xFt;
     const oy = opts.originYFt != null ? opts.originYFt : sp.placement.yFt;
     const toWorld = (xs, ys) => {
       const dx = xs - cxSpa, dy = ys - cySpa;
-      const rx = dx * cosR - dy * sinR;
-      const ry = dx * sinR + dy * cosR;
-      return [ox + cxSpa + rx, oy + cySpa + ry];
+      return [ox + cxSpa + dx * cosR - dy * sinR, oy + cySpa + dx * sinR + dy * cosR];
     };
     const PP = (xs, ys, z) => {
       const [xp, yp] = toWorld(xs, ys);
       return P(xp, yp, z);
     };
-    const wL = sp.wallIn.left / 12, wR = sp.wallIn.right / 12;
-    const wN = sp.wallIn.near / 12, wF = sp.wallIn.far  / 12;
-    // Base z: pool water level (0) for combined view, spa water level (spaWaterZ) for standalone
-    const baseZ = topRelative ? spaWaterZ + 2 : 0; // for standalone, show a short concrete skirt
-    const outer = [
-      PP(-wL, -wN, spaDeckZ),
-      PP(sp.lengthFt + wR, -wN, spaDeckZ),
-      PP(sp.lengthFt + wR, sp.widthFt + wF, spaDeckZ),
-      PP(-wL, sp.widthFt + wF, spaDeckZ),
+    const wL = sp.wallIn.left / 12,  wR = sp.wallIn.right / 12;
+    const wN = sp.wallIn.near / 12,  wF = sp.wallIn.far   / 12;
+    const CONCRETE = '#a0998f';
+
+    // === Back-to-front painter's order ===
+    // With default iso (az=45°, el=35°), the far walls (y=widthFt, x=lengthFt) are
+    // "behind" the near walls. So we paint: back/far edges first, then floor + risers,
+    // then water surface, then near/front walls, then top deck strips.
+
+    // 1) Far outer wall outline (dashed, hidden) — just edges, no fill body
+    //    We draw the OUTER edges of the far walls as dashed lines. Their inner faces
+    //    are covered by the water fill and floor, so we don't need a filled panel.
+    const farOuter = [
+      PP(-wL, sp.widthFt + wF, deckZ),
+      PP(sp.lengthFt + wR, sp.widthFt + wF, deckZ),
+      PP(sp.lengthFt + wR, sp.widthFt + wF, waterZ + 0.25),
+      PP(-wL, sp.widthFt + wF, waterZ + 0.25),
     ];
-    const outerBase = [
-      PP(-wL, -wN, baseZ),
-      PP(sp.lengthFt + wR, -wN, baseZ),
-      PP(sp.lengthFt + wR, sp.widthFt + wF, baseZ),
-      PP(-wL, sp.widthFt + wF, baseZ),
-    ];
-    const drawSide = (a, b, c, d, visible) => {
-      el('path', {
-        d: wobbleClosed([a, b, c, d], 0.3, 1100 + (opts.seed || 0)),
-        fill: '#a0998f', 'fill-opacity': 0.9,
-        stroke: 'var(--ink)', 'stroke-width': visible ? 1.2 : 1.0,
-        'stroke-dasharray': visible ? null : '4 3',
-      }, svg);
-    };
-    drawSide(outer[0], outer[1], outerBase[1], outerBase[0], false);
-    drawSide(outer[1], outer[2], outerBase[2], outerBase[1], true);
-    drawSide(outer[2], outer[3], outerBase[3], outerBase[2], true);
-    drawSide(outer[3], outer[0], outerBase[0], outerBase[3], false);
-    el('path', { d: wobbleClosed(outer, 0.3, 1110 + (opts.seed || 0)),
-      fill: '#a0998f', 'fill-opacity': 0.85, stroke: 'var(--ink)', 'stroke-width': 1.5 }, svg);
-    const waterPoly = [
-      PP(0, 0, spaWaterZ),
-      PP(sp.lengthFt, 0, spaWaterZ),
-      PP(sp.lengthFt, sp.widthFt, spaWaterZ),
-      PP(0, sp.widthFt, spaWaterZ),
-    ];
-    el('path', { d: wobbleClosed(waterPoly, 0.3, 1120 + (opts.seed || 0)),
-      fill: state.showWater ? state.tweaks.waterColor : 'none',
-      'fill-opacity': state.showWater ? 0.35 : 0,
-      stroke: 'var(--ink)', 'stroke-width': 1.2 }, svg);
-    // === Interior geometry: floor tiles + risers between adjacent cells of different
-    //     depths + interior wall panels around the perimeter. Without these, the spa
-    //     looked like a set of floating floor tiles in iso. ===
-    const quads = [];
-    const perimeterZ = spaDeckZ; // interior walls go from cell floor up to spa deck
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        const d = sp.cells[r][c] || 0;
-        const floorZ = spaWaterZ + d / 12;
-        const xs0 = r * cs, xs1 = (r + 1) * cs;
-        const ys0 = c * cs, ys1 = (c + 1) * cs;
-        // Floor tile — no stroke, so adjacent same-depth tiles merge visually.
-        quads.push({
-          pts: [
-            PP(xs0, ys0, floorZ), PP(xs1, ys0, floorZ),
-            PP(xs1, ys1, floorZ), PP(xs0, ys1, floorZ),
-          ],
-          fill: depthColor(d), opacity: 0.85, stroke: 'none', kind: 'floor'
-        });
-        // Riser to +x neighbor (r+1, c)
-        if (r < rows - 1) {
-          const d2 = sp.cells[r+1][c] || 0;
-          if (Math.abs(d - d2) > 0.01) {
-            const z2 = spaWaterZ + d2 / 12;
-            const zA = Math.min(floorZ, z2), zB = Math.max(floorZ, z2);
-            quads.push({
-              pts: [
-                PP(xs1, ys0, zA), PP(xs1, ys1, zA),
-                PP(xs1, ys1, zB), PP(xs1, ys0, zB),
-              ],
-              fill: depthColor(Math.max(d, d2)), opacity: 0.55,
-              stroke: 'var(--ink)', strokeW: 0.5, kind: 'riser'
-            });
-          }
-        }
-        // Riser to +y neighbor (r, c+1)
-        if (c < cols - 1) {
-          const d2 = sp.cells[r][c+1] || 0;
-          if (Math.abs(d - d2) > 0.01) {
-            const z2 = spaWaterZ + d2 / 12;
-            const zA = Math.min(floorZ, z2), zB = Math.max(floorZ, z2);
-            quads.push({
-              pts: [
-                PP(xs0, ys1, zA), PP(xs1, ys1, zA),
-                PP(xs1, ys1, zB), PP(xs0, ys1, zB),
-              ],
-              fill: depthColor(Math.max(d, d2)), opacity: 0.55,
-              stroke: 'var(--ink)', strokeW: 0.5, kind: 'riser'
-            });
-          }
-        }
-        // (Interior wall panels drawn below as single stepped polygons per side
-        //  rather than one quad per cell — avoids the "vertical lines between
-        //  every cell" look in the iso rendering.)
-      }
-    }
-    // Interior wall polygons — one per side. Bottom edge steps with cell depths;
-    // top edge is the spa deck level. This creates clean continuous walls without
-    // per-cell vertical dividers.
-    const buildWallPoly = (cellsDepthAlong, constAxis, isXConst, constVal) => {
-      // cellsDepthAlong: array of N cell depths along the wall
-      // isXConst: true if this wall is on a fixed x (left/right); false for fixed y.
-      // For x-const walls (r=0 or r=rows-1): c goes 0..cols-1, varying y
-      // For y-const walls (c=0 or c=cols-1): r goes 0..rows-1, varying x
-      const N = cellsDepthAlong.length;
+    el('path', { d: wobbleClosed(farOuter, 0.3, 1100), fill: 'none',
+      stroke: 'var(--ink)', 'stroke-width': 0.9, 'stroke-dasharray': '4 3' }, svg);
+
+    // 2) INNER walls — four stepped polygons, one per side. These are the concrete
+    //    faces visible from inside the spa. Top edge at spaDeckZ (inner perimeter),
+    //    bottom edge steps with per-cell floor depths along that side.
+    const buildInnerWall = (constVal, axis /* 'x' | 'y' */, cellDepths) => {
+      // axis='x': wall at x=constVal, varying y from 0..widthFt
+      // axis='y': wall at y=constVal, varying x from 0..lengthFt
+      const N = cellDepths.length;
       const pts = [];
-      if (isXConst) {
-        // along y from 0 to widthFt
-        pts.push(PP(constVal, 0, perimeterZ));
-        pts.push(PP(constVal, sp.widthFt, perimeterZ));
-        // bottom stepped edge along y (from widthFt back down to 0)
+      if (axis === 'x') {
+        pts.push(PP(constVal, 0, deckZ));
+        pts.push(PP(constVal, sp.widthFt, deckZ));
         for (let c = N - 1; c >= 0; c--) {
-          const z = spaWaterZ + cellsDepthAlong[c] / 12;
+          const z = waterZ + cellDepths[c] / 12;
           const y1 = (c + 1) * cs, y0 = c * cs;
           pts.push(PP(constVal, y1, z));
           pts.push(PP(constVal, y0, z));
         }
       } else {
-        // along x from 0 to lengthFt
-        pts.push(PP(0, constVal, perimeterZ));
-        pts.push(PP(sp.lengthFt, constVal, perimeterZ));
+        pts.push(PP(0, constVal, deckZ));
+        pts.push(PP(sp.lengthFt, constVal, deckZ));
         for (let r = N - 1; r >= 0; r--) {
-          const z = spaWaterZ + cellsDepthAlong[r] / 12;
+          const z = waterZ + cellDepths[r] / 12;
           const x1 = (r + 1) * cs, x0 = r * cs;
           pts.push(PP(x1, constVal, z));
           pts.push(PP(x0, constVal, z));
@@ -2914,37 +2833,139 @@
       }
       return pts;
     };
-    // Left wall (x = 0): walk across cols (along y)
-    const leftDepths = Array.from({length: cols}, (_, c) => sp.cells[0][c] || 0);
-    quads.push({ pts: buildWallPoly(leftDepths, 'x', true, 0),
-      fill: '#a0998f', opacity: 0.95, stroke: 'var(--ink)', strokeW: 0.9, kind: 'wall' });
-    // Right wall (x = lengthFt)
+    const leftDepths  = Array.from({length: cols}, (_, c) => sp.cells[0][c] || 0);
     const rightDepths = Array.from({length: cols}, (_, c) => sp.cells[rows-1][c] || 0);
-    quads.push({ pts: buildWallPoly(rightDepths, 'x', true, sp.lengthFt),
-      fill: '#a0998f', opacity: 0.95, stroke: 'var(--ink)', strokeW: 0.9, kind: 'wall' });
-    // Near wall (y = 0): walk along rows (along x)
-    const nearDepths = Array.from({length: rows}, (_, r) => sp.cells[r][0] || 0);
-    quads.push({ pts: buildWallPoly(nearDepths, 'y', false, 0),
-      fill: '#a0998f', opacity: 0.95, stroke: 'var(--ink)', strokeW: 0.9, kind: 'wall' });
-    // Far wall (y = widthFt)
-    const farDepths = Array.from({length: rows}, (_, r) => sp.cells[r][cols-1] || 0);
-    quads.push({ pts: buildWallPoly(farDepths, 'y', false, sp.widthFt),
-      fill: '#a0998f', opacity: 0.95, stroke: 'var(--ink)', strokeW: 0.9, kind: 'wall' });
-    // Painter's sort by centroid depth: farther in screen (small y) first,
-    // front later. Tie-break: walls behind floor so floor paints on top.
-    quads.sort((a, b) => {
+    const nearDepths  = Array.from({length: rows}, (_, r) => sp.cells[r][0] || 0);
+    const farDepths   = Array.from({length: rows}, (_, r) => sp.cells[r][cols-1] || 0);
+    // Far walls (back) drawn first so near walls overlap correctly later.
+    el('path', { d: wobbleClosed(buildInnerWall(sp.widthFt, 'y', farDepths), 0.3, 1201),
+      fill: CONCRETE, 'fill-opacity': 0.92,
+      stroke: 'var(--ink)', 'stroke-width': 0.9, 'stroke-dasharray': '4 3' }, svg);
+
+    // 3) Floor cells — painter-sorted flat quads. Merge adjacent same-depth cells to
+    //    suppress cell-grid lines.
+    const cellQuads = [];
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const d = sp.cells[r][c] || 0;
+        const fz = waterZ + d / 12;
+        cellQuads.push({
+          pts: [
+            PP(r*cs, c*cs, fz), PP((r+1)*cs, c*cs, fz),
+            PP((r+1)*cs, (c+1)*cs, fz), PP(r*cs, (c+1)*cs, fz),
+          ],
+          fill: depthColor(d),
+        });
+        // Riser between (r, c) and (r+1, c) if depths differ
+        if (r < rows - 1) {
+          const d2 = sp.cells[r+1][c] || 0;
+          if (Math.abs(d - d2) > 0.01) {
+            const z2 = waterZ + d2 / 12;
+            const zA = Math.min(fz, z2), zB = Math.max(fz, z2);
+            cellQuads.push({
+              pts: [
+                PP((r+1)*cs, c*cs, zA), PP((r+1)*cs, (c+1)*cs, zA),
+                PP((r+1)*cs, (c+1)*cs, zB), PP((r+1)*cs, c*cs, zB),
+              ],
+              fill: depthColor(Math.max(d, d2)),
+              isRiser: true,
+            });
+          }
+        }
+        if (c < cols - 1) {
+          const d2 = sp.cells[r][c+1] || 0;
+          if (Math.abs(d - d2) > 0.01) {
+            const z2 = waterZ + d2 / 12;
+            const zA = Math.min(fz, z2), zB = Math.max(fz, z2);
+            cellQuads.push({
+              pts: [
+                PP(r*cs, (c+1)*cs, zA), PP((r+1)*cs, (c+1)*cs, zA),
+                PP((r+1)*cs, (c+1)*cs, zB), PP(r*cs, (c+1)*cs, zB),
+              ],
+              fill: depthColor(Math.max(d, d2)),
+              isRiser: true,
+            });
+          }
+        }
+      }
+    }
+    cellQuads.sort((a, b) => {
       const ay = (a.pts[0][1] + a.pts[2][1]) / 2;
       const by = (b.pts[0][1] + b.pts[2][1]) / 2;
       return ay - by;
     });
-    quads.forEach(q => {
-      const pathD = `M${q.pts.map(p => p[0].toFixed(2) + ',' + p[1].toFixed(2)).join('L')}Z`;
-      el('path', {
-        d: pathD,
-        fill: q.fill, 'fill-opacity': q.opacity,
-        stroke: q.stroke, 'stroke-width': q.strokeW || 0.3,
-      }, svg);
+    cellQuads.forEach(q => {
+      const d = `M${q.pts.map(p => p[0].toFixed(2) + ',' + p[1].toFixed(2)).join('L')}Z`;
+      el('path', { d, fill: q.fill, 'fill-opacity': q.isRiser ? 0.75 : 0.9,
+        stroke: q.isRiser ? 'var(--ink-soft)' : 'none',
+        'stroke-width': q.isRiser ? 0.4 : 0 }, svg);
     });
+
+    // 4) Water surface — translucent blue inside the water footprint
+    if (state.showWater) {
+      const waterPoly = [
+        PP(0, 0, waterZ),
+        PP(sp.lengthFt, 0, waterZ),
+        PP(sp.lengthFt, sp.widthFt, waterZ),
+        PP(0, sp.widthFt, waterZ),
+      ];
+      el('path', { d: wobbleClosed(waterPoly, 0.3, 1301),
+        fill: state.tweaks.waterColor, 'fill-opacity': 0.3, stroke: 'none' }, svg);
+      // Waterline edge (thin ripple ink line) along the inside-near edge only
+      el('path', { d: wobble([PP(0, 0, waterZ), PP(sp.lengthFt, 0, waterZ)], 0.4, 1302),
+        stroke: state.tweaks.waterColor, 'stroke-width': 1.2, fill: 'none' }, svg);
+    }
+
+    // 5) Near inner walls — solid, visible. These overlap the water at the top.
+    el('path', { d: wobbleClosed(buildInnerWall(0, 'y', nearDepths), 0.3, 1401),
+      fill: CONCRETE, 'fill-opacity': 0.95,
+      stroke: 'var(--ink)', 'stroke-width': 1.1 }, svg);
+    el('path', { d: wobbleClosed(buildInnerWall(0, 'x', leftDepths), 0.3, 1402),
+      fill: CONCRETE, 'fill-opacity': 0.92,
+      stroke: 'var(--ink)', 'stroke-width': 1.0 }, svg);
+    el('path', { d: wobbleClosed(buildInnerWall(sp.lengthFt, 'x', rightDepths), 0.3, 1403),
+      fill: CONCRETE, 'fill-opacity': 0.92,
+      stroke: 'var(--ink)', 'stroke-width': 1.0 }, svg);
+
+    // 6) Top deck strips — the concrete ring visible from above between the water
+    //    edge (inner perimeter) and the outer wall edge. Four strips, no hole needed.
+    const deckStrip = (pts) => {
+      el('path', { d: wobbleClosed(pts, 0.25, 1500 + Math.random() * 100 | 0),
+        fill: CONCRETE, 'fill-opacity': 0.95,
+        stroke: 'var(--ink)', 'stroke-width': 1.0 }, svg);
+    };
+    // Near strip (y = -wN .. 0)
+    deckStrip([PP(-wL, -wN, deckZ), PP(sp.lengthFt + wR, -wN, deckZ),
+               PP(sp.lengthFt + wR, 0, deckZ), PP(-wL, 0, deckZ)]);
+    // Far strip (y = widthFt .. widthFt + wF)
+    deckStrip([PP(-wL, sp.widthFt, deckZ), PP(sp.lengthFt + wR, sp.widthFt, deckZ),
+               PP(sp.lengthFt + wR, sp.widthFt + wF, deckZ), PP(-wL, sp.widthFt + wF, deckZ)]);
+    // Left strip (x = -wL .. 0, between near and far strips)
+    deckStrip([PP(-wL, 0, deckZ), PP(0, 0, deckZ),
+               PP(0, sp.widthFt, deckZ), PP(-wL, sp.widthFt, deckZ)]);
+    // Right strip (x = lengthFt .. lengthFt + wR)
+    deckStrip([PP(sp.lengthFt, 0, deckZ), PP(sp.lengthFt + wR, 0, deckZ),
+               PP(sp.lengthFt + wR, sp.widthFt, deckZ), PP(sp.lengthFt, sp.widthFt, deckZ)]);
+
+    // 7) Outer near/front skirt (optional) — a short concrete band below the deck
+    //    to give the spa visible volume. Only useful in the standalone view.
+    if (topRelative) {
+      const skirtBot = waterZ + 1.0; // 1ft below water surface
+      const skirt = [
+        PP(-wL, -wN, deckZ), PP(sp.lengthFt + wR, -wN, deckZ),
+        PP(sp.lengthFt + wR, -wN, skirtBot), PP(-wL, -wN, skirtBot),
+      ];
+      el('path', { d: wobbleClosed(skirt, 0.3, 1601),
+        fill: CONCRETE, 'fill-opacity': 0.85,
+        stroke: 'var(--ink)', 'stroke-width': 1.2 }, svg);
+      const skirtR = [
+        PP(sp.lengthFt + wR, -wN, deckZ), PP(sp.lengthFt + wR, sp.widthFt + wF, deckZ),
+        PP(sp.lengthFt + wR, sp.widthFt + wF, skirtBot), PP(sp.lengthFt + wR, -wN, skirtBot),
+      ];
+      el('path', { d: wobbleClosed(skirtR, 0.3, 1602),
+        fill: CONCRETE, 'fill-opacity': 0.85,
+        stroke: 'var(--ink)', 'stroke-width': 1.2 }, svg);
+    }
   }
 
   // ============== STATS + TITLE BLOCK ==============
@@ -4392,9 +4413,13 @@
     });
   });
 
-  // Mirror toggle — flips the three view SVGs horizontally via CSS.
+  // Mirror toggle — flips the pool + combined views horizontally via CSS.
+  // Pool views (plan/iso/A-A/B-B) and combined views (site iso + site cross-section)
+  // all get the .mirrored class. Site plan is excluded so its drag handlers keep
+  // working in real coordinates. Spa-only views are never mirrored — the spa has
+  // its own rotation/placement and doesn't need a global flip.
   function applyMirror() {
-    ['svg_top', 'svg_iso', 'svg_sec', 'svg_sec_2'].forEach(id => {
+    ['svg_top', 'svg_iso', 'svg_sec', 'svg_sec_2', 'svg_site_iso', 'svg_site_sec'].forEach(id => {
       const el = $(id);
       if (el) el.classList.toggle('mirrored', !!state.mirror);
     });
@@ -4414,10 +4439,25 @@
   });
 
   // ============== SPA WIRING ==============
-  // Selected cells as a Set of "r,c" strings.
+  // Paint-brush interaction: tap/drag cells to set them to the active brush depth.
+  // No selection state — keeps mobile UX simple (no shift-drag required).
+  let spaBrushDepth = 36;
+  // Selection preserved only for the region-outline helper on the plan view
+  // (which uses same-depth connected regions, not a user-made selection).
   const spaSel = new Set();
   function spaStatus(msg) {
     const e = $('spa_status'); if (e) e.textContent = msg || '';
+  }
+  function updateBrushUI() {
+    const lbl = $('spa_brush_depth');
+    if (lbl) lbl.textContent = `${Math.round(spaBrushDepth)}″`;
+    document.querySelectorAll('.spa-preset').forEach(b => {
+      b.classList.toggle('on', +b.dataset.d === Math.round(spaBrushDepth));
+    });
+  }
+  function setBrush(d) {
+    spaBrushDepth = Math.max(0, Math.min(144, +d || 0));
+    updateBrushUI();
   }
   function syncSpaControls() {
     const sp = state.spa;
@@ -4567,8 +4607,9 @@
         { font: 'Special Elite, monospace', size: 9.5, fill: 'var(--accent)', letterSpacing: 1.2 }));
     }
   }
-  // Pointer selection: click or drag to select cells.
-  let spaDrag = null;
+  // Pointer painting: tap or drag a cell to apply the active brush depth.
+  let spaPainting = false;
+  let spaLastPainted = ''; // avoids re-painting the same cell every move
   function cellFromEvent(e, svg) {
     const rect = svg.getBoundingClientRect();
     const pt = e.touches ? e.touches[0] : e;
@@ -4578,47 +4619,46 @@
     const y = ((pt.clientY - rect.top)  / rect.height) * vbH;
     const sp = state.spa; const rows = sp.cells.length, cols = sp.cells[0]?.length || 0;
     if (!rows || !cols) return null;
-    // Mirror renderSpaGrid's padding + cellPx computation
     const PAD_L = 38, PAD_T = 22;
     const cellPx = Math.max(8, Math.min(20, Math.floor(260 / Math.max(rows, cols))));
     const c = Math.floor((x - PAD_L) / cellPx), r = Math.floor((y - PAD_T) / cellPx);
     if (r < 0 || c < 0 || r >= rows || c >= cols) return null;
     return { r, c };
   }
-  function applySelectionRect(a, b) {
-    const r0 = Math.min(a.r, b.r), r1 = Math.max(a.r, b.r);
-    const c0 = Math.min(a.c, b.c), c1 = Math.max(a.c, b.c);
-    spaSel.clear();
-    for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) spaSel.add(r + ',' + c);
+  function paintCell(r, c) {
+    const sp = state.spa; if (!sp || !sp.on) return;
+    ensureSpaCells();
+    if (!sp.cells[r]) return;
+    sp.cells[r][c] = spaBrushDepth;
   }
   function wireSpaGrid() {
     const svg = $('spa_grid'); if (!svg) return;
     const start = (e) => {
       const cell = cellFromEvent(e, svg); if (!cell) return;
-      const additive = e.shiftKey || e.metaKey || e.ctrlKey;
-      spaDrag = { start: cell, additive, prev: new Set(spaSel) };
-      if (!additive) spaSel.clear();
-      spaSel.add(cell.r + ',' + cell.c);
+      spaPainting = true;
+      spaLastPainted = '';
+      const key = cell.r + ',' + cell.c;
+      if (key !== spaLastPainted) {
+        paintCell(cell.r, cell.c);
+        spaLastPainted = key;
+        spaStatus(`Painted (${cell.r},${cell.c}) · ${Math.round(spaBrushDepth)}″`);
+      }
       renderSpaGrid();
+      scheduleRender();
       e.preventDefault();
     };
     const move = (e) => {
-      if (!spaDrag) return;
+      if (!spaPainting) return;
       const cell = cellFromEvent(e, svg); if (!cell) return;
-      if (spaDrag.additive) {
-        spaSel.clear();
-        for (const k of spaDrag.prev) spaSel.add(k);
-        // add the rect from start to current
-        const r0 = Math.min(spaDrag.start.r, cell.r), r1 = Math.max(spaDrag.start.r, cell.r);
-        const c0 = Math.min(spaDrag.start.c, cell.c), c1 = Math.max(spaDrag.start.c, cell.c);
-        for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) spaSel.add(r + ',' + c);
-      } else {
-        applySelectionRect(spaDrag.start, cell);
-      }
+      const key = cell.r + ',' + cell.c;
+      if (key === spaLastPainted) return;
+      paintCell(cell.r, cell.c);
+      spaLastPainted = key;
       renderSpaGrid();
+      scheduleRender();
       e.preventDefault();
     };
-    const end = () => { spaDrag = null; };
+    const end = () => { spaPainting = false; spaLastPainted = ''; };
     svg.addEventListener('mousedown', start);
     svg.addEventListener('mousemove', move);
     window.addEventListener('mouseup', end);
@@ -4689,22 +4729,21 @@
       scheduleRender();
     });
   });
+  // Preset buttons: set the brush depth. (No selection needed — tap/drag cells to paint.)
   document.querySelectorAll('.spa-preset').forEach(b => {
-    b.addEventListener('click', () => applyDepthToSelection(+b.dataset.d));
+    b.addEventListener('click', () => { setBrush(+b.dataset.d); spaStatus(`Brush: ${b.dataset.d}″`); });
   });
   if ($('spa_apply_custom')) $('spa_apply_custom').addEventListener('click', () => {
     const v = +$('spa_custom_d').value; if (!isFinite(v)) return;
-    applyDepthToSelection(v);
+    setBrush(v);
+    spaStatus(`Brush: ${Math.round(v)}″`);
   });
-  if ($('spa_bump_up')) $('spa_bump_up').addEventListener('click', () => bumpSelection(-6));    // shallower
-  if ($('spa_bump_down')) $('spa_bump_down').addEventListener('click', () => bumpSelection(+6)); // deeper
-  if ($('spa_sel_clear')) $('spa_sel_clear').addEventListener('click', () => { spaSel.clear(); renderSpaGrid(); spaStatus(''); });
-  if ($('spa_sel_all')) $('spa_sel_all').addEventListener('click', () => {
-    const sp = state.spa; ensureSpaCells();
-    spaSel.clear();
-    for (let r = 0; r < sp.cells.length; r++) for (let c = 0; c < sp.cells[r].length; c++) spaSel.add(r + ',' + c);
-    renderSpaGrid(); spaStatus(`${spaSel.size} cell(s) selected`);
+  if ($('spa_custom_d')) $('spa_custom_d').addEventListener('change', e => {
+    const v = +e.target.value; if (!isFinite(v)) return;
+    setBrush(v);
   });
+  if ($('spa_bump_up')) $('spa_bump_up').addEventListener('click', () => { setBrush(spaBrushDepth - 6); spaStatus(`Brush: ${Math.round(spaBrushDepth)}″`); });
+  if ($('spa_bump_down')) $('spa_bump_down').addEventListener('click', () => { setBrush(spaBrushDepth + 6); spaStatus(`Brush: ${Math.round(spaBrushDepth)}″`); });
   if ($('spa_reset')) $('spa_reset').addEventListener('click', () => {
     const sp = state.spa;
     sp.cells = [];
@@ -4717,6 +4756,7 @@
   // Initial UI sync + grid setup
   syncSpaControls();
   wireSpaGrid();
+  updateBrushUI();
   renderSpaGrid();
 
   // Section preset buttons
