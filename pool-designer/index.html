@@ -2787,63 +2787,41 @@
     const wN = sp.wallIn.near / 12,  wF = sp.wallIn.far   / 12;
     const CONCRETE = '#a0998f';
 
-    // === Back-to-front painter's order ===
-    // With default iso (az=45°, el=35°), the far walls (y=widthFt, x=lengthFt) are
-    // "behind" the near walls. So we paint: back/far edges first, then floor + risers,
-    // then water surface, then near/front walls, then top deck strips.
-
-    // 1) Far outer wall outline (dashed, hidden) — just edges, no fill body
-    //    We draw the OUTER edges of the far walls as dashed lines. Their inner faces
-    //    are covered by the water fill and floor, so we don't need a filled panel.
-    const farOuter = [
-      PP(-wL, sp.widthFt + wF, deckZ),
-      PP(sp.lengthFt + wR, sp.widthFt + wF, deckZ),
-      PP(sp.lengthFt + wR, sp.widthFt + wF, waterZ + 0.25),
-      PP(-wL, sp.widthFt + wF, waterZ + 0.25),
-    ];
-    el('path', { d: wobbleClosed(farOuter, 0.3, 1100), fill: 'none',
-      stroke: 'var(--ink)', 'stroke-width': 0.9, 'stroke-dasharray': '4 3' }, svg);
-
-    // 2) INNER walls — four stepped polygons, one per side. These are the concrete
-    //    faces visible from inside the spa. Top edge at spaDeckZ (inner perimeter),
-    //    bottom edge steps with per-cell floor depths along that side.
-    const buildInnerWall = (constVal, axis /* 'x' | 'y' */, cellDepths) => {
-      // axis='x': wall at x=constVal, varying y from 0..widthFt
-      // axis='y': wall at y=constVal, varying x from 0..lengthFt
-      const N = cellDepths.length;
-      const pts = [];
-      if (axis === 'x') {
-        pts.push(PP(constVal, 0, deckZ));
-        pts.push(PP(constVal, sp.widthFt, deckZ));
-        for (let c = N - 1; c >= 0; c--) {
-          const z = waterZ + cellDepths[c] / 12;
-          const y1 = (c + 1) * cs, y0 = c * cs;
-          pts.push(PP(constVal, y1, z));
-          pts.push(PP(constVal, y0, z));
-        }
-      } else {
-        pts.push(PP(0, constVal, deckZ));
-        pts.push(PP(sp.lengthFt, constVal, deckZ));
-        for (let r = N - 1; r >= 0; r--) {
-          const z = waterZ + cellDepths[r] / 12;
-          const x1 = (r + 1) * cs, x0 = r * cs;
-          pts.push(PP(x1, constVal, z));
-          pts.push(PP(x0, constVal, z));
-        }
-      }
-      return pts;
-    };
+    // === Option B: stepped iso, but the four walls are FLAT panels (one per side)
+    //     down to the deepest cell along that side. Per-cell depths still appear in
+    //     the floor mesh; depth changes between cells render as subtle ink ticks
+    //     (NOT filled riser quads, which produced vertical-bar noise).
+    //
+    // At default azimuth 45°, FRONT walls are at y = widthFt and x = lengthFt
+    // (largest screen y); BACK walls are at y = 0 and x = 0 (smallest screen y).
     const leftDepths  = Array.from({length: cols}, (_, c) => sp.cells[0][c] || 0);
     const rightDepths = Array.from({length: cols}, (_, c) => sp.cells[rows-1][c] || 0);
     const nearDepths  = Array.from({length: rows}, (_, r) => sp.cells[r][0] || 0);
     const farDepths   = Array.from({length: rows}, (_, r) => sp.cells[r][cols-1] || 0);
-    // Far walls (back) drawn first so near walls overlap correctly later.
-    el('path', { d: wobbleClosed(buildInnerWall(sp.widthFt, 'y', farDepths), 0.3, 1201),
-      fill: CONCRETE, 'fill-opacity': 0.92,
-      stroke: 'var(--ink)', 'stroke-width': 0.9, 'stroke-dasharray': '4 3' }, svg);
+    const maxAlong = (depths) => Math.max(...depths) / 12;
+    const leftFloorZ  = waterZ + maxAlong(leftDepths);
+    const rightFloorZ = waterZ + maxAlong(rightDepths);
+    const nearFloorZ  = waterZ + maxAlong(nearDepths);
+    const farFloorZ   = waterZ + maxAlong(farDepths);
+    const drawWall = (pts, isFront) => {
+      el('path', { d: wobbleClosed(pts, 0.25, 1100 + (isFront ? 1 : 0)),
+        fill: CONCRETE, 'fill-opacity': isFront ? 0.95 : 0.85,
+        stroke: 'var(--ink)', 'stroke-width': isFront ? 1.2 : 0.9,
+        'stroke-dasharray': isFront ? null : '4 3' }, svg);
+    };
 
-    // 3) Floor cells — painter-sorted flat quads. Merge adjacent same-depth cells to
-    //    suppress cell-grid lines.
+    // 1) BACK walls (dashed) — y=0 and x=0
+    drawWall([
+      PP(0, 0, deckZ), PP(sp.lengthFt, 0, deckZ),
+      PP(sp.lengthFt, 0, nearFloorZ), PP(0, 0, nearFloorZ),
+    ], false);
+    drawWall([
+      PP(0, 0, deckZ), PP(0, sp.widthFt, deckZ),
+      PP(0, sp.widthFt, leftFloorZ), PP(0, 0, leftFloorZ),
+    ], false);
+
+    // 2) Floor cells — painter-sorted flat quads. No stroke so adjacent same-depth
+    //    cells merge into a clean surface.
     const cellQuads = [];
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
@@ -2856,37 +2834,6 @@
           ],
           fill: depthColor(d),
         });
-        // Riser between (r, c) and (r+1, c) if depths differ
-        if (r < rows - 1) {
-          const d2 = sp.cells[r+1][c] || 0;
-          if (Math.abs(d - d2) > 0.01) {
-            const z2 = waterZ + d2 / 12;
-            const zA = Math.min(fz, z2), zB = Math.max(fz, z2);
-            cellQuads.push({
-              pts: [
-                PP((r+1)*cs, c*cs, zA), PP((r+1)*cs, (c+1)*cs, zA),
-                PP((r+1)*cs, (c+1)*cs, zB), PP((r+1)*cs, c*cs, zB),
-              ],
-              fill: depthColor(Math.max(d, d2)),
-              isRiser: true,
-            });
-          }
-        }
-        if (c < cols - 1) {
-          const d2 = sp.cells[r][c+1] || 0;
-          if (Math.abs(d - d2) > 0.01) {
-            const z2 = waterZ + d2 / 12;
-            const zA = Math.min(fz, z2), zB = Math.max(fz, z2);
-            cellQuads.push({
-              pts: [
-                PP(r*cs, (c+1)*cs, zA), PP((r+1)*cs, (c+1)*cs, zA),
-                PP((r+1)*cs, (c+1)*cs, zB), PP(r*cs, (c+1)*cs, zB),
-              ],
-              fill: depthColor(Math.max(d, d2)),
-              isRiser: true,
-            });
-          }
-        }
       }
     }
     cellQuads.sort((a, b) => {
@@ -2896,73 +2843,109 @@
     });
     cellQuads.forEach(q => {
       const d = `M${q.pts.map(p => p[0].toFixed(2) + ',' + p[1].toFixed(2)).join('L')}Z`;
-      el('path', { d, fill: q.fill, 'fill-opacity': q.isRiser ? 0.75 : 0.9,
-        stroke: q.isRiser ? 'var(--ink-soft)' : 'none',
-        'stroke-width': q.isRiser ? 0.4 : 0 }, svg);
+      el('path', { d, fill: q.fill, 'fill-opacity': 0.92, stroke: 'none' }, svg);
     });
+
+    // 3) Risers between adjacent cells with different depths — drawn as thin ink
+    //    LINES at the boundary (top edge + a vertical drop tick), NOT filled quads.
+    //    This avoids the wobble noise that filled stepped polygons produced.
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const d = sp.cells[r][c] || 0;
+        if (r < rows - 1) {
+          const d2 = sp.cells[r+1][c] || 0;
+          if (Math.abs(d - d2) > 0.01) {
+            const zShallow = waterZ + Math.min(d, d2) / 12;
+            const zDeep    = waterZ + Math.max(d, d2) / 12;
+            const x = (r + 1) * cs, yMid = (c + 0.5) * cs;
+            // Vertical drop tick at the boundary midpoint
+            el('line', {
+              x1: PP(x, yMid, zShallow)[0], y1: PP(x, yMid, zShallow)[1],
+              x2: PP(x, yMid, zDeep)[0], y2: PP(x, yMid, zDeep)[1],
+              stroke: 'var(--ink-soft)', 'stroke-width': 0.7,
+            }, svg);
+            // Horizontal step edge at the shallower depth (the visible top of the riser)
+            el('line', {
+              x1: PP(x, c*cs, zShallow)[0], y1: PP(x, c*cs, zShallow)[1],
+              x2: PP(x, (c+1)*cs, zShallow)[0], y2: PP(x, (c+1)*cs, zShallow)[1],
+              stroke: 'var(--ink-soft)', 'stroke-width': 0.6,
+            }, svg);
+          }
+        }
+        if (c < cols - 1) {
+          const d2 = sp.cells[r][c+1] || 0;
+          if (Math.abs(d - d2) > 0.01) {
+            const zShallow = waterZ + Math.min(d, d2) / 12;
+            const zDeep    = waterZ + Math.max(d, d2) / 12;
+            const y = (c + 1) * cs, xMid = (r + 0.5) * cs;
+            el('line', {
+              x1: PP(xMid, y, zShallow)[0], y1: PP(xMid, y, zShallow)[1],
+              x2: PP(xMid, y, zDeep)[0], y2: PP(xMid, y, zDeep)[1],
+              stroke: 'var(--ink-soft)', 'stroke-width': 0.7,
+            }, svg);
+            el('line', {
+              x1: PP(r*cs, y, zShallow)[0], y1: PP(r*cs, y, zShallow)[1],
+              x2: PP((r+1)*cs, y, zShallow)[0], y2: PP((r+1)*cs, y, zShallow)[1],
+              stroke: 'var(--ink-soft)', 'stroke-width': 0.6,
+            }, svg);
+          }
+        }
+      }
+    }
 
     // 4) Water surface — translucent blue inside the water footprint
     if (state.showWater) {
       const waterPoly = [
-        PP(0, 0, waterZ),
-        PP(sp.lengthFt, 0, waterZ),
-        PP(sp.lengthFt, sp.widthFt, waterZ),
-        PP(0, sp.widthFt, waterZ),
+        PP(0, 0, waterZ), PP(sp.lengthFt, 0, waterZ),
+        PP(sp.lengthFt, sp.widthFt, waterZ), PP(0, sp.widthFt, waterZ),
       ];
       el('path', { d: wobbleClosed(waterPoly, 0.3, 1301),
-        fill: state.tweaks.waterColor, 'fill-opacity': 0.3, stroke: 'none' }, svg);
-      // Waterline edge (thin ripple ink line) along the inside-near edge only
-      el('path', { d: wobble([PP(0, 0, waterZ), PP(sp.lengthFt, 0, waterZ)], 0.4, 1302),
-        stroke: state.tweaks.waterColor, 'stroke-width': 1.2, fill: 'none' }, svg);
+        fill: state.tweaks.waterColor, 'fill-opacity': 0.28, stroke: 'none' }, svg);
     }
 
-    // 5) Near inner walls — solid, visible. These overlap the water at the top.
-    el('path', { d: wobbleClosed(buildInnerWall(0, 'y', nearDepths), 0.3, 1401),
-      fill: CONCRETE, 'fill-opacity': 0.95,
-      stroke: 'var(--ink)', 'stroke-width': 1.1 }, svg);
-    el('path', { d: wobbleClosed(buildInnerWall(0, 'x', leftDepths), 0.3, 1402),
-      fill: CONCRETE, 'fill-opacity': 0.92,
-      stroke: 'var(--ink)', 'stroke-width': 1.0 }, svg);
-    el('path', { d: wobbleClosed(buildInnerWall(sp.lengthFt, 'x', rightDepths), 0.3, 1403),
-      fill: CONCRETE, 'fill-opacity': 0.92,
-      stroke: 'var(--ink)', 'stroke-width': 1.0 }, svg);
+    // 5) FRONT walls (solid) — y=widthFt and x=lengthFt. Flat quads to the deepest
+    //    cell along that wall, drawn AFTER the floor + water so they cover the
+    //    interior properly from the camera's perspective.
+    drawWall([
+      PP(0, sp.widthFt, deckZ), PP(sp.lengthFt, sp.widthFt, deckZ),
+      PP(sp.lengthFt, sp.widthFt, farFloorZ), PP(0, sp.widthFt, farFloorZ),
+    ], true);
+    drawWall([
+      PP(sp.lengthFt, 0, deckZ), PP(sp.lengthFt, sp.widthFt, deckZ),
+      PP(sp.lengthFt, sp.widthFt, rightFloorZ), PP(sp.lengthFt, 0, rightFloorZ),
+    ], true);
 
-    // 6) Top deck strips — the concrete ring visible from above between the water
-    //    edge (inner perimeter) and the outer wall edge. Four strips, no hole needed.
-    const deckStrip = (pts) => {
-      el('path', { d: wobbleClosed(pts, 0.25, 1500 + Math.random() * 100 | 0),
+    // 6) Top deck strips — concrete ring around the water hole (4 strips).
+    //    Stable seeds so wobble doesn't shimmer between renders.
+    const deckStrip = (pts, seed) => {
+      el('path', { d: wobbleClosed(pts, 0.25, seed),
         fill: CONCRETE, 'fill-opacity': 0.95,
         stroke: 'var(--ink)', 'stroke-width': 1.0 }, svg);
     };
-    // Near strip (y = -wN .. 0)
     deckStrip([PP(-wL, -wN, deckZ), PP(sp.lengthFt + wR, -wN, deckZ),
-               PP(sp.lengthFt + wR, 0, deckZ), PP(-wL, 0, deckZ)]);
-    // Far strip (y = widthFt .. widthFt + wF)
+               PP(sp.lengthFt + wR, 0, deckZ), PP(-wL, 0, deckZ)], 1500);
     deckStrip([PP(-wL, sp.widthFt, deckZ), PP(sp.lengthFt + wR, sp.widthFt, deckZ),
-               PP(sp.lengthFt + wR, sp.widthFt + wF, deckZ), PP(-wL, sp.widthFt + wF, deckZ)]);
-    // Left strip (x = -wL .. 0, between near and far strips)
+               PP(sp.lengthFt + wR, sp.widthFt + wF, deckZ), PP(-wL, sp.widthFt + wF, deckZ)], 1501);
     deckStrip([PP(-wL, 0, deckZ), PP(0, 0, deckZ),
-               PP(0, sp.widthFt, deckZ), PP(-wL, sp.widthFt, deckZ)]);
-    // Right strip (x = lengthFt .. lengthFt + wR)
+               PP(0, sp.widthFt, deckZ), PP(-wL, sp.widthFt, deckZ)], 1502);
     deckStrip([PP(sp.lengthFt, 0, deckZ), PP(sp.lengthFt + wR, 0, deckZ),
-               PP(sp.lengthFt + wR, sp.widthFt, deckZ), PP(sp.lengthFt, sp.widthFt, deckZ)]);
+               PP(sp.lengthFt + wR, sp.widthFt, deckZ), PP(sp.lengthFt, sp.widthFt, deckZ)], 1503);
 
     // 7) Outer near/front skirt (optional) — a short concrete band below the deck
     //    to give the spa visible volume. Only useful in the standalone view.
     if (topRelative) {
-      const skirtBot = waterZ + 1.0; // 1ft below water surface
-      const skirt = [
-        PP(-wL, -wN, deckZ), PP(sp.lengthFt + wR, -wN, deckZ),
-        PP(sp.lengthFt + wR, -wN, skirtBot), PP(-wL, -wN, skirtBot),
-      ];
-      el('path', { d: wobbleClosed(skirt, 0.3, 1601),
+      const skirtBot = Math.max(nearFloorZ, rightFloorZ) + 0.5;
+      // Front skirts (visible) at y=widthFt+wF and x=lengthFt+wR
+      el('path', { d: wobbleClosed([
+        PP(-wL, sp.widthFt + wF, deckZ), PP(sp.lengthFt + wR, sp.widthFt + wF, deckZ),
+        PP(sp.lengthFt + wR, sp.widthFt + wF, skirtBot), PP(-wL, sp.widthFt + wF, skirtBot),
+      ], 0.3, 1601),
         fill: CONCRETE, 'fill-opacity': 0.85,
         stroke: 'var(--ink)', 'stroke-width': 1.2 }, svg);
-      const skirtR = [
+      el('path', { d: wobbleClosed([
         PP(sp.lengthFt + wR, -wN, deckZ), PP(sp.lengthFt + wR, sp.widthFt + wF, deckZ),
         PP(sp.lengthFt + wR, sp.widthFt + wF, skirtBot), PP(sp.lengthFt + wR, -wN, skirtBot),
-      ];
-      el('path', { d: wobbleClosed(skirtR, 0.3, 1602),
+      ], 0.3, 1602),
         fill: CONCRETE, 'fill-opacity': 0.85,
         stroke: 'var(--ink)', 'stroke-width': 1.2 }, svg);
     }
