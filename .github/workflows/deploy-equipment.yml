@@ -49,17 +49,49 @@ jobs:
 
       - name: Verify Functions are live
         run: |
-          # Give the deploy a moment to propagate to the edge, then hit the
-          # diagnostic endpoint. If this returns HTML, the deploy didn't
-          # include Functions and the job should fail loudly.
+          set +e
+          # Give the deploy a moment to propagate to the edge.
           sleep 15
-          echo "--- HEAD /api/ping ---"
-          curl -sI https://pasadena-equipment.pages.dev/api/ping | head -n 20 || true
-          echo ""
-          echo "--- GET /api/ping ---"
-          RESP=$(curl -fsSL https://pasadena-equipment.pages.dev/api/ping || true)
-          echo "ping response: $RESP"
-          case "$RESP" in
-            *'"ok":true'*) echo "OK: Functions are live." ;;
-            *) echo "FAIL: /api/ping did not return the expected JSON." ; exit 1 ;;
+          BASE=https://pasadena-equipment.pages.dev
+          FAIL=0
+
+          echo "--- GET ${BASE}/api/ping ---"
+          PING=$(curl -fsSL "${BASE}/api/ping" || true)
+          echo "ping response: $PING"
+          case "$PING" in
+            *'"ok":true'*) echo "  OK" ;;
+            *) echo "  FAIL: /api/ping did not return {\"ok\":true}"; FAIL=1 ;;
           esac
+
+          echo ""
+          echo "--- GET ${BASE}/api/catalog ---"
+          # Must return JSON (either null or an array), not HTML.
+          CAT=$(curl -sS "${BASE}/api/catalog" || true)
+          CAT_CODE=$(curl -s -o /dev/null -w '%{http_code}' "${BASE}/api/catalog" || true)
+          echo "HTTP $CAT_CODE"
+          echo "body (first 200 chars): ${CAT:0:200}"
+          case "$CAT_CODE" in
+            200) ;;
+            *) echo "  FAIL: /api/catalog GET returned $CAT_CODE"; FAIL=1 ;;
+          esac
+          case "$CAT" in
+            '<'*|*'<!DOCTYPE'*|*'<html'*) echo "  FAIL: /api/catalog returned HTML — functions route didn't match"; FAIL=1 ;;
+            *) echo "  OK (not HTML)" ;;
+          esac
+
+          echo ""
+          echo "--- OPTIONS ${BASE}/api/catalog ---"
+          OPT_CODE=$(curl -sS -o /dev/null -X OPTIONS -w '%{http_code}' "${BASE}/api/catalog" || true)
+          echo "HTTP $OPT_CODE"
+          case "$OPT_CODE" in
+            204|200) echo "  OK" ;;
+            *) echo "  FAIL: /api/catalog OPTIONS returned $OPT_CODE (expected 204)"; FAIL=1 ;;
+          esac
+
+          if [ "$FAIL" -ne 0 ]; then
+            echo ""
+            echo "One or more verification checks failed. See details above."
+            exit 1
+          fi
+          echo ""
+          echo "All verification checks passed."
