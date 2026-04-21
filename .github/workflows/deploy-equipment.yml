@@ -42,4 +42,24 @@ jobs:
           npx --yes wrangler@latest pages deploy equipment-selector \
             --project-name=pasadena-equipment \
             --branch=main \
-            --commit-dirty=true
+            --commit-dirty=true 2>&1 | tee wrangler.log
+          echo ""
+          echo "=== wrangler.log post-deploy check ==="
+          grep -iE 'function|worker|compiled|bundled|error|warn' wrangler.log || echo "(no function-related output found)"
+
+      - name: Verify Functions are live
+        run: |
+          # Give the deploy a moment to propagate to the edge, then hit the
+          # diagnostic endpoint. If this returns HTML, the deploy didn't
+          # include Functions and the job should fail loudly.
+          sleep 15
+          echo "--- HEAD /api/ping ---"
+          curl -sI https://pasadena-equipment.pages.dev/api/ping | head -n 20 || true
+          echo ""
+          echo "--- GET /api/ping ---"
+          RESP=$(curl -fsSL https://pasadena-equipment.pages.dev/api/ping || true)
+          echo "ping response: $RESP"
+          case "$RESP" in
+            *'"ok":true'*) echo "OK: Functions are live." ;;
+            *) echo "FAIL: /api/ping did not return the expected JSON." ; exit 1 ;;
+          esac
