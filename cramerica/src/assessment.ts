@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { client } from "./claude";
 import { appendMessage, ensureWeekSessions, getProfile, logError } from "./db";
+import { triggerProgramGeneration } from "./program_generator";
 import { sendChatAction, sendMessage } from "./telegram";
 import { etNow } from "./time";
 import type { Env } from "./types";
@@ -73,16 +74,16 @@ export async function handleAssessmentReply(env: Env, text: string): Promise<boo
     return true;
   }
 
-  // Final answer received — distill + generate week 1 program.
+  // Final answer received — hand off to the DO for program generation.
   if (profile.chat_id) {
     await sendChatAction(env, profile.chat_id);
     await sendMessage(
       env,
       profile.chat_id,
-      "Got it. Give me a minute — I'm writing your week-1 program and locking in your profile."
+      "Got it. I'm writing your week-1 program now — I'll message you when it's ready (usually ~1 min)."
     );
   }
-  await finalizeAssessment(env);
+  await triggerProgramGeneration(env);
   return true;
 }
 
@@ -107,6 +108,67 @@ interface WeeklyProgramOutput {
   coach_summary: string;
 }
 
+function extractJsonFromText(text: string): unknown {
+  if (!text) return null;
+  // Prefer <json>...</json> if present.
+  const tagMatch = text.match(/<json>([\s\S]*?)<\/json>/i);
+  const candidate = tagMatch ? tagMatch[1]! : extractBalancedJson(text);
+  if (!candidate) return null;
+  try {
+    return JSON.parse(candidate);
+  } catch {
+    return null;
+  }
+}
+
+function extractBalancedJson(text: string): string | null {
+  const start = text.indexOf("{");
+  if (start < 0) return null;
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i]!;
+    if (escape) { escape = false; continue; }
+    if (ch === "\\") { escape = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === "{") depth++;
+    else if (ch === "}") {
+      depth--;
+      if (depth === 0) return text.slice(start, i + 1);
+    }
+  }
+  return null;
+}
+
+function unwrapIfSingleKey(v: unknown, keys: string[]): unknown {
+  if (!v || typeof v !== "object") return v;
+  const o = v as Record<string, unknown>;
+  const ownKeys = Object.keys(o);
+  if (ownKeys.length !== 1) return v;
+  if (!keys.includes(ownKeys[0]!)) return v;
+  return o[ownKeys[0]!];
+}
+
+function isValidProgramOutput(v: unknown): v is WeeklyProgramOutput {
+  if (!v || typeof v !== "object") return false;
+  const o = v as Record<string, unknown>;
+  if (typeof o.seven_week_arc !== "string" || o.seven_week_arc.length === 0) return false;
+  if (typeof o.coach_summary !== "string" || o.coach_summary.length === 0) return false;
+  if (!Array.isArray(o.week_1) || o.week_1.length === 0) return false;
+  if (!o.profile || typeof o.profile !== "object") return false;
+  for (const s of o.week_1) {
+    if (!s || typeof s !== "object") return false;
+    const sess = s as Record<string, unknown>;
+    if (!["A", "B", "C"].includes(sess.letter as string)) return false;
+    if (typeof sess.focus !== "string") return false;
+    if (typeof sess.warmup !== "string") return false;
+    if (!Array.isArray(sess.main) || sess.main.length === 0) return false;
+  }
+  return true;
+}
+
 export async function finalizeAssessment(env: Env): Promise<void> {
   const rows = await env.DB
     .prepare("SELECT question, answer FROM assessment ORDER BY id")
@@ -122,72 +184,60 @@ Design principles:
 - Sub-15% BF requires a ~500 cal/day deficit at 200g protein — program energy cost matches but doesn't crush recovery.
 - Golf-relevant patterns: hinge, rotation, anti-rotation, single-leg, overhead stability.
 
-Respond with JSON ONLY, matching this shape exactly. No prose outside the JSON.`;
+Output format: respond with a single JSON object wrapped in <json>...</json> tags. No prose before or after the tags. The JSON object itself must have these top-level keys (do NOT nest under a wrapper key like "program"):
+
+{
+  "profile": {
+    "weight_lbs": <number or null>,
+    "body_fat_pct": <number or null>,
+    "age": <number or null>,
+    "height_in": <number or null>,
+    "handicap": <number or null>
+  },
+  "seven_week_arc": "<string>",
+  "week_1": [
+    { "letter": "A", "focus": "<string>", "warmup": "<string>", "main": ["<exercise>", ...], "finisher": "<string optional>" },
+    { "letter": "B", ... },
+    { "letter": "C", ... }
+  ],
+  "coach_summary": "<string>"
+}`;
 
   const user = `Intake answers:
 
 ${qa}
 
-Now produce the JSON.`;
+Produce the <json>...</json> response now.`;
 
-  const schema = {
-    type: "object",
-    required: ["profile", "seven_week_arc", "week_1", "coach_summary"],
-    properties: {
-      profile: {
-        type: "object",
-        properties: {
-          weight_lbs: { type: ["number", "null"] },
-          body_fat_pct: { type: ["number", "null"] },
-          age: { type: ["number", "null"] },
-          height_in: { type: ["number", "null"] },
-          handicap: { type: ["number", "null"] },
-        },
-        required: ["weight_lbs", "body_fat_pct", "age", "height_in", "handicap"],
-      },
-      seven_week_arc: { type: "string" },
-      week_1: {
-        type: "array",
-        minItems: 3,
-        maxItems: 3,
-        items: {
-          type: "object",
-          required: ["letter", "focus", "warmup", "main"],
-          properties: {
-            letter: { enum: ["A", "B", "C"] },
-            focus: { type: "string" },
-            warmup: { type: "string" },
-            main: { type: "array", items: { type: "string" }, minItems: 4, maxItems: 7 },
-            finisher: { type: "string" },
-          },
-        },
-      },
-      coach_summary: { type: "string" },
-    },
-  };
-
-  const anthropic = client(env);
+  const anthropic = client(env, { timeoutMs: 300_000 });
   let parsed: WeeklyProgramOutput | null = null;
+  let respText = "";
   try {
     const resp = await anthropic.messages.create({
       model: env.CLAUDE_MODEL_WEEKLY,
-      max_tokens: 4000,
+      max_tokens: 8000,
       system,
       messages: [{ role: "user", content: user }],
-      tools: [{ name: "emit_program", description: "Emit the structured program JSON.", input_schema: schema as unknown as Anthropic.Tool.InputSchema }],
-      tool_choice: { type: "tool", name: "emit_program" },
     });
-    for (const block of resp.content) {
-      if (block.type === "tool_use" && block.name === "emit_program") {
-        parsed = block.input as WeeklyProgramOutput;
-        break;
-      }
-    }
-    if (!parsed) {
-      const blockTypes = resp.content.map((b) => b.type).join(",");
+    respText = resp.content
+      .filter((b): b is Anthropic.TextBlock => b.type === "text")
+      .map((b) => b.text)
+      .join("\n");
+    const rawInput = extractJsonFromText(respText);
+    const unwrapped = unwrapIfSingleKey(rawInput, ["program", "output", "result"]);
+    const valid = isValidProgramOutput(unwrapped);
+    if (valid) {
+      parsed = unwrapped as WeeklyProgramOutput;
+    } else {
       const stopReason = resp.stop_reason ?? "(unknown)";
-      await logError(env, "assessment.finalize", "no tool_use block in response", {
-        blockTypes, stopReason, model: env.CLAUDE_MODEL_WEEKLY,
+      const rawSnippet = respText.slice(0, 2000);
+      await logError(env, "assessment.finalize", rawInput == null
+        ? "failed to extract JSON from response text"
+        : "parsed JSON failed schema validation", {
+        stopReason,
+        usage: resp.usage,
+        model: env.CLAUDE_MODEL_WEEKLY,
+        raw_input_snippet: rawSnippet,
       });
     }
   } catch (err) {

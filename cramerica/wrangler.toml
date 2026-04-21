@@ -12,17 +12,26 @@ crons = ["*/10 * * * *"]
 [[d1_databases]]
 binding = "DB"
 database_name = "cramerica"
-database_id = "REPLACE_WITH_D1_ID"
+database_id = "01a71165-d6ee-4407-89d9-6801f5beca4e"
 migrations_dir = "migrations"
+
+# Program generation runs in a Durable Object so the Anthropic call
+# can exceed the 30s Worker wall-clock (DO alarms get 15min).
+[[durable_objects.bindings]]
+name = "PROGRAM_GEN"
+class_name = "ProgramGenerator"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["ProgramGenerator"]
 
 [vars]
 TIMEZONE = "America/New_York"
 TARGET_DATE = "2026-06-12"
-# Sonnet for daily coaching AND weekly program gen. Opus 4.7 on structured
-# outputs can exceed the 30s Worker wall-clock, so we default to Sonnet
-# and can swap in Opus later if we move program gen to a queue/cron.
+# Daily coaching stays on Sonnet (fast, request-path). Weekly program gen
+# runs in a DO alarm with a 15min budget, so we can afford Opus quality.
 CLAUDE_MODEL_DAILY = "claude-sonnet-4-6"
-CLAUDE_MODEL_WEEKLY = "claude-sonnet-4-6"
+CLAUDE_MODEL_WEEKLY = "claude-opus-4-7"
 
 # Secrets (set via `wrangler secret put` — never commit):
 #   TELEGRAM_BOT_TOKEN

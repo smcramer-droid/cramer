@@ -6,6 +6,8 @@ import type { Env, Slot } from "./types";
 import type { TgUpdate } from "./telegram";
 import { etNow } from "./time";
 
+export { ProgramGenerator } from "./program_generator";
+
 async function dumpState(env: Env, section: string, limit: number): Promise<unknown> {
   const now = etNow();
   const sections: Record<string, () => Promise<unknown>> = {

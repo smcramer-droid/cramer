@@ -1,4 +1,5 @@
-import { assessmentProgress, finalizeAssessment, sendFirstQuestion } from "./assessment";
+import { assessmentProgress, sendFirstQuestion } from "./assessment";
+import { triggerProgramGeneration } from "./program_generator";
 import { sendStatsPack } from "./charts";
 import {
   appendMessage,
@@ -9,6 +10,7 @@ import {
   recomputeDailyStreak,
 } from "./db";
 import { fireCheckin } from "./handlers/checkin";
+import { pickRoutineForDate } from "./pliability";
 import { sendMessage } from "./telegram";
 import { etNow } from "./time";
 import type { Env } from "./types";
@@ -42,10 +44,10 @@ export async function handleCommand(env: Env, chatId: number, text: string): Pro
         await sendMessage(env, chatId, `Intake isn't finished (${answered}/${total}). Run /start to continue.`);
         return true;
       }
-      const ack = "Regenerating the program. Give me a minute.";
+      const ack = "Regenerating the program. I'll message you when it's ready (usually ~1 min).";
       await sendMessage(env, chatId, ack);
       await appendMessage(env, "assistant", ack);
-      await finalizeAssessment(env);
+      await triggerProgramGeneration(env);
       return true;
     }
 
@@ -96,6 +98,17 @@ Strength week (${now.weekStart}): ${pairs}`;
       return true;
     }
 
+    case "/pliability":
+    case "/plyo":
+    case "/mobility": {
+      const now = etNow();
+      const routine = pickRoutineForDate(now.date);
+      const body = `*Today's 10-min pliability — ${routine.name}*\n\n${routine.script}`;
+      await sendMessage(env, chatId, body);
+      await appendMessage(env, "assistant", body);
+      return true;
+    }
+
     case "/stats":
     case "/charts": {
       const profile = await getProfile(env);
@@ -109,6 +122,7 @@ Strength week (${now.weekStart}): ${pairs}`;
 
 /start — begin the week-1 intake (or resume if partway)
 /today — today's trackables + streak + strength week
+/pliability — today's 10-min mobility routine (aliases: /plyo, /mobility)
 /stats — send the chart pack (daily adherence, protein/cal, weight, strength)
 /retro — re-open the Sunday retrospective on demand
 /regen — retry program generation (if intake finished but program didn't)
