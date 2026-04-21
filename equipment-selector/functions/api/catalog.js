@@ -5,9 +5,6 @@
 //          must match the `CATALOG_EDIT_TOKEN` env var.
 //
 // Body shape for PUT: JSON array matching the CATALOG shape in index.html.
-//
-// Uses a single `onRequest` handler that dispatches on request.method so
-// Cloudflare's Pages routing can't silently drop a method-specific handler.
 
 const KEY = "catalog";
 
@@ -17,26 +14,7 @@ const CORS = {
   "access-control-allow-headers": "content-type, x-edit-token",
 };
 
-export async function onRequest(context) {
-  const { request, env } = context;
-  const method = request.method.toUpperCase();
-
-  if (method === "OPTIONS") {
-    return new Response(null, {
-      status: 204,
-      headers: { ...CORS, "access-control-max-age": "86400" },
-    });
-  }
-
-  if (method === "GET") return handleGet(env);
-  if (method === "PUT") return handlePut(request, env);
-
-  return json({ error: "method not allowed", method }, 405, {
-    allow: "GET, PUT, OPTIONS",
-  });
-}
-
-async function handleGet(env) {
+export async function onRequestGet({ env }) {
   if (!env.CATALOG) {
     return json({ error: "KV binding CATALOG not configured" }, 503);
   }
@@ -51,7 +29,7 @@ async function handleGet(env) {
   });
 }
 
-async function handlePut(request, env) {
+export async function onRequestPut({ request, env }) {
   if (!env.CATALOG) {
     return json({ error: "KV binding CATALOG not configured" }, 503);
   }
@@ -83,6 +61,13 @@ async function handlePut(request, env) {
 
   await env.CATALOG.put(KEY, text);
   return json({ ok: true, savedAt: new Date().toISOString() });
+}
+
+export async function onRequestOptions() {
+  return new Response(null, {
+    status: 204,
+    headers: { ...CORS, "access-control-max-age": "86400" },
+  });
 }
 
 function json(obj, status = 200, extraHeaders = {}) {
