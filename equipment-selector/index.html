@@ -360,6 +360,113 @@
 
       footer { text-align: center; color: var(--ink-soft); font-size: 12px; margin-top: 22px; }
 
+      .col-toggles {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px 14px;
+        font-size: 13px;
+        color: var(--ink-soft);
+        padding: 8px 0 12px;
+        border-bottom: 1px dashed rgba(18,58,74,0.12);
+        margin-bottom: 10px;
+      }
+      .col-toggles-label { font-weight: 600; color: var(--ink); }
+      .col-toggles label {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 4px 10px; border-radius: 999px;
+        background: rgba(41, 193, 224, 0.12);
+        cursor: pointer; user-select: none;
+      }
+      .col-toggles input[type="checkbox"] { accent-color: var(--sky); width: 14px; height: 14px; }
+
+      /* column hiding — driven by .hide-col-<name> on summary card */
+      .summary.hide-col-body .col-body,
+      .summary.hide-col-qty .col-qty,
+      .summary.hide-col-item .col-item,
+      .summary.hide-col-model .col-model,
+      .summary.hide-col-notes .col-notes { display: none; }
+
+      .catalog-summary {
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+        padding: 4px 0;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--ink-soft);
+        list-style: none;
+      }
+      .catalog-summary::-webkit-details-marker { display: none; }
+      .catalog-summary::before {
+        content: "▸";
+        display: inline-block;
+        margin-right: 8px;
+        transition: transform 0.15s ease;
+        color: var(--sky);
+      }
+      details[open] > .catalog-summary::before { transform: rotate(90deg); }
+      .catalog-summary .sub { color: var(--ink-soft); font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 13px; }
+
+      .cat-block {
+        border: 1px solid rgba(18,58,74,0.1);
+        border-radius: 14px;
+        padding: 12px;
+        margin-bottom: 12px;
+        background: #fdfdfd;
+      }
+      .cat-block h3 {
+        margin: 0 0 10px;
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--ink);
+      }
+      .cat-opt-row {
+        display: grid;
+        grid-template-columns: 1.3fr 1fr 1fr 1.5fr 36px;
+        gap: 6px;
+        margin-bottom: 6px;
+        align-items: start;
+      }
+      .cat-opt-row input {
+        font-size: 13px;
+        min-height: 36px;
+        padding: 6px 8px;
+      }
+      .cat-opt-row .remove-opt {
+        background: rgba(226, 85, 85, 0.1);
+        border: 1.5px solid rgba(226, 85, 85, 0.3);
+        color: var(--danger);
+        border-radius: 10px;
+        min-height: 36px;
+        cursor: pointer;
+        font-size: 18px;
+        padding: 0;
+      }
+      .cat-opt-row .remove-opt:hover { background: rgba(226, 85, 85, 0.2); }
+      .cat-opt-header {
+        display: grid;
+        grid-template-columns: 1.3fr 1fr 1fr 1.5fr 36px;
+        gap: 6px;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--ink-soft);
+        padding: 0 4px 4px;
+        font-weight: 700;
+      }
+      @media (max-width: 640px) {
+        .cat-opt-header { display: none; }
+        .cat-opt-row {
+          grid-template-columns: 1fr 36px;
+          gap: 4px;
+          border-bottom: 1px dashed rgba(18,58,74,0.1);
+          padding-bottom: 8px;
+        }
+        .cat-opt-row input:not(:nth-child(1)) { grid-column: 1; }
+        .cat-opt-row .remove-opt { grid-row: 1 / span 4; align-self: start; }
+      }
+
       @media print {
         body {
           background: #fff;
@@ -430,17 +537,25 @@
         <button type="button" class="add-misc no-print" id="addMisc">+ Add item</button>
       </section>
 
-      <section class="card summary">
+      <section class="card summary" id="summaryCard">
         <h2>Equipment List</h2>
         <p class="proj-meta" id="projMeta"></p>
+        <div class="col-toggles no-print" id="colToggles">
+          <span class="col-toggles-label">Show columns:</span>
+          <label><input type="checkbox" data-col="body" checked> Body</label>
+          <label><input type="checkbox" data-col="qty" checked> Qty</label>
+          <label><input type="checkbox" data-col="item" checked> Item</label>
+          <label><input type="checkbox" data-col="model" checked> Model</label>
+          <label><input type="checkbox" data-col="notes" checked> Notes</label>
+        </div>
         <table>
           <thead>
             <tr>
-              <th>Location</th>
-              <th class="qty-col">Qty</th>
-              <th>Item</th>
-              <th>Model</th>
-              <th>Notes</th>
+              <th class="col-body">Body</th>
+              <th class="col-qty qty-col">Qty</th>
+              <th class="col-item">Item</th>
+              <th class="col-model">Model</th>
+              <th class="col-notes">Notes</th>
             </tr>
           </thead>
           <tbody id="summaryBody"></tbody>
@@ -452,6 +567,20 @@
         </div>
       </section>
 
+      <section class="card">
+        <details id="catalogSection">
+          <summary class="catalog-summary">Catalog <span class="sub">(edit the dropdown options that populate this tool)</span></summary>
+          <p class="item-info" style="margin: 4px 0 12px;">Changes are saved to this browser. Use Export JSON to back up and Import JSON to restore or share.</p>
+          <div id="catalogEditor"></div>
+          <div class="actions no-print" style="margin-top: 16px;">
+            <button type="button" class="btn btn--copy" id="catalogReset">Reset to Defaults</button>
+            <button type="button" class="btn btn--csv" id="catalogExport">Export JSON</button>
+            <button type="button" class="btn btn--print" id="catalogImport">Import JSON</button>
+            <input type="file" id="catalogImportFile" accept="application/json" style="display:none;" />
+          </div>
+        </details>
+      </section>
+
       <footer>Pasadena Pools &middot; Equipment Selector</footer>
     </div>
 
@@ -459,7 +588,7 @@
       // ============ CATALOG ============
       // Each category: id, label, options[{id,label,model,manufacturer,info}]
       // "none" option lets the user skip a category.
-      const CATALOG = [
+      const DEFAULT_CATALOG = [
         {
           id: "circPump",
           label: "Circulation Pump",
@@ -562,12 +691,17 @@
         }
       ];
 
+      function deepClone(v) { return JSON.parse(JSON.stringify(v)); }
+      let CATALOG = deepClone(DEFAULT_CATALOG);
+
       // ============ STATE / RENDER ============
       const state = {
         bodies: [],                 // [{ id, name, gallons }]
         core: {},                   // { catId -> [{ id, optionId, qty, bodyId }] }
         misc: [],                   // [{ id, name, qty, bodyId }]
-        project: {}                 // { jobName, customer, sales, date }
+        project: {},                // { jobName, customer, sales, date }
+        catalog: null,              // [{...}] when set, mirrors CATALOG
+        display: { body: true, qty: true, item: true, model: true, notes: true }
       };
 
       function el(tag, attrs = {}, children = []) {
@@ -893,27 +1027,35 @@
       }
 
       function updateSummary() {
+        // Apply column visibility to the summary card.
+        const card = document.getElementById("summaryCard");
+        if (card) {
+          ["body", "qty", "item", "model", "notes"].forEach(col => {
+            card.classList.toggle("hide-col-" + col, !state.display[col]);
+          });
+        }
         const body = document.getElementById("summaryBody");
         body.innerHTML = "";
         const groups = groupedList();
         const totalRows = groups.reduce((n, g) => n + g.rows.length, 0);
+        const visibleCols = ["body", "qty", "item", "model", "notes"].filter(c => state.display[c]).length || 1;
         if (totalRows === 0) {
           const tr = el("tr");
-          tr.appendChild(el("td", { class: "empty", colspan: "5" }, "Nothing selected yet."));
+          tr.appendChild(el("td", { class: "empty", colspan: String(visibleCols) }, "Nothing selected yet."));
           body.appendChild(tr);
         } else {
           for (const g of groups) {
             const head = el("tr");
-            head.appendChild(el("td", { class: "body-group-head", colspan: "5" }, g.label));
+            head.appendChild(el("td", { class: "body-group-head", colspan: String(visibleCols) }, g.label));
             body.appendChild(head);
             for (const r of g.rows) {
               const notes = [r.manufacturer, r.info].filter(Boolean).join(" · ");
               body.appendChild(el("tr", {}, [
-                el("td", {}, r.location),
-                el("td", { class: "qty-col" }, String(r.qty)),
-                el("td", {}, r.item),
-                el("td", {}, r.model),
-                el("td", {}, notes)
+                el("td", { class: "col-body" }, r.location),
+                el("td", { class: "col-qty qty-col" }, String(r.qty)),
+                el("td", { class: "col-item" }, r.item),
+                el("td", { class: "col-model" }, r.model),
+                el("td", { class: "col-notes" }, notes)
               ]));
             }
           }
@@ -936,11 +1078,13 @@
       }
 
       function saveAndRender(skipRender) {
+        state.catalog = CATALOG;
         localStorage.setItem("pps.equipment.v3", JSON.stringify(state));
         if (!skipRender) {
           renderBodies();
           renderCore();
           renderMisc();
+          renderCatalogEditor();
         }
         updateSummary();
       }
@@ -1024,6 +1168,13 @@
             qty: m.qty != null ? m.qty : 1,
             bodyId: m.bodyId || mapLoc(m.location)
           }));
+          if (Array.isArray(s.catalog) && s.catalog.length) {
+            CATALOG = s.catalog;
+          }
+          state.catalog = CATALOG;
+          if (s.display && typeof s.display === "object") {
+            state.display = Object.assign({ body: true, qty: true, item: true, model: true, notes: true }, s.display);
+          }
           return true;
         } catch {
           return false;
@@ -1069,16 +1220,20 @@
         }
         lines.push("");
         const totalRows = groups.reduce((n, g) => n + g.rows.length, 0);
+        const d = state.display;
         if (totalRows === 0) {
           lines.push("(No equipment selected)");
         } else {
           for (const g of groups) {
-            lines.push(`— ${g.label} —`);
+            if (d.body) lines.push(`— ${g.label} —`);
             for (const r of g.rows) {
               const notes = [r.manufacturer, r.info].filter(Boolean).join(" · ");
-              const modelPart = r.model ? ` — ${r.model}` : "";
-              const notePart = notes ? ` (${notes})` : "";
-              lines.push(`${String(r.qty).padStart(3, " ")}  ${r.item}${modelPart}${notePart}`);
+              const parts = [];
+              if (d.qty) parts.push(String(r.qty).padStart(3, " "));
+              if (d.item) parts.push(r.item);
+              if (d.model && r.model) parts.push("— " + r.model);
+              if (d.notes && notes) parts.push("(" + notes + ")");
+              lines.push(parts.join(" ").trim() || r.item);
             }
             lines.push("");
           }
@@ -1088,9 +1243,19 @@
 
       function toCsv() {
         const list = buildList();
-        const rows = [["Body", "Qty", "Item", "Model", "Manufacturer", "Notes"]];
-        for (const r of list) rows.push([r.location, r.qty, r.item, r.model, r.manufacturer, r.info]);
-        return rows.map(cols => cols.map(v => {
+        const d = state.display;
+        const cols = [];
+        if (d.body) cols.push(["Body", r => r.location]);
+        if (d.qty) cols.push(["Qty", r => r.qty]);
+        if (d.item) cols.push(["Item", r => r.item]);
+        if (d.model) cols.push(["Model", r => r.model]);
+        if (d.notes) {
+          cols.push(["Manufacturer", r => r.manufacturer]);
+          cols.push(["Notes", r => r.info]);
+        }
+        const rows = [cols.map(c => c[0])];
+        for (const r of list) rows.push(cols.map(c => c[1](r)));
+        return rows.map(row => row.map(v => {
           const s = String(v == null ? "" : v);
           return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
         }).join(",")).join("\n");
@@ -1140,6 +1305,113 @@
           addBody({ name: "" });
           saveAndRender();
         });
+        // Column visibility toggles
+        for (const cb of document.querySelectorAll("#colToggles input[type='checkbox']")) {
+          const col = cb.dataset.col;
+          cb.checked = !!state.display[col];
+          cb.addEventListener("change", () => {
+            state.display[col] = cb.checked;
+            saveAndRender(true);
+            updateSummary();
+          });
+        }
+        // Catalog editor actions
+        document.getElementById("catalogReset").addEventListener("click", () => {
+          if (!confirm("Reset the catalog to the factory defaults? All models you've added or edited will be removed.")) return;
+          CATALOG.length = 0;
+          for (const c of deepClone(DEFAULT_CATALOG)) CATALOG.push(c);
+          state.catalog = CATALOG;
+          saveAndRender();
+          flash("Catalog reset");
+        });
+        document.getElementById("catalogExport").addEventListener("click", () => {
+          downloadFile("equipment-catalog.json", JSON.stringify(CATALOG, null, 2), "application/json");
+        });
+        document.getElementById("catalogImport").addEventListener("click", () => {
+          document.getElementById("catalogImportFile").click();
+        });
+        document.getElementById("catalogImportFile").addEventListener("change", async (e) => {
+          const file = e.target.files && e.target.files[0];
+          if (!file) return;
+          try {
+            const text = await file.text();
+            const parsed = JSON.parse(text);
+            if (!Array.isArray(parsed)) throw new Error("expected array");
+            for (const c of parsed) {
+              if (!c.id || !c.label || !Array.isArray(c.options)) throw new Error("invalid catalog entry");
+            }
+            if (!confirm("Replace the current catalog with the imported one?")) return;
+            CATALOG.length = 0;
+            for (const c of parsed) CATALOG.push(c);
+            state.catalog = CATALOG;
+            saveAndRender();
+            flash("Catalog imported");
+          } catch (err) {
+            alert("Import failed: " + err.message);
+          } finally {
+            e.target.value = "";
+          }
+        });
+      }
+
+      function renderCatalogEditor() {
+        const host = document.getElementById("catalogEditor");
+        if (!host) return;
+        host.innerHTML = "";
+        for (const cat of CATALOG) {
+          const block = el("div", { class: "cat-block" });
+          block.appendChild(el("h3", {}, cat.label));
+          const header = el("div", { class: "cat-opt-header" }, [
+            el("div", {}, "Dropdown label"),
+            el("div", {}, "Model"),
+            el("div", {}, "Manufacturer"),
+            el("div", {}, "Info"),
+            el("div", {}, "")
+          ]);
+          block.appendChild(header);
+          for (const opt of cat.options) {
+            if (opt.id === "none") continue; // Don't allow editing the "— Select —" placeholder
+            const row = el("div", { class: "cat-opt-row" });
+            const labelInp = el("input", { type: "text", value: opt.label || "", placeholder: "Dropdown label" });
+            labelInp.addEventListener("input", () => { opt.label = labelInp.value; persistCatalog(); refreshCoreDropdowns(); });
+            const modelInp = el("input", { type: "text", value: opt.model || "", placeholder: "Model" });
+            modelInp.addEventListener("input", () => { opt.model = modelInp.value; persistCatalog(); updateSummary(); });
+            const mfrInp = el("input", { type: "text", value: opt.manufacturer || "", placeholder: "Manufacturer" });
+            mfrInp.addEventListener("input", () => { opt.manufacturer = mfrInp.value; persistCatalog(); updateSummary(); });
+            const infoInp = el("input", { type: "text", value: opt.info || "", placeholder: "Info" });
+            infoInp.addEventListener("input", () => { opt.info = infoInp.value; persistCatalog(); updateSummary(); });
+            const rm = el("button", { type: "button", class: "remove-opt no-print", title: "Remove model" }, "×");
+            rm.addEventListener("click", () => {
+              if (!confirm("Remove “" + (opt.label || opt.id) + "” from the catalog?")) return;
+              cat.options = cat.options.filter(o => o.id !== opt.id);
+              // Clear selections pointing at this option
+              for (const e of entriesOf(cat.id)) {
+                if (e.optionId === opt.id) e.optionId = "none";
+              }
+              if (cat.id === "saltCell") recomputeSaltPower();
+              saveAndRender();
+            });
+            row.appendChild(labelInp); row.appendChild(modelInp); row.appendChild(mfrInp); row.appendChild(infoInp); row.appendChild(rm);
+            block.appendChild(row);
+          }
+          const addOptBtn = el("button", { type: "button", class: "add-another no-print" }, "+ Add model");
+          addOptBtn.addEventListener("click", () => {
+            cat.options.push({ id: "opt-" + genId().slice(0, 8), label: "New model", model: "", manufacturer: "", info: "" });
+            saveAndRender();
+          });
+          block.appendChild(addOptBtn);
+          host.appendChild(block);
+        }
+      }
+
+      function persistCatalog() {
+        state.catalog = CATALOG;
+        localStorage.setItem("pps.equipment.v3", JSON.stringify(state));
+      }
+
+      function refreshCoreDropdowns() {
+        // Lightweight: rebuild the core section so dropdown option labels pick up edits.
+        renderCore();
       }
 
       function flash(msg) {
@@ -1152,6 +1424,7 @@
 
       // ============ INIT ============
       const hadSaved = loadState();
+      if (!state.catalog) state.catalog = CATALOG;
       if (!state.project.date) {
         state.project.date = new Date().toISOString().slice(0, 10);
       }
@@ -1176,6 +1449,7 @@
       renderBodies();
       renderCore();
       renderMisc();
+      renderCatalogEditor();
       wireActions();
       updateSummary();
       saveAndRender(true);
