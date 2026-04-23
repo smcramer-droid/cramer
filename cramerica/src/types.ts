@@ -41,6 +41,7 @@ export interface DailyLog {
   calories: number | null;
   cardio_min: number;
   pliability_min: number;
+  faith_done: boolean;
   meals_logged: number;
   weight_lbs: number | null;
   notes: string | null;

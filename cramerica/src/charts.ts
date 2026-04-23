@@ -25,13 +25,14 @@ interface DayPoint {
   calories: number | null;
   cardio_min: number;
   pliability_min: number;
+  faith_done: number;
   weight_lbs: number | null;
 }
 
 async function fetchRecentLogs(env: Env, days: number): Promise<DayPoint[]> {
   const rows = await env.DB
     .prepare(
-      `SELECT date, protein_g, calories, cardio_min, pliability_min, weight_lbs
+      `SELECT date, protein_g, calories, cardio_min, pliability_min, faith_done, weight_lbs
        FROM daily_log ORDER BY date DESC LIMIT ?`
     )
     .bind(days)
@@ -76,6 +77,7 @@ export async function dailyAdherenceChart(env: Env, profile: Profile, days = 7):
   const calHit = logs.map((l) => (l.calories != null && l.calories <= profile.calorie_cap ? 1 : 0));
   const cardioHit = logs.map((l) => (l.cardio_min >= profile.cardio_goal_min ? 1 : 0));
   const pliaHit = logs.map((l) => (l.pliability_min >= profile.pliability_goal_min ? 1 : 0));
+  const faithHit = logs.map((l) => (Number(l.faith_done) === 1 ? 1 : 0));
 
   const config = {
     type: "bar",
@@ -86,13 +88,14 @@ export async function dailyAdherenceChart(env: Env, profile: Profile, days = 7):
         { label: "Calories", data: calHit, backgroundColor: "rgba(245, 158, 11, 0.8)" },
         { label: "Cardio", data: cardioHit, backgroundColor: "rgba(59, 130, 246, 0.8)" },
         { label: "Pliability", data: pliaHit, backgroundColor: "rgba(147, 51, 234, 0.8)" },
+        { label: "Faith", data: faithHit, backgroundColor: "rgba(244, 63, 94, 0.8)" },
       ],
     },
     options: {
-      plugins: { title: { display: true, text: "Daily targets hit — last 7 days" } },
+      plugins: { title: { display: true, text: "Daily streak gates hit — last 7 days" } },
       scales: {
         x: { stacked: true },
-        y: { stacked: true, max: 4, ticks: { stepSize: 1 } },
+        y: { stacked: true, max: 5, ticks: { stepSize: 1 } },
       },
     },
   };
@@ -170,7 +173,7 @@ export async function sendStatsPack(env: Env, chatId: number, profile: Profile):
   let sent = 0;
   const adherence = await dailyAdherenceChart(env, profile);
   if (adherence) {
-    await sendPhoto(env, chatId, adherence, "Daily targets hit (of 4) over the last 7 days.");
+    await sendPhoto(env, chatId, adherence, "Streak gates hit (of 5) — last 7 days. Protein / calories / cardio / pliability / faith.");
     sent++;
   }
   const volume = await weeklyVolumeChart(env);

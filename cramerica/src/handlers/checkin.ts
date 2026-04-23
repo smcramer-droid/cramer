@@ -5,11 +5,13 @@ import { chat } from "../claude";
 import {
   appendMessage,
   ensureWeekSessions,
+  getCurrentWeekProgress,
   getDailyLog,
   getProfile,
   getStreak,
   recentMessages,
   recomputeDailyStreak,
+  recomputeWeekStreak,
 } from "../db";
 import { pickRoutineForDate } from "../pliability";
 import { checkinDirective } from "../prompts/checkins";
@@ -38,14 +40,16 @@ export async function fireCheckin(env: Env, slot: Slot, date: string, weekStart:
   await ensureWeekSessions(env, weekStart);
   await ensureWeekProgram(env, weekStart, profile, date);
   await recomputeDailyStreak(env, date, profile);
+  await recomputeWeekStreak(env, date, profile);
 
-  const [log, streak, weekRows] = await Promise.all([
+  const [log, streak, weekRows, weekSoFar] = await Promise.all([
     getDailyLog(env, date),
     getStreak(env),
     env.DB
       .prepare("SELECT letter, completed_date FROM strength_session WHERE week_start=? ORDER BY letter")
       .bind(weekStart)
       .all<{ letter: "A" | "B" | "C"; completed_date: string | null }>(),
+    getCurrentWeekProgress(env, date, weekStart, profile),
   ]);
 
   const routine = pickRoutineForDate(date);
@@ -55,6 +59,19 @@ export async function fireCheckin(env: Env, slot: Slot, date: string, weekStart:
     weeklyStatsBlock = formatWeeklyStatsForPrompt(stats, profile);
   }
 
+  // TRT + peptides: Wed evenings and Sun evenings. The coach should work
+  // it into the check-in naturally; no separate ping.
+  const etDow = new Date(Date.UTC(
+    Number(date.slice(0, 4)),
+    Number(date.slice(5, 7)) - 1,
+    Number(date.slice(8, 10))
+  )).getUTCDay();
+  const isWedEvening = etDow === 3 && slot === "evening";
+  const isSunEvening = etDow === 0 && slot === "sunday_retro";
+  const medReminder = (isWedEvening || isSunEvening)
+    ? "Tonight is a TRT + peptides night. Work it into the check-in — remind him to take them before bed."
+    : null;
+
   const system = buildSystemPrompt({
     profile,
     today: date,
@@ -62,7 +79,9 @@ export async function fireCheckin(env: Env, slot: Slot, date: string, weekStart:
     streak,
     weekSessions: weekRows.results ?? [],
     pliabilityRoutine: `${routine.name}\n${routine.script}`,
+    weekSoFar,
     weeklyStats: weeklyStatsBlock,
+    medReminder,
   });
 
   const history = await recentMessages(env, 16);

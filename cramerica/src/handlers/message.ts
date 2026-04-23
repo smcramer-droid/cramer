@@ -4,12 +4,14 @@ import { chat } from "../claude";
 import {
   appendMessage,
   ensureWeekSessions,
+  getCurrentWeekProgress,
   getDailyLog,
   getProfile,
   getStreak,
   logCardio,
   logPliability,
   logProtein,
+  markFaithDone,
   markMealLogged,
   markStrength,
   recentMessages,
@@ -17,7 +19,7 @@ import {
   setChatId,
   setWeight,
 } from "../db";
-import { handlePendingClarification, handlePhoto } from "../meal";
+import { handlePendingClarification, handlePhoto, handleTextMeal } from "../meal";
 import { pickRoutineForDate } from "../pliability";
 import { buildSystemPrompt } from "../prompts/system";
 import { sendChatAction, sendMessage, type TgMessage } from "../telegram";
@@ -59,14 +61,19 @@ async function parseAndLog(env: Env, text: string, date: string, weekStart: stri
     }
   }
 
-  // Cardio: "30 min cardio", "did 45 minutes on bike", "45m zone 2"
-  const cardioMatch = lower.match(/(\d{1,3})\s*(?:m|min|mins|minutes)\s*(?:of\s+)?(?:cardio|zone\s*2|bike|row|run|walk|ride)/);
-  if (cardioMatch) {
-    const min = Number(cardioMatch[1]);
-    if (min > 0 && min < 240) {
-      await logCardio(env, date, min);
-      logged.push(`cardio ${min}m`);
-    }
+  // Cardio: accept either ordering.
+  //   "30 min cardio" / "45m zone 2" / "20 minutes on bike"   (quantity-first)
+  //   "walked for 30 minutes" / "ran 25 minutes"              (activity-first)
+  const cardioMinutes = (() => {
+    const m1 = lower.match(/(\d{1,3})\s*(?:m|min|mins|minutes)\s*(?:of\s+)?(?:cardio|zone\s*2|bike|row|run|walk|ride|incline|treadmill)/);
+    if (m1) return Number(m1[1]);
+    const m2 = lower.match(/\b(?:walked|ran|biked|cycled|rowed|jogged|hiked)\s+(?:for\s+)?(\d{1,3})\s*(?:m|min|mins|minutes)/);
+    if (m2) return Number(m2[1]);
+    return null;
+  })();
+  if (cardioMinutes !== null && cardioMinutes > 0 && cardioMinutes < 240) {
+    await logCardio(env, date, cardioMinutes);
+    logged.push(`cardio ${cardioMinutes}m`);
   }
 
   // Pliability: "10 min pliability", "pliability done", "did pliability"
@@ -77,6 +84,15 @@ async function parseAndLog(env: Env, text: string, date: string, weekStart: stri
       await logPliability(env, date, min);
       logged.push(`pliability ${min}m`);
     }
+  }
+
+  // Faith: prayer, scripture, devotional, bible study, quiet time. Binary
+  // — any mention of an actual practice flips the flag. Kept conservative
+  // to avoid false positives on casual "prayed for my kid's game" passing
+  // remarks — we require a verb or noun that clearly signals practice.
+  if (/\b(?:prayed|praying|prayer time|scripture|bible study|read (?:the )?bible|devotional|quiet time|God time|faith time|study (?:the )?word)\b/.test(lower)) {
+    await markFaithDone(env, date);
+    logged.push("faith done");
   }
 
   // Strength: "hit session A", "did B today", "strength done"
@@ -152,19 +168,36 @@ export async function handleIncoming(env: Env, msg: TgMessage): Promise<void> {
   await ensureWeekSessions(env, now.weekStart);
 
   const logged = await parseAndLog(env, text, now.date, now.weekStart);
+
+  // Natural-language meal parsing. Skip if the regex already picked up an
+  // explicit macro total — prevents double-logging "200g protein" etc.
+  const regexCaughtMacros = logged.some((l) => /^protein|^calories/.test(l));
+  if (!regexCaughtMacros) {
+    const res = await handleTextMeal(env, text, msg.chat.id, now.date);
+    if (res.status === "logged" && res.summary) {
+      logged.push(`meal: ${res.summary.split("\n")[0]}`);
+    }
+    if (res.status === "asked") {
+      // Clarifying question was already sent — don't also run coaching reply.
+      await appendMessage(env, "user", text);
+      return;
+    }
+  }
+
   await appendMessage(env, "user", text);
 
   // Rebuild context AFTER parsing so the prompt reflects the new values.
   const profile = await getProfile(env);
   if (!profile.chat_id) return;
 
-  const [log, streak, weekRows] = await Promise.all([
+  const [log, streak, weekRows, weekSoFar] = await Promise.all([
     getDailyLog(env, now.date),
     getStreak(env),
     env.DB
       .prepare("SELECT letter, completed_date FROM strength_session WHERE week_start=? ORDER BY letter")
       .bind(now.weekStart)
       .all<{ letter: "A" | "B" | "C"; completed_date: string | null }>(),
+    getCurrentWeekProgress(env, now.date, now.weekStart, profile),
   ]);
 
   const routine = pickRoutineForDate(now.date);
@@ -175,6 +208,7 @@ export async function handleIncoming(env: Env, msg: TgMessage): Promise<void> {
     streak,
     weekSessions: weekRows.results ?? [],
     pliabilityRoutine: `${routine.name}\n${routine.script}`,
+    weekSoFar,
   });
 
   const history = await recentMessages(env, 18);

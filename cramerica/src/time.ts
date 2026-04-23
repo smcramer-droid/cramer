@@ -43,6 +43,13 @@ export function etNow(now: Date = new Date()): EtNow {
   };
 }
 
+export function mondayOfDate(date: string): string {
+  const [y, m, d] = date.split("-").map(Number) as [number, number, number];
+  const t = Date.UTC(y, m - 1, d);
+  const dow = new Date(t).getUTCDay(); // 0=Sun..6=Sat
+  return mondayOf(date, dow);
+}
+
 function mondayOf(date: string, dow: number): string {
   // dow: 0=Sun..6=Sat. Distance back to Monday: (dow+6)%7.
   const back = (dow + 6) % 7;

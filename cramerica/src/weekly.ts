@@ -11,13 +11,14 @@ export interface WeeklyStats {
   calories_hit_days: number;
   cardio_hit_days: number;
   pliability_hit_days: number;
+  faith_hit_days: number;
   avg_protein_g: number | null;
   avg_calories: number | null;
   total_cardio_min: number;
   total_pliability_min: number;
   strength_pairs_closed: number;
   weight_delta_lbs: number | null;  // latest - oldest weigh-in in window
-  adherence_pct: number;            // all 4 targets averaged across 7 days
+  adherence_pct: number;            // all 5 streak gates averaged across days
 }
 
 export async function computeWeeklyStats(env: Env, today: string, profile: Profile, weekStart: string): Promise<WeeklyStats> {
@@ -26,14 +27,14 @@ export async function computeWeeklyStats(env: Env, today: string, profile: Profi
 
   const rows = await env.DB
     .prepare(
-      `SELECT date, protein_g, calories, cardio_min, pliability_min, weight_lbs
+      `SELECT date, protein_g, calories, cardio_min, pliability_min, faith_done, weight_lbs
        FROM daily_log WHERE date >= ? AND date < ? ORDER BY date ASC`
     )
     .bind(start, end)
-    .all<{ date: string; protein_g: number; calories: number | null; cardio_min: number; pliability_min: number; weight_lbs: number | null }>();
+    .all<{ date: string; protein_g: number; calories: number | null; cardio_min: number; pliability_min: number; faith_done: number; weight_lbs: number | null }>();
   const logs = rows.results ?? [];
 
-  let proteinHit = 0, caloriesHit = 0, cardioHit = 0, pliabilityHit = 0;
+  let proteinHit = 0, caloriesHit = 0, cardioHit = 0, pliabilityHit = 0, faithHit = 0;
   let proteinSum = 0, proteinCount = 0;
   let calSum = 0, calCount = 0;
   let cardioTotal = 0, pliabilityTotal = 0;
@@ -44,6 +45,7 @@ export async function computeWeeklyStats(env: Env, today: string, profile: Profi
     if (r.calories != null && r.calories <= profile.calorie_cap) caloriesHit++;
     if (r.cardio_min >= profile.cardio_goal_min) cardioHit++;
     if (r.pliability_min >= profile.pliability_goal_min) pliabilityHit++;
+    if (Number(r.faith_done) === 1) faithHit++;
     if (r.protein_g > 0) { proteinSum += r.protein_g; proteinCount++; }
     if (r.calories != null) { calSum += r.calories; calCount++; }
     cardioTotal += r.cardio_min;
@@ -62,8 +64,8 @@ export async function computeWeeklyStats(env: Env, today: string, profile: Profi
   const pairsClosed = (ssRows.results ?? []).filter((s) => !!s.completed_date).length;
 
   const daysLogged = logs.length;
-  const denom = Math.max(1, daysLogged * 4);
-  const adherence = ((proteinHit + caloriesHit + cardioHit + pliabilityHit) / denom) * 100;
+  const denom = Math.max(1, daysLogged * 5);
+  const adherence = ((proteinHit + caloriesHit + cardioHit + pliabilityHit + faithHit) / denom) * 100;
 
   return {
     window_start: start,
@@ -73,6 +75,7 @@ export async function computeWeeklyStats(env: Env, today: string, profile: Profi
     calories_hit_days: caloriesHit,
     cardio_hit_days: cardioHit,
     pliability_hit_days: pliabilityHit,
+    faith_hit_days: faithHit,
     avg_protein_g: proteinCount > 0 ? Math.round(proteinSum / proteinCount) : null,
     avg_calories: calCount > 0 ? Math.round(calSum / calCount) : null,
     total_cardio_min: cardioTotal,
@@ -90,6 +93,7 @@ export function formatWeeklyStatsForPrompt(s: WeeklyStats, profile: Profile): st
 - Calories ≤${profile.calorie_cap}: ${s.calories_hit_days}/${s.days_logged} days (avg ${s.avg_calories ?? "—"})
 - Cardio ≥${profile.cardio_goal_min}m: ${s.cardio_hit_days}/${s.days_logged} days (total ${s.total_cardio_min}m)
 - Pliability ≥${profile.pliability_goal_min}m: ${s.pliability_hit_days}/${s.days_logged} days (total ${s.total_pliability_min}m)
+- Faith time: ${s.faith_hit_days}/${s.days_logged} days
 - Strength pairs closed this week: ${s.strength_pairs_closed}/3
 - Weight delta: ${s.weight_delta_lbs == null ? "no weigh-ins" : `${s.weight_delta_lbs > 0 ? "+" : ""}${s.weight_delta_lbs} lbs`}
 - Overall adherence: ${s.adherence_pct}%`;
