@@ -2565,8 +2565,8 @@
         if (fsShape === 'full') {
           drawQuad([P(fsX0, g.shelfY0, fsD), P(fsX1, g.shelfY0, fsD), P(fsX1, g.shelfY1, fsD), P(fsX0, g.shelfY1, fsD)]);
           // Risers (front vertical edge from shelf down to fs depth at shelf's x-end boundary)
-          el('path', { d: wobble([P(fsX1, g.shelfY0, fsD), P(fsX1, g.shelfY0, shelfDFtFs)], 0.2, 725 + i), class: 'ink', 'stroke-width': 1.0 }, svg);
-          el('path', { d: wobble([P(fsX1, g.shelfY1, fsD), P(fsX1, g.shelfY1, shelfDFtFs)], 0.2, 726 + i), class: 'ink-soft', 'stroke-width': 0.8, 'stroke-dasharray': '3 3' }, svg);
+          el('path', { d: wobble([P(fsX1, g.shelfY0, fsD), P(fsX1, g.shelfY0, shelfDFtFs)], 0, 725 + i), class: 'ink', 'stroke-width': 1.0 }, svg);
+          el('path', { d: wobble([P(fsX1, g.shelfY1, fsD), P(fsX1, g.shelfY1, shelfDFtFs)], 0, 726 + i), class: 'ink-soft', 'stroke-width': 0.8, 'stroke-dasharray': '3 3' }, svg);
           // Intersection line: first step's riser meets the shelf floor — straight
           // line at shelfDepth along x=fsX1, from shY0 to shY1.
           el('path', { d: wobble([P(fsX1, g.shelfY0, shelfDFtFs), P(fsX1, g.shelfY1, shelfDFtFs)], 0.2, 727 + i), class: 'ink', 'stroke-width': 1.0 }, svg);
@@ -2580,8 +2580,8 @@
               P(fsX0, g.shelfY0 + triLeg, shelfDFtFs),
             ], 0.2, 728 + i), class: 'ink', 'stroke-width': 1.0 }, svg);
             // Short endpoint risers — fsDepth → shelfDepth at each end of the hypotenuse
-            el('path', { d: wobble([P(fsX0 + triLeg, g.shelfY0, fsD), P(fsX0 + triLeg, g.shelfY0, shelfDFtFs)], 0.2, 729 + i), class: 'ink', 'stroke-width': 0.9 }, svg);
-            el('path', { d: wobble([P(fsX0, g.shelfY0 + triLeg, fsD), P(fsX0, g.shelfY0 + triLeg, shelfDFtFs)], 0.2, 730 + i), class: 'ink-soft', 'stroke-width': 0.8, 'stroke-dasharray': '3 3' }, svg);
+            el('path', { d: wobble([P(fsX0 + triLeg, g.shelfY0, fsD), P(fsX0 + triLeg, g.shelfY0, shelfDFtFs)], 0, 729 + i), class: 'ink', 'stroke-width': 0.9 }, svg);
+            el('path', { d: wobble([P(fsX0, g.shelfY0 + triLeg, fsD), P(fsX0, g.shelfY0 + triLeg, shelfDFtFs)], 0, 730 + i), class: 'ink-soft', 'stroke-width': 0.8, 'stroke-dasharray': '3 3' }, svg);
           }
           if (fsShape === 'tri-far' || fsShape === 'tri-both') {
             drawQuad([P(fsX0, g.shelfY1, fsD), P(fsX0 + triLeg, g.shelfY1, fsD), P(fsX0, g.shelfY1 - triLeg, fsD)]);
@@ -2589,8 +2589,8 @@
               P(fsX0 + triLeg, g.shelfY1, shelfDFtFs),
               P(fsX0, g.shelfY1 - triLeg, shelfDFtFs),
             ], 0.2, 731 + i), class: 'ink', 'stroke-width': 1.0 }, svg);
-            el('path', { d: wobble([P(fsX0 + triLeg, g.shelfY1, fsD), P(fsX0 + triLeg, g.shelfY1, shelfDFtFs)], 0.2, 732 + i), class: 'ink', 'stroke-width': 0.9 }, svg);
-            el('path', { d: wobble([P(fsX0, g.shelfY1 - triLeg, fsD), P(fsX0, g.shelfY1 - triLeg, shelfDFtFs)], 0.2, 733 + i), class: 'ink-soft', 'stroke-width': 0.8, 'stroke-dasharray': '3 3' }, svg);
+            el('path', { d: wobble([P(fsX0 + triLeg, g.shelfY1, fsD), P(fsX0 + triLeg, g.shelfY1, shelfDFtFs)], 0, 732 + i), class: 'ink', 'stroke-width': 0.9 }, svg);
+            el('path', { d: wobble([P(fsX0, g.shelfY1 - triLeg, fsD), P(fsX0, g.shelfY1 - triLeg, shelfDFtFs)], 0, 733 + i), class: 'ink-soft', 'stroke-width': 0.8, 'stroke-dasharray': '3 3' }, svg);
           }
         }
       }
@@ -2601,14 +2601,44 @@
       // (shelf→step drop) and between consecutive steps.
       const stL = g.stairsL;
       if (stL && g.isFull) {
-        for (let k = 1; k <= stL.count; k++) {
-          const xFt = start + stL.x0 + (stL.x1 - stL.x0) * (k / stL.count);
-          const prevD = (stL.depFromIn + (stL.depToIn - stL.depFromIn) * ((k-1) / stL.count)) / 12;
-          const thisD = (stL.depFromIn + (stL.depToIn - stL.depFromIn) * (k / stL.count)) / 12;
-          const y0a = stL.y0, y1a = stL.y1;
-          el('path', { d: wobble([P(xFt, y0a, prevD), P(xFt, y0a, thisD)], 0.2, 870+k+i*100), class:'ink', 'stroke-width':0.9 }, svg);
-          el('path', { d: wobble([P(xFt, y1a, prevD), P(xFt, y1a, thisD)], 0.2, 880+k+i*100), class:'ink-soft', 'stroke-width':0.8, 'stroke-dasharray':'3 3' }, svg);
-          el('path', { d: wobble([P(xFt, y0a, thisD), P(xFt, y1a, thisD)], 0.2, 890+k+i*100), class:'ink', 'stroke-width':1.0 }, svg);
+        // Risers sit at the BOUNDARY between adjacent treads, not at the back edge
+        // of each tread. Iterate k=0..count where k is the riser index: riser k is
+        // at x = shX1 + k·treadLen, spans depth[k] (top) to depth[k+1] (bottom).
+        //   k=0 : shelf → step 1 (rise against the shelf)
+        //   k=count : step count → next depth (stairs merge into pool floor; skipped
+        //              when count·rise == delta so no extra line hangs in the water)
+        // Verticals use wobble amp 0 → perfectly straight in iso projection.
+        const y0a = stL.y0, y1a = stL.y1;
+        const lTreadFull = (stL.x1 - stL.x0) / stL.count;
+        const sign = g.descending ? 1 : -1;
+        const depthAt = (k) => {
+          if (k <= 0) return g.shelfDepth / 12;
+          if (k > stL.count) return g.next / 12;
+          return (g.shelfDepth + sign * k * g.rise) / 12;
+        };
+        for (let k = 0; k <= stL.count; k++) {
+          const xFt = start + stL.x0 + k * lTreadFull;
+          const zTop = depthAt(k);
+          const zBot = depthAt(k + 1);
+          // Vertical riser — only when there's a real drop (skip degenerate last step)
+          if (Math.abs(zTop - zBot) > 1e-4) {
+            // Single near-side vertical riser (perfectly straight). Far-side dashed
+            // version used to draw a duplicate vertical in iso — removed so each
+            // riser reads as one clean vertical line.
+            el('path', { d: wobble([P(xFt, y0a, zTop), P(xFt, y0a, zBot)], 0, 870+k+i*100),
+              class: 'ink', 'stroke-width': 0.9 }, svg);
+            // Bottom horizontal = front of next tread (where rise meets run)
+            if (k < stL.count) {
+              el('path', { d: wobble([P(xFt, y0a, zBot), P(xFt, y1a, zBot)], 0.2, 885+k+i*100),
+                class: 'ink', 'stroke-width': 1.0 }, svg);
+            }
+          }
+          // Top horizontal = back edge of current tread (where rise meets run from above)
+          // Skip k=0 (same line as shelf's far edge, drawn by shelf outline)
+          if (k >= 1) {
+            el('path', { d: wobble([P(xFt, y0a, zTop), P(xFt, y1a, zTop)], 0.2, 895+k+i*100),
+              class: 'ink', 'stroke-width': 1.0 }, svg);
+          }
         }
       } else if (stL && !g.isFull) {
         const lTread = (stL.x1 - stL.x0) / stL.count;
@@ -2739,14 +2769,46 @@
         if (g.triNear) drawCorner(stL.y0, +1);
         if (g.triFar)  drawCorner(stL.y1, -1);
       }
-      // Shelf outline at shelf depth
+      // Shelf outline at shelf depth. Clip out the first-step footprint so the
+      // rectangle doesn't render a ghost square across the raised step.
       const sh = g.shelfDepth / 12;
-      el('path', { d: wobbleClosed([
-        P(start + g.shelfX0, g.shelfY0, sh),
-        P(start + g.shelfX1, g.shelfY0, sh),
-        P(start + g.shelfX1, g.shelfY1, sh),
-        P(start + g.shelfX0, g.shelfY1, sh),
-      ], 0.3, 900+i), class:'ink','stroke-width':1.1, fill:'none' }, svg);
+      const shelfX0Abs = start + g.shelfX0;
+      const shelfX1Abs = start + g.shelfX1;
+      const fsActive = g.fsOn && g.fsLen > 0.05;
+      const fsLen = fsActive ? g.fsLen : 0;
+      const fsShape = fsActive ? g.fsShape : null;
+      let shelfOutline2D;
+      if (!fsActive) {
+        shelfOutline2D = [
+          [shelfX0Abs, g.shelfY0], [shelfX1Abs, g.shelfY0],
+          [shelfX1Abs, g.shelfY1], [shelfX0Abs, g.shelfY1],
+        ];
+      } else if (fsShape === 'full') {
+        shelfOutline2D = [
+          [shelfX0Abs + fsLen, g.shelfY0], [shelfX1Abs, g.shelfY0],
+          [shelfX1Abs, g.shelfY1], [shelfX0Abs + fsLen, g.shelfY1],
+        ];
+      } else {
+        const nearCut = (fsShape === 'tri-near' || fsShape === 'tri-both');
+        const farCut  = (fsShape === 'tri-far'  || fsShape === 'tri-both');
+        shelfOutline2D = [];
+        shelfOutline2D.push([nearCut ? shelfX0Abs + fsLen : shelfX0Abs, g.shelfY0]);
+        shelfOutline2D.push([shelfX1Abs, g.shelfY0]);
+        shelfOutline2D.push([shelfX1Abs, g.shelfY1]);
+        if (farCut) {
+          shelfOutline2D.push([shelfX0Abs + fsLen, g.shelfY1]);
+          shelfOutline2D.push([shelfX0Abs, g.shelfY1 - fsLen]);
+        } else {
+          shelfOutline2D.push([shelfX0Abs, g.shelfY1]);
+        }
+        if (nearCut) {
+          shelfOutline2D.push([shelfX0Abs, g.shelfY0 + fsLen]);
+        }
+      }
+      el('path', {
+        d: wobbleClosed(shelfOutline2D.map(([x, y]) => P(x, y, sh)), 0.3, 900+i),
+        class:'ink', 'stroke-width':1.1, fill:'none',
+      }, svg);
     });
 
     // ribs across floor at each section boundary
