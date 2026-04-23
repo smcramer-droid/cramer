@@ -2561,18 +2561,36 @@
           if (filled) el('path', { d, fill: fsColor, 'fill-opacity': 0.85, stroke: 'none' }, svg);
           el('path', { d: wobbleClosed(pts, 0.25, 720 + i * 7), class: 'ink', 'stroke-width': 1.2, fill: 'none' }, svg);
         };
+        const shelfDFtFs = g.shelfDepth / 12;
         if (fsShape === 'full') {
           drawQuad([P(fsX0, g.shelfY0, fsD), P(fsX1, g.shelfY0, fsD), P(fsX1, g.shelfY1, fsD), P(fsX0, g.shelfY1, fsD)]);
           // Risers (front vertical edge from shelf down to fs depth at shelf's x-end boundary)
-          el('path', { d: wobble([P(fsX1, g.shelfY0, fsD), P(fsX1, g.shelfY0, g.shelfDepth / 12)], 0.2, 725 + i), class: 'ink', 'stroke-width': 1.0 }, svg);
-          el('path', { d: wobble([P(fsX1, g.shelfY1, fsD), P(fsX1, g.shelfY1, g.shelfDepth / 12)], 0.2, 726 + i), class: 'ink-soft', 'stroke-width': 0.8, 'stroke-dasharray': '3 3' }, svg);
+          el('path', { d: wobble([P(fsX1, g.shelfY0, fsD), P(fsX1, g.shelfY0, shelfDFtFs)], 0.2, 725 + i), class: 'ink', 'stroke-width': 1.0 }, svg);
+          el('path', { d: wobble([P(fsX1, g.shelfY1, fsD), P(fsX1, g.shelfY1, shelfDFtFs)], 0.2, 726 + i), class: 'ink-soft', 'stroke-width': 0.8, 'stroke-dasharray': '3 3' }, svg);
+          // Intersection line: first step's riser meets the shelf floor — straight
+          // line at shelfDepth along x=fsX1, from shY0 to shY1.
+          el('path', { d: wobble([P(fsX1, g.shelfY0, shelfDFtFs), P(fsX1, g.shelfY1, shelfDFtFs)], 0.2, 727 + i), class: 'ink', 'stroke-width': 1.0 }, svg);
         } else {
           const triLeg = g.fsLen;
           if (fsShape === 'tri-near' || fsShape === 'tri-both') {
             drawQuad([P(fsX0, g.shelfY0, fsD), P(fsX0 + triLeg, g.shelfY0, fsD), P(fsX0, g.shelfY0 + triLeg, fsD)]);
+            // Intersection line at shelf depth along the triangle's hypotenuse
+            el('path', { d: wobble([
+              P(fsX0 + triLeg, g.shelfY0, shelfDFtFs),
+              P(fsX0, g.shelfY0 + triLeg, shelfDFtFs),
+            ], 0.2, 728 + i), class: 'ink', 'stroke-width': 1.0 }, svg);
+            // Short endpoint risers — fsDepth → shelfDepth at each end of the hypotenuse
+            el('path', { d: wobble([P(fsX0 + triLeg, g.shelfY0, fsD), P(fsX0 + triLeg, g.shelfY0, shelfDFtFs)], 0.2, 729 + i), class: 'ink', 'stroke-width': 0.9 }, svg);
+            el('path', { d: wobble([P(fsX0, g.shelfY0 + triLeg, fsD), P(fsX0, g.shelfY0 + triLeg, shelfDFtFs)], 0.2, 730 + i), class: 'ink-soft', 'stroke-width': 0.8, 'stroke-dasharray': '3 3' }, svg);
           }
           if (fsShape === 'tri-far' || fsShape === 'tri-both') {
             drawQuad([P(fsX0, g.shelfY1, fsD), P(fsX0 + triLeg, g.shelfY1, fsD), P(fsX0, g.shelfY1 - triLeg, fsD)]);
+            el('path', { d: wobble([
+              P(fsX0 + triLeg, g.shelfY1, shelfDFtFs),
+              P(fsX0, g.shelfY1 - triLeg, shelfDFtFs),
+            ], 0.2, 731 + i), class: 'ink', 'stroke-width': 1.0 }, svg);
+            el('path', { d: wobble([P(fsX0 + triLeg, g.shelfY1, fsD), P(fsX0 + triLeg, g.shelfY1, shelfDFtFs)], 0.2, 732 + i), class: 'ink', 'stroke-width': 0.9 }, svg);
+            el('path', { d: wobble([P(fsX0, g.shelfY1 - triLeg, fsD), P(fsX0, g.shelfY1 - triLeg, shelfDFtFs)], 0.2, 733 + i), class: 'ink-soft', 'stroke-width': 0.8, 'stroke-dasharray': '3 3' }, svg);
           }
         }
       }
