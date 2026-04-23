@@ -90,7 +90,7 @@ async function parseAndLog(env: Env, text: string, date: string, weekStart: stri
   // — any mention of an actual practice flips the flag. Kept conservative
   // to avoid false positives on casual "prayed for my kid's game" passing
   // remarks — we require a verb or noun that clearly signals practice.
-  if (/\b(?:prayed|praying|prayer time|scripture|bible study|read (?:the )?bible|devotional|quiet time|God time|faith time|study (?:the )?word)\b/.test(lower)) {
+  if (/\b(?:prayed|praying|prayer time|scripture|bible study|read (?:the )?bible|devotional|quiet time|god time|faith time|study (?:the )?word)\b/.test(lower)) {
     await markFaithDone(env, date);
     logged.push("faith done");
   }

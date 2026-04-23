@@ -126,7 +126,10 @@ Strength week (${now.weekStart}): ${pairs}`;
     case "/prayer":
     case "/scripture": {
       const now = etNow();
+      const profile = await getProfile(env);
       await markFaithDone(env, now.date);
+      await recomputeDailyStreak(env, now.date, profile);
+      await recomputeWeekStreak(env, now.date, profile);
       const body = "Faith time logged. ✓";
       await sendMessage(env, chatId, body);
       await appendMessage(env, "assistant", body);
