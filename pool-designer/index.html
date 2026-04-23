@@ -2576,8 +2576,11 @@
           }
         }
       }
-      // Stair tread outlines — 'full' draws explicit risers + tread tops.
-      // Triangular shapes rely on the colored mesh sampling for visual definition.
+      // Stair tread outlines. 'full' draws explicit risers + tread tops across shelf y-range.
+      // Triangular shapes draw sharp-edged filled treads + vertical risers per step:
+      // the colored mesh smears depth across the diagonal boundary, so we overlay
+      // per-step polygons at their true depth and add explicit risers against the shelf
+      // (shelf→step drop) and between consecutive steps.
       const stL = g.stairsL;
       if (stL && g.isFull) {
         for (let k = 1; k <= stL.count; k++) {
@@ -2589,6 +2592,100 @@
           el('path', { d: wobble([P(xFt, y1a, prevD), P(xFt, y1a, thisD)], 0.2, 880+k+i*100), class:'ink-soft', 'stroke-width':0.8, 'stroke-dasharray':'3 3' }, svg);
           el('path', { d: wobble([P(xFt, y0a, thisD), P(xFt, y1a, thisD)], 0.2, 890+k+i*100), class:'ink', 'stroke-width':1.0 }, svg);
         }
+      } else if (stL && !g.isFull) {
+        const lTread = (stL.x1 - stL.x0) / stL.count;
+        const sign = g.descending ? 1 : -1;
+        const maxX = g.lActRun;
+        const maxY = g.shY1 - g.shY0;
+        const shelfDFt = g.shelfDepth / 12;
+        // Build the clipped vertex list on the line dx+dy=diag within [0,maxX]×[0,maxY].
+        const pushOnDiag = (diag) => {
+          if (diag <= 1e-9) return [[0, 0]];
+          const verts = [];
+          const dxHi = Math.min(diag, maxX);
+          const dyAtHi = diag - dxHi;
+          verts.push([dxHi, dyAtHi]);
+          if (diag > maxY + 1e-9) verts.push([diag - maxY, maxY]);
+          const dyHi = Math.min(diag, maxY);
+          const dxAtDyHi = diag - dyHi;
+          const last = verts[verts.length - 1];
+          if (Math.abs(last[0] - dxAtDyHi) > 1e-9 || Math.abs(last[1] - dyHi) > 1e-9) {
+            verts.push([dxAtDyHi, dyHi]);
+          }
+          return verts;
+        };
+        const drawCorner = (anchorYFt, ySign) => {
+          // Paint step 1..count from BACK to FRONT so nearer steps overdraw farther ones.
+          // For descending stairs, the deepest step (count) is nearest the viewer in iso:
+          // paint step count first, work inward toward step 1.
+          for (let k = stL.count; k >= 1; k--) {
+            const zStep = (g.shelfDepth + sign * k * g.rise) / 12;
+            const stepColor = depthColor(g.shelfDepth + sign * k * g.rise);
+            const outer = pushOnDiag(k * lTread);
+            const inner = pushOnDiag((k - 1) * lTread).reverse();
+            const localPts = [...outer, ...inner];
+            const pts3D = localPts.map(([dx, dy]) =>
+              P(start + stL.x0 + dx, anchorYFt + ySign * dy, zStep)
+            );
+            if (pts3D.length >= 3) {
+              const d = `M${pts3D.map(p => `${p[0].toFixed(2)},${p[1].toFixed(2)}`).join('L')}Z`;
+              el('path', { d, fill: stepColor, 'fill-opacity': 0.85, stroke: 'none' }, svg);
+              el('path', { d: wobbleClosed(pts3D, 0.25, 720 + i*7 + k*3),
+                class: 'ink', 'stroke-width': 1.0, fill: 'none' }, svg);
+            }
+          }
+          // Vertical riser walls between consecutive steps (diagonal boundary k*lTread).
+          // Each wall is a vertical quadrilateral: top edge at step k depth, bottom at
+          // step k+1 depth (or water for k=count). Fill the wall with the deeper depth
+          // color so the step stands out against the mesh.
+          for (let k = 1; k <= stL.count; k++) {
+            const zTop = (g.shelfDepth + sign * k * g.rise) / 12;
+            const zBot = (k < stL.count)
+              ? (g.shelfDepth + sign * (k + 1) * g.rise) / 12
+              : g.next / 12;
+            if (Math.abs(zTop - zBot) < 1e-4) continue;
+            const diag = k * lTread;
+            if (diag > maxX + maxY) continue;
+            const dxHi = Math.min(diag, maxX);
+            const dyAtHi = diag - dxHi;
+            const dyHi = Math.min(diag, maxY);
+            const dxAtDyHi = diag - dyHi;
+            const xA = start + stL.x0 + dxHi;
+            const yA = anchorYFt + ySign * dyAtHi;
+            const xB = start + stL.x0 + dxAtDyHi;
+            const yB = anchorYFt + ySign * dyHi;
+            const riserColor = depthColor(g.shelfDepth + sign * (k < stL.count ? k + 1 : stL.count) * g.rise);
+            const wall = [P(xA, yA, zTop), P(xB, yB, zTop), P(xB, yB, zBot), P(xA, yA, zBot)];
+            el('path', {
+              d: `M${wall.map(p => p.map(v => v.toFixed(2)).join(',')).join('L')}Z`,
+              fill: riserColor, 'fill-opacity': 0.75, stroke: 'none',
+            }, svg);
+            el('path', { d: wobbleClosed(wall, 0.2, 880 + k + i*100),
+              class:'ink', 'stroke-width': 0.9, fill:'none' }, svg);
+          }
+          // Shelf-edge riser wall: at x=shX1 the shelf drops to each step's depth.
+          // Paint a vertical quadrilateral per step region (y ∈ [(k-1)tL, k·tL]) from
+          // shelfDepth to step k depth. This is the "rise against the shelf".
+          for (let k = 1; k <= stL.count; k++) {
+            const zStep = (g.shelfDepth + sign * k * g.rise) / 12;
+            const yOffA = (k - 1) * lTread;
+            const yOffB = Math.min(k * lTread, maxY);
+            if (yOffA >= yOffB - 1e-9) continue;
+            const xAt = start + stL.x0;
+            const yA = anchorYFt + ySign * yOffA;
+            const yB = anchorYFt + ySign * yOffB;
+            const color = depthColor(g.shelfDepth + sign * k * g.rise);
+            const wall = [P(xAt, yA, shelfDFt), P(xAt, yB, shelfDFt), P(xAt, yB, zStep), P(xAt, yA, zStep)];
+            el('path', {
+              d: `M${wall.map(p => p.map(v => v.toFixed(2)).join(',')).join('L')}Z`,
+              fill: color, 'fill-opacity': 0.75, stroke: 'none',
+            }, svg);
+            el('path', { d: wobbleClosed(wall, 0.2, 900 + k + i*100),
+              class:'ink', 'stroke-width': 1.0, fill:'none' }, svg);
+          }
+        };
+        if (g.triNear) drawCorner(stL.y0, +1);
+        if (g.triFar)  drawCorner(stL.y1, -1);
       }
       // Shelf outline at shelf depth
       const sh = g.shelfDepth / 12;
