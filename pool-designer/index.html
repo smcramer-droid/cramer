@@ -2653,10 +2653,10 @@
             }
           }
           // Vertical riser walls between consecutive steps (diagonal boundary k*lTread).
-          // Each wall is a vertical quadrilateral: top edge at step k depth, bottom at
-          // step k+1 depth (or water for k=count). Fill only — no outline, since the
-          // endpoint verticals overlap the shelf-edge stair-step outline at x=shX1 and
-          // create duplicate vertical lines at each step boundary.
+          // Fill the wall with the deeper step's color, and draw a vertical outline
+          // where the riser meets the tread at the pool-wall endpoint (y=anchor side).
+          // The shelf-edge endpoint at x=shX1 is already covered by the shelf-edge
+          // stepped polyline, so we skip it here to avoid duplicate verticals.
           for (let k = 1; k <= stL.count; k++) {
             const zTop = (g.shelfDepth + sign * k * g.rise) / 12;
             const zBot = (k < stL.count)
@@ -2679,6 +2679,14 @@
               d: `M${wall.map(p => p.map(v => v.toFixed(2)).join(',')).join('L')}Z`,
               fill: riserColor, 'fill-opacity': 0.75, stroke: 'none',
             }, svg);
+            // Pool-wall endpoint vertical: riser edge on the y=anchor side, where step
+            // k's tread meets step k+1's tread. Only drawn if the endpoint sits on
+            // the pool wall (dyAtHi == 0) — otherwise it's inside the shelf's y-range
+            // and would duplicate the shelf-edge polyline's verticals.
+            if (Math.abs(dyAtHi) < 1e-6) {
+              el('path', { d: wobble([P(xA, yA, zTop), P(xA, yA, zBot)], 0.2, 880 + k + i*100),
+                class:'ink', 'stroke-width': 0.9 }, svg);
+            }
           }
           // Shelf-edge riser wall at x=shX1 where the shelf drops to each step's depth.
           // Paint each step's sub-rectangle so the color bands match the tread depths;
