@@ -989,13 +989,15 @@
   //   entry  - unified entry: optional first step + shelf + shelf→next stairs.
   //            Fields: { length, firstStep:{on,shape,treadLenIn,depthIn},
   //                     shelf:{depthIn,side,widthFt,lengthFt},
-  //                     stairs:{widthOn,lengthOn,treadLenIn} }
+  //                     stairs:{on,shape,treadLenIn} }
+  //            stairs.shape mirrors firstStep.shape ('full'|'tri-near'|'tri-far'|'tri-both').
+  //            Legacy configs with stairs.{widthOn,lengthOn} still load (migrated on read).
   //            Computed depthIn = next section's depthIn (for handoff/stats).
   const DEFAULT_SECTIONS = [
     { id: 1, name: 'Entry',   type: 'entry', length: 8,
       firstStep: { on: true, shape: 'full', treadLenIn: 18, depthIn: 8 },
       shelf:     { depthIn: 16, side: 'full', widthFt: 16, lengthFt: 5 },
-      stairs:    { widthOn: false, lengthOn: true, treadLenIn: 12 },
+      stairs:    { on: true, shape: 'full', treadLenIn: 12 },
     },
     { id: 2, name: 'Shallow', type: 'flat',  depthIn: 42,  length: 12, fitToDesired: false },
     { id: 3, name: 'Slope',   type: 'slope', depthIn: 96,  length: 8 },
@@ -1413,82 +1415,80 @@
           const shH = (g.shelfY1 - g.shelfY0) * widthScale;
           el('rect', { x: shX, y: shY, width: shW, height: shH,
             fill: depthColor(g.shelfDepth), 'fill-opacity': 0.65 }, svg);
-          // 3) stair fills — step-by-step gradient. With wrap, steps are L-shaped bands.
-          const wrap = g.wrap;
-          if (g.stairsW && !wrap) {
-            const stW = g.stairsW;
-            const band = stW.y1 - stW.y0;
-            for (let k = 1; k <= stW.count; k++) {
-              const t0 = (k - 1) / stW.count, t1 = k / stW.count;
-              const yA = stW.axis === 'y+' ? stW.y0 + band * t0 : stW.y1 - band * t1;
-              const yB = stW.axis === 'y+' ? stW.y0 + band * t1 : stW.y1 - band * t0;
-              const d = stW.depFromIn + (stW.depToIn - stW.depFromIn) * (k / stW.count);
-              el('rect', {
-                x: sx + stW.x0 * scale, y: y0 + yA * widthScale,
-                width: (stW.x1 - stW.x0) * scale, height: (yB - yA) * widthScale,
-                fill: depthColor(d), 'fill-opacity': 0.55,
-              }, svg);
-            }
-          }
-          if (g.stairsL && !wrap) {
+          // 3) stair fills — step-by-step gradient.
+          if (g.stairsL) {
             const stL = g.stairsL;
-            const band = stL.x1 - stL.x0;
-            for (let k = 1; k <= stL.count; k++) {
-              const t0 = (k - 1) / stL.count, t1 = k / stL.count;
-              const d = stL.depFromIn + (stL.depToIn - stL.depFromIn) * (k / stL.count);
+            const lTread = (stL.x1 - stL.x0) / stL.count;
+            // Background fill at next depth for the stair band — so triangle
+            // carve-outs read as water (matches the water on either side).
+            if (!g.isFull) {
               el('rect', {
-                x: sx + (stL.x0 + band * t0) * scale, y: y0 + stL.y0 * widthScale,
-                width: band * (t1 - t0) * scale, height: (stL.y1 - stL.y0) * widthScale,
-                fill: depthColor(d), 'fill-opacity': 0.55,
+                x: sx + stL.x0 * scale, y: y0 + stL.y0 * widthScale,
+                width: (stL.x1 - stL.x0) * scale, height: (stL.y1 - stL.y0) * widthScale,
+                fill: depthColor(g.next), 'fill-opacity': 0.45,
               }, svg);
             }
-          }
-          // WRAP: both stairs on, partial shelf. Each step k owns an L-band whose
-          // depth is step k. The corner zone is a count × count grid of cells, and
-          // cell (kx, ky) has depth from step max(kx, ky) — so we paint every cell
-          // (not just the diagonal) to avoid gaps.
-          if (wrap && g.stairsW && g.stairsL) {
-            const stW = g.stairsW, stL = g.stairsL;
-            const ySign  = stW.axis === 'y+' ? 1 : -1;
-            const lTread = (stL.x1 - stL.x0) / stL.count;
-            const wTread = (stW.y1 - stW.y0) / stW.count;
-            const shelfY0Ft = g.shelfY0, shelfY1Ft = g.shelfY1;
-            const shelfX0Px = sx + g.shelfX0 * scale;
-            const shelfX1Px = sx + g.shelfX1 * scale;
-            const cornerYBase = ySign > 0 ? stW.y0 : stW.y1; // inner edge of width stairs
-            // 1) Per-step shelf-side arms (length arm over shelf + width arm over shelf)
             for (let k = 1; k <= stL.count; k++) {
               const d = stL.depFromIn + (stL.depToIn - stL.depFromIn) * (k / stL.count);
               const color = depthColor(d);
-              // Length arm over shelf y-range
-              const lx0 = sx + (stL.x0 + (k - 1) * lTread) * scale;
-              const lx1 = sx + (stL.x0 + k * lTread) * scale;
-              el('rect', { x: lx0, y: y0 + shelfY0Ft * widthScale,
-                width: lx1 - lx0, height: (shelfY1Ft - shelfY0Ft) * widthScale,
-                fill: color, 'fill-opacity': 0.55 }, svg);
-              // Width arm over shelf x-range
-              const wyA = cornerYBase + ySign * (k - 1) * wTread;
-              const wyB = cornerYBase + ySign * k * wTread;
-              const wy0 = y0 + Math.min(wyA, wyB) * widthScale;
-              const wy1 = y0 + Math.max(wyA, wyB) * widthScale;
-              el('rect', { x: shelfX0Px, y: wy0,
-                width: shelfX1Px - shelfX0Px, height: wy1 - wy0,
-                fill: color, 'fill-opacity': 0.55 }, svg);
-            }
-            // 2) Corner zone: paint every (kx, ky) cell with depth = step max(kx, ky)
-            for (let kx = 1; kx <= stL.count; kx++) {
-              for (let ky = 1; ky <= stW.count; ky++) {
-                const k = Math.max(kx, ky);
-                const d = stL.depFromIn + (stL.depToIn - stL.depFromIn) * (k / stL.count);
-                const color = depthColor(d);
-                const cellX0 = sx + (stL.x0 + (kx - 1) * lTread) * scale;
-                const cellX1 = sx + (stL.x0 + kx * lTread) * scale;
-                const yA = cornerYBase + ySign * (ky - 1) * wTread;
-                const yB = cornerYBase + ySign * ky * wTread;
-                const cellY0 = y0 + Math.min(yA, yB) * widthScale;
-                const cellY1 = y0 + Math.max(yA, yB) * widthScale;
-                el('rect', { x: cellX0, y: cellY0, width: cellX1 - cellX0, height: cellY1 - cellY0,
-                  fill: color, 'fill-opacity': 0.55 }, svg);
+              const kOuter = k * lTread, kInner = (k - 1) * lTread;
+              if (g.isFull) {
+                // Vertical band across shelf y-range
+                el('rect', {
+                  x: sx + (stL.x0 + kInner) * scale, y: y0 + stL.y0 * widthScale,
+                  width: lTread * scale, height: (stL.y1 - stL.y0) * widthScale,
+                  fill: color, 'fill-opacity': 0.55,
+                }, svg);
+              } else {
+                // Triangular band(s). Each tread-band is the region between
+                // the two diagonal hypotenuses at diag=(k-1)*tL and diag=k*tL,
+                // clipped to [0, lActRun] × [0, shelfWidth] in local coords.
+                const drawCornerBand = (anchorYFt, ySign) => {
+                  // ySign: +1 for tri-near (triangle grows +y), -1 for tri-far (grows -y)
+                  const pts = [];
+                  const maxX = g.lActRun, maxY = g.shY1 - g.shY0;
+                  // Points on the outer hypotenuse (diag = kOuter), then inner (kInner) reversed.
+                  const pushOnDiag = (diag) => {
+                    // Clip the line dx+dy=diag to rectangle [0, maxX] × [0, maxY].
+                    // We walk from (min(diag, maxX), diag - that) down to
+                    // (diag - min(diag, maxY), min(diag, maxY)), collecting
+                    // corner vertices when the line exits the rectangle.
+                    const verts = [];
+                    // Start at (minDx, diag-minDx) where dx is max possible
+                    const dxHi = Math.min(diag, maxX);
+                    const dyAtHi = diag - dxHi;
+                    verts.push([dxHi, dyAtHi]);
+                    // If the line clips the top edge (dy = maxY), push corner (diag - maxY, maxY)
+                    if (diag > maxY) verts.push([diag - maxY, maxY]);
+                    // End at (min dx, diag-min dx) where dy is max possible
+                    const dyHi = Math.min(diag, maxY);
+                    const dxAtDyHi = diag - dyHi;
+                    // Avoid duplicate of last pushed
+                    if (verts[verts.length - 1][0] !== dxAtDyHi || verts[verts.length - 1][1] !== dyHi) {
+                      verts.push([dxAtDyHi, dyHi]);
+                    }
+                    return verts;
+                  };
+                  const outerVerts = pushOnDiag(kOuter);
+                  const innerVerts = pushOnDiag(kInner).reverse();
+                  // For step 1 the inner diag is 0 → single point at (0,0).
+                  // Build the closed polygon in local (dx, dy) coords.
+                  const localPts = [...outerVerts, ...innerVerts];
+                  // Transform to absolute pixel coords.
+                  const absPts = localPts.map(([dx, dy]) => {
+                    const xFt = stL.x0 + dx;
+                    const yFt = anchorYFt + ySign * dy;
+                    return [sx + xFt * scale, y0 + yFt * widthScale];
+                  });
+                  if (absPts.length >= 3) {
+                    el('polygon', {
+                      points: absPts.map(p => p.join(',')).join(' '),
+                      fill: color, 'fill-opacity': 0.55,
+                    }, svg);
+                  }
+                };
+                if (g.triNear) drawCornerBand(stL.y0, +1);
+                if (g.triFar)  drawCornerBand(stL.y1, -1);
               }
             }
           }
@@ -1614,55 +1614,14 @@
         }, svg);
       }
 
-      const wrap = g.wrap;
-      const stW = g.stairsW, stL = g.stairsL;
-
-      if (wrap && stW && stL) {
-        // Continuous L-shaped tread outlines.
-        // For side='near': inner shelf y is 0..sw; width stairs go +y from sw.
-        //   Step-k boundary L: horizontal at y = sw + k*wTread (x: shX0 .. shX1 + k*lTread)
-        //                      vertical   at x = shX1 + k*lTread (y: 0 .. sw + k*wTread)
-        // For side='far': mirror in y.
-        const wTread = (stW.y1 - stW.y0) / stW.count;
+      const stL = g.stairsL;
+      if (stL) {
         const lTread = (stL.x1 - stL.x0) / stL.count;
-        const ySign = stW.axis === 'y+' ? 1 : -1;
-        const wY0Ft = ySign > 0 ? stW.y0 : stW.y1;     // inner edge of width stairs (== shelf inner y)
-        const shInnerYFt = ySign > 0 ? g.shelfY1 : g.shelfY0; // shelf inner y (where width stairs begin)
-        const shOuterYFt = ySign > 0 ? g.shelfY0 : g.shelfY1; // shelf outer y (pool wall side)
-        // For each step k = 1..count, draw the L outline of step k boundary.
-        for (let k = 1; k <= stL.count; k++) {
-          const xBnd = sx + (g.shelfX1 + k * lTread) * scale;
-          const yBnd = y0 + (shInnerYFt + ySign * k * wTread) * widthScale;
-          const yShelfOuter = y0 + shOuterYFt * widthScale;
-          const xShelfStart = sx + g.shelfX0 * scale;
-          // L: horizontal arm (from shelf x-start, along y=yBnd, to corner) + vertical arm (down/up to shelf outer y)
-          el('path', {
-            d: wobble([[xShelfStart, yBnd],[xBnd, yBnd],[xBnd, yShelfOuter]], 0.3, 770 + k),
-            class: 'ink', 'stroke-width': k === stL.count ? 1.3 : 1.0, fill: 'none',
-          }, svg);
-        }
-        // Outer outline of the L stair zone (k = count): same as above's last L, already drawn at heavier weight.
-      } else {
-        // No wrap — draw width and length tread lines independently
-        if (stW) {
-          const bx0 = sx + stW.x0 * scale, bx1 = sx + stW.x1 * scale;
-          for (let k = 1; k < stW.count; k++) {
-            const yFt = stW.axis === 'y+'
-              ? stW.y0 + (stW.y1 - stW.y0) * (k / stW.count)
-              : stW.y1 - (stW.y1 - stW.y0) * (k / stW.count);
-            const yPx = y0 + yFt * widthScale;
-            el('path', { d: wobble([[bx0 + 2, yPx],[bx1 - 2, yPx]], 0.3, 760 + k),
-              class: 'ink-soft', 'stroke-width': 0.9 }, svg);
-          }
-          el('path', { d: wobbleClosed([
-              [bx0, y0 + stW.y0 * widthScale],[bx1, y0 + stW.y0 * widthScale],
-              [bx1, y0 + stW.y1 * widthScale],[bx0, y0 + stW.y1 * widthScale]
-            ], 0.3, 755), class:'ink','stroke-width':1.2, fill:'none' }, svg);
-        }
-        if (stL) {
-          const by0 = y0 + stL.y0 * widthScale, by1 = y0 + stL.y1 * widthScale;
+        const by0 = y0 + stL.y0 * widthScale, by1 = y0 + stL.y1 * widthScale;
+        if (g.isFull) {
+          // Vertical tread lines across full shelf y-range
           for (let k = 1; k < stL.count; k++) {
-            const xFt = stL.x0 + (stL.x1 - stL.x0) * (k / stL.count);
+            const xFt = stL.x0 + lTread * k;
             const xPx = sx + xFt * scale;
             el('path', { d: wobble([[xPx, by0 + 2],[xPx, by1 - 2]], 0.3, 770 + k),
               class: 'ink-soft', 'stroke-width': 0.9 }, svg);
@@ -1671,6 +1630,51 @@
               [sx + stL.x0 * scale, by0],[sx + stL.x1 * scale, by0],
               [sx + stL.x1 * scale, by1],[sx + stL.x0 * scale, by1]
             ], 0.3, 775), class:'ink','stroke-width':1.2, fill:'none' }, svg);
+        } else {
+          // Triangular stair outlines — diagonal tread lines + triangle boundary.
+          const maxX = g.lActRun, maxY = g.shY1 - g.shY0;
+          // Collect polyline for a diagonal at a given diag distance, clipped to the rectangle.
+          const clipDiagPolyline = (diag) => {
+            // Line dx+dy=diag, dx in [0, maxX], dy in [0, maxY]. Returns [[dx,dy],...] or null.
+            if (diag <= 0 || diag > maxX + maxY) return null;
+            const dxHi = Math.min(diag, maxX);
+            const dyAtHi = diag - dxHi;
+            const dyHi = Math.min(diag, maxY);
+            const dxAtDyHi = diag - dyHi;
+            if (dxHi < dxAtDyHi - 1e-9) return null;
+            return [[dxHi, dyAtHi], [dxAtDyHi, dyHi]];
+          };
+          const drawCornerOutlines = (anchorYFt, ySign) => {
+            // Inner tread lines (between treads): diag = k*lTread for k=1..count-1
+            for (let k = 1; k < stL.count; k++) {
+              const line = clipDiagPolyline(k * lTread);
+              if (!line) continue;
+              const pts = line.map(([dx, dy]) => [
+                sx + (stL.x0 + dx) * scale,
+                y0 + (anchorYFt + ySign * dy) * widthScale,
+              ]);
+              el('path', { d: wobble(pts, 0.3, 770 + k),
+                class: 'ink-soft', 'stroke-width': 0.9 }, svg);
+            }
+            // Triangle outline: 2 legs + hypotenuse
+            const outer = clipDiagPolyline(stL.count * lTread);
+            if (!outer) return;
+            const polygon = [[0, 0], outer[0], outer[1]].filter((p, i, arr) => {
+              if (i === 0) return true;
+              const prev = arr[i - 1];
+              return !(Math.abs(p[0] - prev[0]) < 1e-9 && Math.abs(p[1] - prev[1]) < 1e-9);
+            });
+            const pts = polygon.map(([dx, dy]) => [
+              sx + (stL.x0 + dx) * scale,
+              y0 + (anchorYFt + ySign * dy) * widthScale,
+            ]);
+            if (pts.length >= 3) {
+              el('path', { d: wobbleClosed(pts, 0.3, 775),
+                class:'ink', 'stroke-width':1.2, fill:'none' }, svg);
+            }
+          };
+          if (g.triNear) drawCornerOutlines(stL.y0, +1);
+          if (g.triFar)  drawCornerOutlines(stL.y1, -1);
         }
       }
     });
@@ -2053,24 +2057,53 @@
           floorPts.push([px(shX1Ft), py(shelfDepthFt)]);
         }
 
-        // 3) Stair treads: only when lengthOn (vertical-plane visible) and cut sits within shelf y-range
-        if (g.lengthOn && inShelfY && g.count > 0) {
+        // 3) Stair treads: when stairs on + cut intersects a stair zone.
+        //    For 'full' shape the stair columns span shelf y-range (vertical stripes).
+        //    For tri-* shapes the tread boundaries are diagonals — so at a given cut y
+        //    the x-position where each step starts shifts by the y-offset from the triangle's corner.
+        if (g.stOn && inShelfY && g.count > 0) {
           const tread = g.treadLen;
           const shelfD = g.shelfDepth;
           const sign = g.descending ? 1 : -1;
-          let curX = shX1Ft;
-          for (let k = 1; k <= g.count; k++) {
-            const stepEndX = Math.min(length, curX + tread);
-            const stepDepthFt = (shelfD + sign * k * g.rise) / 12;
-            // vertical riser at curX down to stepDepth
-            floorPts.push([px(curX), py(stepDepthFt)]);
-            // horizontal tread at stepDepth
-            floorPts.push([px(stepEndX), py(stepDepthFt)]);
-            curX = stepEndX;
+          const stairEndX = Math.min(length, shX1Ft + g.count * tread);
+          // Collect x-breakpoints where depth transitions along this cut
+          const bpSet = new Set([shX1Ft, stairEndX]);
+          if (g.isFull) {
+            for (let k = 1; k < g.count; k++) bpSet.add(shX1Ft + k * tread);
+          } else {
+            // Triangular: step k boundary is at diag = k*tread from the triangle's corner.
+            // At this cut y, that translates to xOff = k*tread - yOff (clamped to [0, run]).
+            const run = g.count * tread;
+            const push = (yOffsetFt) => {
+              if (yOffsetFt < -1e-9 || yOffsetFt > run + 1e-9) return;
+              for (let k = 0; k <= g.count; k++) {
+                const xOff = k * tread - yOffsetFt;
+                if (xOff > -1e-9 && xOff <= run + 1e-9) bpSet.add(shX1Ft + Math.max(0, xOff));
+              }
+            };
+            if (g.triNear) push(cutY - g.shY0);
+            if (g.triFar)  push(g.shY1 - cutY);
+          }
+          const bps = [...bpSet].sort((a, b) => a - b).filter(x => x >= shX1Ft - 1e-9 && x <= stairEndX + 1e-9);
+          // Build piecewise profile
+          let lastDepthFt = shelfDepthFt;
+          for (let i = 1; i < bps.length; i++) {
+            const mid = (bps[i - 1] + bps[i]) / 2;
+            const dIn = entryDepthAt(s, mid, cutY, prevCut, nextD);
+            const dFtLocal = dIn / 12;
+            if (Math.abs(dFtLocal - lastDepthFt) > 1e-4) {
+              // vertical riser at bp[i-1]
+              floorPts.push([px(bps[i - 1]), py(lastDepthFt)]);
+              floorPts.push([px(bps[i - 1]), py(dFtLocal)]);
+            }
+            floorPts.push([px(bps[i]), py(dFtLocal)]);
+            lastDepthFt = dFtLocal;
           }
           // extend flat at nextFt to section end if any room left
-          if (curX < length - 1e-6) {
-            floorPts.push([px(curX), py(nextFt)]);
+          if (stairEndX < length - 1e-6) {
+            if (Math.abs(lastDepthFt - nextFt) > 1e-4) {
+              floorPts.push([px(stairEndX), py(nextFt)]);
+            }
             floorPts.push([px(length), py(nextFt)]);
           }
         } else {
@@ -2543,62 +2576,18 @@
           }
         }
       }
-      // Stair tread outlines — when both stairs on (wrap), draw continuous L tread edges.
-      // Otherwise draw width and length tread edges independently.
-      const stW = g.stairsW, stL = g.stairsL;
-      if (g.wrap && stW && stL) {
-        const wTread = (stW.y1 - stW.y0) / stW.count;
-        const lTread = (stL.x1 - stL.x0) / stL.count;
-        const ySign = stW.axis === 'y+' ? 1 : -1;
-        const shInnerYFt = ySign > 0 ? g.shelfY1 : g.shelfY0;
-        const shOuterYFt = ySign > 0 ? g.shelfY0 : g.shelfY1;
+      // Stair tread outlines — 'full' draws explicit risers + tread tops.
+      // Triangular shapes rely on the colored mesh sampling for visual definition.
+      const stL = g.stairsL;
+      if (stL && g.isFull) {
         for (let k = 1; k <= stL.count; k++) {
-          const d = (g.shelfDepth + (g.descending ? 1 : -1) * k * g.rise) / 12;
-          const dPrev = (g.shelfDepth + (g.descending ? 1 : -1) * (k - 1) * g.rise) / 12;
-          const xBnd = start + g.shelfX1 + k * lTread;
-          const yBnd = shInnerYFt + ySign * k * wTread;
-          // Continuous L tread edge at depth d:
-          //   horizontal arm: x ∈ [shelfX0 .. xBnd], y = yBnd
-          //   vertical arm:   x = xBnd, y ∈ [yBnd .. shOuterYFt]
-          const xShelfStart = start + g.shelfX0;
-          const lWeight = k === stL.count ? 1.4 : 1.1;
-          el('path', { d: wobble([
-              P(xShelfStart, yBnd, d), P(xBnd, yBnd, d), P(xBnd, shOuterYFt, d)
-            ], 0.2, 830 + k + i*100), class:'ink', 'stroke-width': lWeight, fill:'none' }, svg);
-          // Risers: vertical drop from prev tread to this tread, along the same L
-          el('path', { d: wobble([
-              P(xShelfStart, yBnd, dPrev), P(xBnd, yBnd, dPrev), P(xBnd, shOuterYFt, dPrev)
-            ], 0.2, 840 + k + i*100), class:'ink-soft', 'stroke-width': 0.7, fill:'none' }, svg);
-          // Front-edge risers: short vertical at endpoints
-          el('path', { d: wobble([P(xBnd, shOuterYFt, dPrev), P(xBnd, shOuterYFt, d)], 0.2, 850 + k + i*100),
-            class:'ink', 'stroke-width':0.9 }, svg);
-          el('path', { d: wobble([P(xShelfStart, yBnd, dPrev), P(xShelfStart, yBnd, d)], 0.2, 860 + k + i*100),
-            class:'ink-soft', 'stroke-width':0.8, 'stroke-dasharray':'3 3' }, svg);
-        }
-      } else {
-        if (stW) {
-          for (let k = 1; k <= stW.count; k++) {
-            const yFt = stW.axis === 'y+'
-              ? stW.y0 + (stW.y1 - stW.y0) * (k / stW.count)
-              : stW.y1 - (stW.y1 - stW.y0) * (k / stW.count);
-            const prevD = (stW.depFromIn + (stW.depToIn - stW.depFromIn) * ((k-1) / stW.count)) / 12;
-            const thisD = (stW.depFromIn + (stW.depToIn - stW.depFromIn) * (k / stW.count)) / 12;
-            const x0a = start + stW.x0, x1a = start + stW.x1;
-            el('path', { d: wobble([P(x0a, yFt, prevD), P(x0a, yFt, thisD)], 0.2, 830+k+i*100), class:'ink', 'stroke-width':0.9 }, svg);
-            el('path', { d: wobble([P(x1a, yFt, prevD), P(x1a, yFt, thisD)], 0.2, 840+k+i*100), class:'ink-soft', 'stroke-width':0.8, 'stroke-dasharray':'3 3' }, svg);
-            el('path', { d: wobble([P(x0a, yFt, thisD), P(x1a, yFt, thisD)], 0.2, 850+k+i*100), class:'ink', 'stroke-width':1.0 }, svg);
-          }
-        }
-        if (stL) {
-          for (let k = 1; k <= stL.count; k++) {
-            const xFt = start + stL.x0 + (stL.x1 - stL.x0) * (k / stL.count);
-            const prevD = (stL.depFromIn + (stL.depToIn - stL.depFromIn) * ((k-1) / stL.count)) / 12;
-            const thisD = (stL.depFromIn + (stL.depToIn - stL.depFromIn) * (k / stL.count)) / 12;
-            const y0a = stL.y0, y1a = stL.y1;
-            el('path', { d: wobble([P(xFt, y0a, prevD), P(xFt, y0a, thisD)], 0.2, 870+k+i*100), class:'ink', 'stroke-width':0.9 }, svg);
-            el('path', { d: wobble([P(xFt, y1a, prevD), P(xFt, y1a, thisD)], 0.2, 880+k+i*100), class:'ink-soft', 'stroke-width':0.8, 'stroke-dasharray':'3 3' }, svg);
-            el('path', { d: wobble([P(xFt, y0a, thisD), P(xFt, y1a, thisD)], 0.2, 890+k+i*100), class:'ink', 'stroke-width':1.0 }, svg);
-          }
+          const xFt = start + stL.x0 + (stL.x1 - stL.x0) * (k / stL.count);
+          const prevD = (stL.depFromIn + (stL.depToIn - stL.depFromIn) * ((k-1) / stL.count)) / 12;
+          const thisD = (stL.depFromIn + (stL.depToIn - stL.depFromIn) * (k / stL.count)) / 12;
+          const y0a = stL.y0, y1a = stL.y1;
+          el('path', { d: wobble([P(xFt, y0a, prevD), P(xFt, y0a, thisD)], 0.2, 870+k+i*100), class:'ink', 'stroke-width':0.9 }, svg);
+          el('path', { d: wobble([P(xFt, y1a, prevD), P(xFt, y1a, thisD)], 0.2, 880+k+i*100), class:'ink-soft', 'stroke-width':0.8, 'stroke-dasharray':'3 3' }, svg);
+          el('path', { d: wobble([P(xFt, y0a, thisD), P(xFt, y1a, thisD)], 0.2, 890+k+i*100), class:'ink', 'stroke-width':1.0 }, svg);
         }
       }
       // Shelf outline at shelf depth
@@ -2998,12 +2987,12 @@
     { name: 'Entry',   type: 'entry', length: 8,
       firstStep: { on: true, shape: 'full', treadLenIn: 18, depthIn: 8 },
       shelf:     { depthIn: 16, side: 'full', widthFt: 16, lengthFt: 5 },
-      stairs:    { widthOn: false, lengthOn: true, treadLenIn: 12 },
+      stairs:    { on: true, shape: 'full', treadLenIn: 12 },
     },
     { name: 'Entry · Baja', type: 'entry', length: 8,
       firstStep: { on: true, shape: 'tri-near', treadLenIn: 18, depthIn: 8 },
       shelf:     { depthIn: 12, side: 'near', widthFt: 8, lengthFt: 6 },
-      stairs:    { widthOn: true, lengthOn: true, treadLenIn: 12 },
+      stairs:    { on: true, shape: 'tri-near', treadLenIn: 12 },
     },
     { name: 'Shallow', type: 'flat',  depthIn: 42,  length: 10, fitToDesired: false },
     { name: 'Slope',   type: 'slope', depthIn: 72,  length: 6 },
@@ -3040,12 +3029,21 @@
   // Shelf is anchored to the pool wall (x=0). First step is an OVERLAY inside the
   // shelf's start-X corner — it does NOT add to section length.
   // Length = shelf length + length-stairs run.
+  // Normalize stairs config so old (lengthOn/widthOn) and new (on/shape) both work.
+  // Returns { on, shape, treadLenIn } with defaults applied.
+  function stairsConfig(s) {
+    const st = (s && s.stairs) || {};
+    const on = (st.on !== undefined) ? !!st.on : !!(st.lengthOn || st.widthOn);
+    const shape = st.shape || 'full';
+    return { on, shape, treadLenIn: +st.treadLenIn || 12 };
+  }
+
   function entryLengthFt(s) {
     const sh = s.shelf || {};
-    const st = s.stairs || {};
+    const sc = stairsConfig(s);
     const shelfLen = Math.max(0, +sh.lengthFt || 0);
     let stairLen = 0;
-    if (st.lengthOn) {
+    if (sc.on) {
       const idx = state.sections.indexOf(s);
       const nxt = state.sections[idx + 1];
       const nextD = nxt ? (+nxt.depthIn || 0) : (+sh.depthIn || 0);
@@ -3058,7 +3056,7 @@
         if (testRise < 8 && count > 1) count = Math.max(1, Math.floor(delta / 8));
         count = Math.max(1, count);
       }
-      stairLen = count * ((+st.treadLenIn || 12) / 12);
+      stairLen = count * (sc.treadLenIn / 12);
     }
     return Math.max(0.25, shelfLen + stairLen);
   }
@@ -3125,18 +3123,25 @@
     const fsLen = fsOn ? Math.min(shelfLength, Math.max(0, (+fs.treadLenIn || 18) / 12)) : 0;
 
     // --- Stairs (shelf → next) ---
-    const st = s.stairs || { widthOn: false, lengthOn: true, treadLenIn: 12 };
-    // Width-side stairs are impossible if shelf spans full width
-    const widthOn = !!st.widthOn && shelfSide !== 'full' && shelfWidth > 0 && shelfWidth < W;
-    const lengthOn = !!st.lengthOn && shX1 < L;
-    const treadLen = (+st.treadLenIn || 12) / 12;  // ft
-    const wrap = widthOn && lengthOn;
+    const sc = stairsConfig(s);
+    const stOn = sc.on && shX1 < L;
+    const stShape = sc.shape;
+    const treadLen = sc.treadLenIn / 12;  // ft
+    // For shape-aware rendering. 'full' = rectangular band across shelf y-range (legacy lengthOn).
+    // 'tri-near' | 'tri-far' | 'tri-both' = right triangle(s) at the shelf→next corner(s).
+    const triNear = stOn && (stShape === 'tri-near' || stShape === 'tri-both');
+    const triFar  = stOn && (stShape === 'tri-far'  || stShape === 'tri-both');
+    const isFull  = stOn && stShape === 'full';
+    // Back-compat derived fields for legacy renderers
+    const lengthOn = stOn;
+    const widthOn = false;
+    const wrap = false;
 
     // Depth delta shelf→next
     const delta = Math.abs(next - shelfDepth);
     // auto count aiming for rise in [8..12]"
     let count = 0, rise = 0;
-    if ((widthOn || lengthOn) && delta > 0.25) {
+    if (stOn && delta > 0.25) {
       count = Math.max(1, Math.round(delta / 10));
       // clamp if needed
       const testRise = delta / count;
@@ -3147,18 +3152,14 @@
     }
     const descending = next > shelfDepth;
 
-    // Width-side band: outward from shelf inner edge (y-direction)
-    // For side='near', shelf y:[0..sw], outward is +y. For side='far', outward is -y.
-    const widthDir = shelfSide === 'near' ? +1 : -1;  // sign
-    const wStartY = shelfSide === 'near' ? shY1 : shY0;  // inner edge of shelf
-    const wRun = widthOn ? count * treadLen : 0;
-    const wRoomFt = shelfSide === 'near' ? (W - shY1) : shY0;
-    const wActRun = Math.min(wRun, wRoomFt);
-
     // Length-side band: outward from shelf end (+x)
-    const lRun = lengthOn ? count * treadLen : 0;
+    const lRun = stOn ? count * treadLen : 0;
     const lRoomFt = L - shX1;
     const lActRun = Math.min(lRun, lRoomFt);
+    // Unused (widthOn removed); kept for legacy call sites.
+    const wActRun = 0;
+    const widthDir = shelfSide === 'near' ? +1 : -1;
+    const wStartY = shelfSide === 'near' ? shY1 : shY0;
 
     return {
       L, W, fsOn, fsLen, fsDepth, fsShape,
@@ -3166,6 +3167,7 @@
       shX0, shX1, shY0, shY1,
       next,
       widthOn, lengthOn, wrap, count, rise, treadLen,
+      stShape, stOn, triNear, triFar, isFull,
       widthDir, wStartY, wActRun,
       lActRun,
       descending,
@@ -3174,15 +3176,8 @@
       shelfX0: shX0, shelfX1: shX1, shelfY0: shY0, shelfY1: shY1,
       waterDepth: +nextDepthIn || shelfDepth,
       nextDepth: +nextDepthIn || shelfDepth,
-      stairsW: widthOn && count > 0 ? {
-        x0: shX0, x1: shX1,
-        y0: shelfSide === 'near' ? shY1 : shY0 - wActRun,
-        y1: shelfSide === 'near' ? shY1 + wActRun : shY0,
-        depFromIn: shelfDepth, depToIn: shelfDepth + (descending ? 1 : -1) * count * rise,
-        count, treadRise: rise, treadLen: treadLen * 12,
-        axis: shelfSide === 'near' ? 'y+' : 'y-',
-      } : null,
-      stairsL: lengthOn && count > 0 ? {
+      stairsW: null,
+      stairsL: stOn && count > 0 ? {
         x0: shX1, x1: shX1 + lActRun,
         y0: shY0, y1: shY1,
         depFromIn: shelfDepth, depToIn: shelfDepth + (descending ? 1 : -1) * count * rise,
@@ -3217,48 +3212,38 @@
 
     if (inShelfX && inShelfY) return g.shelfDepth;
 
-    // 3) Stair zones (after shelf ends along length, or outside shelf along width)
-    // Determine step index k for this point (1..count). If not in a stair zone, return next depth.
+    // 3) Stair zone (x in [shX1, shX1+lActRun], y in [shY0, shY1])
+    // Shape determines the active sub-region and how step index is computed.
     if (!g.count) return g.next;
 
-    // Define zones
-    // Width-side zone: x∈[shX0, shX1], y outside shelf on the outward side, within wActRun.
     let stepK = 0;
-    if (g.widthOn && inShelfX) {
-      if (g.shelfSide === 'near') {
-        const yOff = yFt - g.shY1;
-        if (yOff > -1e-9 && yOff <= g.wActRun + 1e-9) {
-          stepK = Math.max(stepK, Math.min(g.count, Math.ceil((yOff / g.treadLen) - 1e-9) || 1));
+    const xOff = xFt - g.shX1;
+    const inStairX = xOff > -1e-9 && xOff <= g.lActRun + 1e-9;
+    const inStairY = yFt >= g.shY0 - 1e-9 && yFt <= g.shY1 + 1e-9;
+
+    if (inStairX && inStairY) {
+      if (g.isFull) {
+        // Rectangular full stairs — step by x position only
+        stepK = Math.max(1, Math.min(g.count, Math.ceil((xOff / g.treadLen) - 1e-9) || 1));
+      } else {
+        // Triangular stairs at corner(s). Corner anchored at shelf→next edge.
+        // tri-near corner = (shX1, shY0); tri-far corner = (shX1, shY1).
+        // Step k band: (k-1)*treadLen < (xOff + sideOff) <= k*treadLen, where
+        // sideOff is the y-distance from the triangle's anchored edge.
+        if (g.triNear) {
+          const yOff = yFt - g.shY0;
+          const diag = xOff + yOff;
+          if (yOff > -1e-9 && diag <= g.lActRun + 1e-9) {
+            stepK = Math.max(stepK, Math.min(g.count, Math.ceil((diag / g.treadLen) - 1e-9) || 1));
+          }
         }
-      } else if (g.shelfSide === 'far') {
-        const yOff = g.shY0 - yFt;
-        if (yOff > -1e-9 && yOff <= g.wActRun + 1e-9) {
-          stepK = Math.max(stepK, Math.min(g.count, Math.ceil((yOff / g.treadLen) - 1e-9) || 1));
+        if (g.triFar) {
+          const yOff = g.shY1 - yFt;
+          const diag = xOff + yOff;
+          if (yOff > -1e-9 && diag <= g.lActRun + 1e-9) {
+            stepK = Math.max(stepK, Math.min(g.count, Math.ceil((diag / g.treadLen) - 1e-9) || 1));
+          }
         }
-      }
-    }
-    // Length-side zone: x∈[shX1, shX1+lActRun], y∈[shY0, shY1]
-    if (g.lengthOn && yFt >= g.shY0 - 1e-9 && yFt <= g.shY1 + 1e-9) {
-      const xOff = xFt - g.shX1;
-      if (xOff > -1e-9 && xOff <= g.lActRun + 1e-9) {
-        stepK = Math.max(stepK, Math.min(g.count, Math.ceil((xOff / g.treadLen) - 1e-9) || 1));
-      }
-    }
-    // Wrap corner: x∈[shX1, shX1+lActRun], y in width-side band. Step index = max of the two coords
-    if (g.wrap) {
-      const xOff = xFt - g.shX1;
-      let yOff = 0, inY = false;
-      if (g.shelfSide === 'near') {
-        yOff = yFt - g.shY1;
-        inY = yOff > -1e-9 && yOff <= g.wActRun + 1e-9;
-      } else if (g.shelfSide === 'far') {
-        yOff = g.shY0 - yFt;
-        inY = yOff > -1e-9 && yOff <= g.wActRun + 1e-9;
-      }
-      if (inY && xOff > -1e-9 && xOff <= g.lActRun + 1e-9) {
-        const kx = Math.max(1, Math.min(g.count, Math.ceil((xOff / g.treadLen) - 1e-9)));
-        const ky = Math.max(1, Math.min(g.count, Math.ceil((yOff / g.treadLen) - 1e-9)));
-        stepK = Math.max(stepK, Math.max(kx, ky));
       }
     }
 
@@ -3300,9 +3285,16 @@
         // Normalize new-shape fields with defaults
         const fs = s.firstStep = s.firstStep || { on: true, shape: 'full', treadLenIn: 18, depthIn: 8 };
         const sh = s.shelf = s.shelf || { depthIn: 16, side: 'full', widthFt: state.width, lengthFt: Math.min(5, +s.length || 5) };
-        const st = s.stairs = s.stairs || { widthOn: false, lengthOn: true, treadLenIn: 12 };
+        const st = s.stairs = s.stairs || { on: true, shape: 'full', treadLenIn: 12 };
+        // Migrate legacy stairs (widthOn/lengthOn) to new model (on/shape) once.
+        if (st.on === undefined) {
+          st.on = !!(st.lengthOn || st.widthOn);
+          st.shape = st.shape || 'full';
+          delete st.lengthOn; delete st.widthOn;
+        }
         const sideBtn = (v, label) => `<button data-side="${v}" class="${sh.side===v?'on':''}">${label}</button>`;
         const shapeBtn = (v, label, title) => `<button data-shape="${v}" class="${fs.shape===v?'on':''}" title="${title}">${label}</button>`;
+        const stShapeBtn = (v, label, title) => `<button data-ststair-shape="${v}" class="${st.shape===v?'on':''}" title="${title}">${label}</button>`;
         inputsHTML = `
           <div class="entry-panel">
             <div class="entry-row">
@@ -3330,11 +3322,15 @@
             </div>
 
             <div class="entry-row">
+              <button class="entry-toggle ${st.on?'on':''}" data-ststair="toggle" title="Toggle stairs to next"></button>
               <span class="entry-label">Stairs to next</span>
-              <label class="entry-check"><input type="checkbox" class="st-length" ${st.lengthOn?'checked':''}/>along</label>
-              <label class="entry-check"><input type="checkbox" class="st-width" ${st.widthOn?'checked':''} ${sh.side==='full'?'disabled':''}/>across</label>
-              <label style="margin-left:auto" class="entry-inputs-inline">tread<input type="number" class="st-tread" min="6" max="24" step="0.5" value="${+st.treadLenIn || 12}"/><em>in</em></label>
+              ${st.on ? `<div class="baja-side-seg" style="margin-left:auto">
+                ${stShapeBtn('full','▬','Full width')}${stShapeBtn('tri-near','◣','Triangle · near')}${stShapeBtn('tri-far','◤','Triangle · far')}${stShapeBtn('tri-both','◢◣','Triangle · both')}
+              </div>` : ''}
             </div>
+            ${st.on ? `<div class="entry-row entry-inputs">
+              <label>stair width<input type="number" class="st-tread" min="6" max="24" step="0.5" value="${+st.treadLenIn || 12}"/><em>in</em></label>
+            </div>` : ''}
             <div class="entry-row" style="justify-content:flex-end; border-top:1px dashed var(--ink-faint); padding-top:6px; margin-top:2px;">
               <span class="entry-label" style="opacity:.7">Derived length</span>
               <span class="entry-derived-len" data-sid="${s.id}" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink);margin-left:auto">${entryLengthFt(s).toFixed(2)} ft</span>
@@ -3386,7 +3382,7 @@
           if (newType === 'entry' && s.type !== 'entry') {
             s.firstStep = s.firstStep || { on: true, shape: 'full', treadLenIn: 18, depthIn: 8 };
             s.shelf     = s.shelf     || { depthIn: 16, side: 'full', widthFt: state.width, lengthFt: Math.min(5, +s.length || 5) };
-            s.stairs    = s.stairs    || { widthOn: false, lengthOn: true, treadLenIn: 12 };
+            s.stairs    = s.stairs    || { on: true, shape: 'full', treadLenIn: 12 };
             s.length    = +s.length   || 8;
           }
           s.type = newType;
@@ -3419,20 +3415,19 @@
       row.querySelectorAll('[data-side]').forEach(b => {
         b.addEventListener('click', () => {
           s.shelf.side = b.dataset.side;
-          // If switching to 'full', force width to full and disable width-stairs
           if (s.shelf.side === 'full') {
             s.shelf.widthFt = state.width;
-            if (s.stairs) s.stairs.widthOn = false;
           } else if (!s.shelf.widthFt || s.shelf.widthFt >= state.width) {
             s.shelf.widthFt = Math.min(6, state.width * 0.5);
           }
           renderSectionEditor(); scheduleRender();
         });
       });
-      const stLength = row.querySelector('.st-length');
-      if (stLength) stLength.addEventListener('change', e => { s.stairs.lengthOn = e.target.checked; refreshEntry(); });
-      const stWidth = row.querySelector('.st-width');
-      if (stWidth) stWidth.addEventListener('change', e => { s.stairs.widthOn = e.target.checked; refreshEntry(); });
+      const stToggle = row.querySelector('[data-ststair="toggle"]');
+      if (stToggle) stToggle.addEventListener('click', () => { s.stairs.on = !s.stairs.on; refreshEntry(); });
+      row.querySelectorAll('[data-ststair-shape]').forEach(b => {
+        b.addEventListener('click', () => { s.stairs.shape = b.dataset.ststairShape; refreshEntry(); });
+      });
       const stTread = row.querySelector('.st-tread');
       if (stTread) stTread.addEventListener('input', e => { s.stairs.treadLenIn = +e.target.value; softRefresh(); });
       // Flat fit-to-desired checkbox
@@ -4541,12 +4536,11 @@
       // shelf: x at end of shelf, depth = shelfDepth
       out.push({ xFt: r.start + g.shX1, depthIn: g.shelfDepth, source: 'shelf' });
       // stair treads (descending from shelf to next): each step k water depth = shelfDepth + k*rise
-      if ((g.lengthOn || g.widthOn) && g.count > 0) {
+      if (g.stOn && g.count > 0) {
         const sign = g.descending ? 1 : -1;
         for (let k = 1; k <= g.count; k++) {
           const d = g.shelfDepth + sign * k * g.rise;
-          // x position: if lengthOn, step k ends at shX1 + k*treadLen; else width-only, all at shX1
-          const xFt = g.lengthOn ? r.start + g.shX1 + k * g.treadLen : r.start + g.shX1;
+          const xFt = r.start + g.shX1 + k * g.treadLen;
           out.push({ xFt, depthIn: d, source: 'stair' });
         }
       }
@@ -5245,14 +5239,20 @@
       if (/\bstairs?\b/.test(c) && !/\bno\s+stairs\b/.test(c)) {
         const e = entry();
         if (e) {
-          e.stairs = e.stairs || { widthOn: false, lengthOn: true, treadLenIn: 12 };
-          if (/\b(width|across)\b/.test(c)) { e.stairs.widthOn = true; changes.push('width stairs ON'); }
-          if (/\b(length|along|down\s+to)\b/.test(c) || !/width|across/.test(c)) { e.stairs.lengthOn = true; changes.push('length stairs ON'); }
-          if (/\bwrap(?:ped|s)?\b|\bl[-\s]?shape\b|\baround\s+the\s+corner\b/.test(c)) {
-            e.stairs.widthOn = true; e.stairs.lengthOn = true; changes.push('L-wrap stairs');
+          e.stairs = e.stairs || { on: true, shape: 'full', treadLenIn: 12 };
+          // Migrate legacy before applying new directives
+          if (e.stairs.on === undefined) {
+            e.stairs.on = !!(e.stairs.lengthOn || e.stairs.widthOn);
+            e.stairs.shape = e.stairs.shape || 'full';
           }
-          const tl = c.match(/tread\s+(?:of\s+)?(\d+(?:\.\d+)?)\s*(?:in|inch|inches|")/);
-          if (tl) { e.stairs.treadLenIn = +tl[1]; changes.push(`stair tread ${tl[1]}″`); }
+          e.stairs.on = true;
+          changes.push('stairs ON');
+          if (/\btri(?:angle|angular)?\s*(?:both|on\s+both)\b/.test(c)) { e.stairs.shape = 'tri-both'; changes.push('triangular both'); }
+          else if (/\btri(?:angle|angular)?\s*(?:near|on\s+near)\b/.test(c)) { e.stairs.shape = 'tri-near'; changes.push('triangular near'); }
+          else if (/\btri(?:angle|angular)?\s*(?:far|on\s+far)\b/.test(c)) { e.stairs.shape = 'tri-far'; changes.push('triangular far'); }
+          else if (/\brectangular\b|\bfull\s*width\b/.test(c)) { e.stairs.shape = 'full'; changes.push('rectangular'); }
+          const tl = c.match(/(?:tread|stair\s+width)\s+(?:of\s+)?(\d+(?:\.\d+)?)\s*(?:in|inch|inches|")/);
+          if (tl) { e.stairs.treadLenIn = +tl[1]; changes.push(`stair width ${tl[1]}″`); }
           continue;
         }
       }
