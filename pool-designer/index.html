@@ -2636,8 +2636,9 @@
           }
           // Vertical riser walls between consecutive steps (diagonal boundary k*lTread).
           // Each wall is a vertical quadrilateral: top edge at step k depth, bottom at
-          // step k+1 depth (or water for k=count). Fill the wall with the deeper depth
-          // color so the step stands out against the mesh.
+          // step k+1 depth (or water for k=count). Fill only — no outline, since the
+          // endpoint verticals overlap the shelf-edge stair-step outline at x=shX1 and
+          // create duplicate vertical lines at each step boundary.
           for (let k = 1; k <= stL.count; k++) {
             const zTop = (g.shelfDepth + sign * k * g.rise) / 12;
             const zBot = (k < stL.count)
@@ -2660,8 +2661,6 @@
               d: `M${wall.map(p => p.map(v => v.toFixed(2)).join(',')).join('L')}Z`,
               fill: riserColor, 'fill-opacity': 0.75, stroke: 'none',
             }, svg);
-            el('path', { d: wobbleClosed(wall, 0.2, 880 + k + i*100),
-              class:'ink', 'stroke-width': 0.9, fill:'none' }, svg);
           }
           // Shelf-edge riser wall at x=shX1 where the shelf drops to each step's depth.
           // Paint each step's sub-rectangle so the color bands match the tread depths;
@@ -2684,27 +2683,30 @@
               fill: color, 'fill-opacity': 0.75, stroke: 'none',
             }, svg);
           }
-          // Combined stair-step outline (one polygon, no duplicate verticals).
+          // Stepped bottom of the shelf-edge wall as an open polyline — no tall
+          // drop at maxStairY (that endpoint merges into the pool's far-end
+          // geometry where count*rise ≈ shelf→next drop). No top edge either:
+          // the shelf outline (at z=shelfDepth, y=shY0..shY1) already draws it.
+          // Starts at (y=0, shelf depth) so the near-corner "rise against the
+          // shelf" is the first leg of the polyline.
           const maxStairY = Math.min(stL.count * lTread, maxY);
           if (maxStairY > 1e-6) {
             const kEnd = Math.min(stL.count, Math.ceil(maxStairY / lTread - 1e-9));
-            const outlinePts = [];
-            // Top edge: y=0 → y=maxStairY at shelf depth
-            outlinePts.push(P(xAt, anchorYFt, shelfDFt));
-            outlinePts.push(P(xAt, anchorYFt + ySign * maxStairY, shelfDFt));
-            // Drop down at far end to step kEnd depth
-            let zCur = (g.shelfDepth + sign * kEnd * g.rise) / 12;
-            outlinePts.push(P(xAt, anchorYFt + ySign * maxStairY, zCur));
-            // Step back toward y=0: one horizontal + one short vertical per step
-            for (let k = kEnd - 1; k >= 1; k--) {
+            const poly = [];
+            // Start at near corner at shelf depth — rise-against-shelf drops to step 1
+            poly.push(P(xAt, anchorYFt, shelfDFt));
+            let zCur = (g.shelfDepth + sign * 1 * g.rise) / 12;
+            poly.push(P(xAt, anchorYFt, zCur));
+            // Walk forward to each step boundary, stepping down one rise at a time
+            for (let k = 1; k < kEnd; k++) {
               const yBnd = k * lTread;
-              outlinePts.push(P(xAt, anchorYFt + ySign * yBnd, zCur));      // horizontal at zCur
-              zCur = (g.shelfDepth + sign * k * g.rise) / 12;
-              outlinePts.push(P(xAt, anchorYFt + ySign * yBnd, zCur));      // step up (shallower)
+              poly.push(P(xAt, anchorYFt + ySign * yBnd, zCur));           // tread k bottom
+              zCur = (g.shelfDepth + sign * (k + 1) * g.rise) / 12;
+              poly.push(P(xAt, anchorYFt + ySign * yBnd, zCur));           // step down to k+1
             }
-            // Close at y=0: horizontal to corner at step 1 depth, then back up to shelf
-            outlinePts.push(P(xAt, anchorYFt, zCur));
-            el('path', { d: wobbleClosed(outlinePts, 0.25, 900 + i*10),
+            // Final horizontal at the last step's depth, out to the triangle edge
+            poly.push(P(xAt, anchorYFt + ySign * maxStairY, zCur));
+            el('path', { d: wobble(poly, 0.25, 900 + i*10),
               class:'ink', 'stroke-width': 1.0, fill: 'none' }, svg);
           }
         };
@@ -2760,7 +2762,9 @@
 
     // Left end wall (x=0): follow the actual floor depth at x=0 across y. For entry
     // sections this mirrors how the near/far walls trail the shelf / first-step surfaces
-    // instead of over-extending to the next section's depth.
+    // instead of over-extending to the next section's depth. Insert explicit
+    // breakpoints at known floor discontinuities (firstStep triangle edges, partial-shelf
+    // boundaries) so sharp drops render as true verticals instead of diagonal ramps.
     const leftSec0 = state.sections[0];
     const nextD0 = state.sections[1] ? +state.sections[1].depthIn : +leftSec0.depthIn;
     const sampleLeftDepth = (yFt) => {
@@ -2769,13 +2773,37 @@
       }
       return (+leftSec0.depthIn || 0) / 12;
     };
-    const leftSamples = 24;
-    const leftProfile = [];
-    // Trace floor from y=W back to y=0 so polygon winds correctly.
-    for (let k = leftSamples; k >= 0; k--) {
-      const yFt = (W * k) / leftSamples;
-      leftProfile.push(P(0, yFt, sampleLeftDepth(yFt)));
+    // Collect y-positions to sample: uniform grid + known floor transitions.
+    const leftYs = new Set([0, W]);
+    for (let k = 1; k < 24; k++) leftYs.add((W * k) / 24);
+    if (leftSec0.type === 'entry') {
+      const fs = leftSec0.firstStep;
+      const sh = leftSec0.shelf || {};
+      if (fs && fs.on) {
+        const fsLen = Math.min(+sh.lengthFt || 0, Math.max(0, (+fs.treadLenIn || 18) / 12));
+        // tri-near triangle boundary at x=0 is y=fsLen; tri-far at y=W-fsLen.
+        if (fs.shape === 'tri-near' || fs.shape === 'tri-both') {
+          leftYs.add(Math.max(0, fsLen - 1e-4));
+          leftYs.add(Math.min(W, fsLen + 1e-4));
+        }
+        if (fs.shape === 'tri-far' || fs.shape === 'tri-both') {
+          leftYs.add(Math.max(0, W - fsLen - 1e-4));
+          leftYs.add(Math.min(W, W - fsLen + 1e-4));
+        }
+      }
+      // Partial-shelf edges produce depth jumps at x=0 too.
+      if (sh.side === 'near' || sh.side === 'far') {
+        const shelfWidth = Math.min(W, Math.max(0, +sh.widthFt || 0));
+        const shY0 = sh.side === 'far' ? W - shelfWidth : 0;
+        const shY1 = sh.side === 'far' ? W : shelfWidth;
+        leftYs.add(Math.max(0, shY0 - 1e-4));
+        leftYs.add(Math.min(W, shY0 + 1e-4));
+        leftYs.add(Math.max(0, shY1 - 1e-4));
+        leftYs.add(Math.min(W, shY1 + 1e-4));
+      }
     }
+    const leftYsSorted = [...leftYs].sort((a, b) => b - a);  // y=W down to y=0
+    const leftProfile = leftYsSorted.map(y => P(0, y, sampleLeftDepth(y)));
     const leftDepthNear = sampleLeftDepth(0);
     const leftDepthFar = sampleLeftDepth(W);
     const leftEndPoly = [ P(0,0,0), P(0,W,0), ...leftProfile ];
