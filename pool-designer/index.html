@@ -1041,6 +1041,10 @@
       placement: { xFt: 8, yFt: -9, rotationDeg: 0 },
     },
     tweaks: { ...window.TWEAK_DEFAULTS },
+    // Plan (top-view) state: draggable-label offsets keyed by label key (e.g.
+    // depth_<sectionId>, shelf_<sectionId>, steps_<sectionId>). Persists
+    // through save/load so user positioning survives.
+    plan: { labelOffsets: {} },
   };
 
   const $ = (id) => document.getElementById(id);
@@ -1539,39 +1543,43 @@
       if (i > 0) {
         el('path', { d: wobble([[sx, y0],[sx, y0+poolH]], 0.4, 100+i), class:'ink-soft','stroke-width':1,'stroke-dasharray':'4 3' }, svg);
       }
-      // section label — centered vertically in the band
+      // Inside-pool labels show water depth only (names appear above in length dims).
+      // Each label is draggable — offset persisted in state.plan.labelOffsets by key.
+      state.plan = state.plan || {};
+      state.plan.labelOffsets = state.plan.labelOffsets || {};
       const cx = sx + sw/2;
       const cy = y0 + poolH/2;
-      const lbl = el('text', { x: cx, y: cy - 6, class:'label','text-anchor':'middle' }, svg);
-      lbl.textContent = s.name.toUpperCase();
+      const addDepthLabel = (key, baseX, baseY, text) => {
+        const off = state.plan.labelOffsets[key] || { dx: 0, dy: 0 };
+        const lx = baseX + off.dx, ly = baseY + off.dy;
+        if (off.dx !== 0 || off.dy !== 0) {
+          el('line', {
+            x1: baseX, y1: baseY, x2: lx, y2: ly,
+            stroke: 'var(--ink-soft)', 'stroke-width': 0.7, 'stroke-dasharray': '2 2',
+            'pointer-events': 'none',
+          }, svg);
+        }
+        const t = el('text', {
+          x: lx, y: ly, class: 'dim-num plan-depth-label', 'text-anchor': 'middle',
+          'data-key': key, 'data-basex': baseX, 'data-basey': baseY,
+          style: 'cursor:grab; user-select:none;',
+        }, svg);
+        t.textContent = text;
+      };
       if (s.type === 'flat') {
-        const lbl2 = el('text', { x: cx, y: cy + 10, class:'dim-num','text-anchor':'middle' }, svg);
-        lbl2.textContent = fmtIn(s.depthIn);
+        addDepthLabel(`depth_${s.id}`, cx, cy + 4, fmtIn(s.depthIn));
       } else if (s.type === 'stairs') {
         const meta = stairMeta(s, resolved[i].prevDepth);
-        const lbl2 = el('text', { x: cx, y: cy + 10, class:'dim-num','text-anchor':'middle' }, svg);
-        lbl2.textContent = `${meta.count} STEPS`;
+        addDepthLabel(`steps_${s.id}`, cx, cy + 4, `${meta.count} STEPS`);
       } else if (s.type === 'entry') {
-        // label for baja: "BAJA" name above, depth labels inside zones
-        const nameLbl = el('text', { x: cx, y: y0 - 6, class:'label','text-anchor':'middle' }, svg);
-        nameLbl.textContent = s.name.toUpperCase();
-        lbl.textContent = ''; // clear generic centered label
         const next = resolved[i + 1];
         const nextDepth = next ? +next.s.depthIn : s.depthIn;
         const g = bajaGeometry(s, nextDepth);
-        // Shelf label
         if (g.shelfX1 - g.shelfX0 > 0.2 && g.shelfY1 - g.shelfY0 > 0.2) {
           const shCx = sx + ((g.shelfX0 + g.shelfX1) / 2) * scale;
-          const shCy = y0 + ((g.shelfY0 + g.shelfY1) / 2) * widthScale;
-          const lblShelf = el('text', { x: shCx, y: shCy, class:'label','text-anchor':'middle' }, svg);
-          lblShelf.textContent = `SHELF ${fmtIn(g.shelfDepth)}`;
+          const shCy = y0 + ((g.shelfY0 + g.shelfY1) / 2) * widthScale + 4;
+          addDepthLabel(`shelf_${s.id}`, shCx, shCy, `SHELF ${fmtIn(g.shelfDepth)}`);
         }
-        // Water label (somewhere in non-shelf region)
-        const waterX = sx + sw * 0.5;
-        const waterY = g.side === 'near' ? y0 + (g.shelfY1 + (state.width - g.shelfY1) / 2) * widthScale
-                                         : y0 + (g.shelfY0 / 2) * widthScale;
-        const lblWater = el('text', { x: waterX, y: waterY, class:'label','text-anchor':'middle' }, svg);
-        lblWater.textContent = `WATER ${fmtIn(g.waterDepth)}`;
       }
     });
 
@@ -1790,8 +1798,13 @@
           const next = resolved[i + 1];
           const nextDepth = next ? +next.s.depthIn : s.depthIn;
           const g = bajaGeometry(s, nextDepth);
-          // First step is an overlay inside the shelf; no separate dim segment.
-          if (g.shelfLength > 0.05) segs.push({ start, len: g.shelfLength, label: 'SHELF' });
+          // Break entry into [first step] [shelf remainder] [stairs-to-next]
+          // so SHELF dim reflects only the shelf's own length, not the overlaid
+          // first-step portion.
+          const fsLen = g.fsOn ? g.fsLen : 0;
+          if (fsLen > 0.05) segs.push({ start, len: fsLen, label: '1ST STEP' });
+          const shelfRemainder = Math.max(0, g.shelfLength - fsLen);
+          if (shelfRemainder > 0.05) segs.push({ start: start + fsLen, len: shelfRemainder, label: 'SHELF' });
           const stairLen = Math.max(0, length - g.shelfLength);
           if (stairLen > 0.05) segs.push({ start: start + g.shelfLength, len: stairLen, label: 'STAIRS' });
         } else {
@@ -4600,6 +4613,52 @@
         dy: baseOff.dy + (p.y - startY),
       };
       if (typeof renderSpaOwnPlan === 'function') renderSpaOwnPlan();
+      e.preventDefault();
+    };
+    const end = () => { activeKey = null; };
+    svg.addEventListener('mousedown', start, true);
+    svg.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', end);
+    svg.addEventListener('touchstart', start, { passive: false, capture: true });
+    svg.addEventListener('touchmove', move, { passive: false });
+    svg.addEventListener('touchend', end);
+  })();
+
+  // Drag handlers for plan (top-view) depth labels — mirrors the spa pattern.
+  // Labels are tagged with class 'plan-depth-label' and a data-key; offsets are
+  // persisted in state.plan.labelOffsets and survive re-renders.
+  (function wirePlanLabelDrag() {
+    const svg = $('svg_top'); if (!svg) return;
+    let activeKey = null, startX = 0, startY = 0, baseOff = null;
+    const svgPt = (cx, cy) => {
+      const rect = svg.getBoundingClientRect();
+      const vb = (svg.getAttribute('viewBox') || '0 0 0 0').split(/\s+/).map(Number);
+      const vbW = vb[2] || rect.width, vbH = vb[3] || rect.height;
+      return { x: ((cx - rect.left) / rect.width) * vbW, y: ((cy - rect.top) / rect.height) * vbH };
+    };
+    const start = (e) => {
+      const t = e.target;
+      if (!t || !t.classList || !t.classList.contains('plan-depth-label')) return;
+      activeKey = t.getAttribute('data-key');
+      state.plan = state.plan || {};
+      state.plan.labelOffsets = state.plan.labelOffsets || {};
+      baseOff = { ...(state.plan.labelOffsets[activeKey] || { dx: 0, dy: 0 }) };
+      const pt = e.touches ? e.touches[0] : e;
+      const p = svgPt(pt.clientX, pt.clientY);
+      startX = p.x; startY = p.y;
+      t.style.cursor = 'grabbing';
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    const move = (e) => {
+      if (!activeKey) return;
+      const pt = e.touches ? e.touches[0] : e;
+      const p = svgPt(pt.clientX, pt.clientY);
+      state.plan.labelOffsets[activeKey] = {
+        dx: baseOff.dx + (p.x - startX),
+        dy: baseOff.dy + (p.y - startY),
+      };
+      scheduleRender();
       e.preventDefault();
     };
     const end = () => { activeKey = null; };
